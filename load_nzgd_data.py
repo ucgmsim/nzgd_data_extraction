@@ -36,7 +36,6 @@ def load_ags(file_path: Union[Path, str]):
 
 
 if __name__ == "__main__":
-    load_ags("/home/arr65/data/nzgd/downloaded_files/manually_organized/ags/CPT_1_AGS01.ags")
 
     ags_path = Path("/home/arr65/data/nzgd/downloaded_files/manually_organized/ags")
 

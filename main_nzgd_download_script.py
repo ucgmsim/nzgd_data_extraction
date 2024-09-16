@@ -78,69 +78,63 @@ def process_chunk(chunk_index, data_url_chunk):
         last_processed_index = 0
 
     while last_processed_index < len(data_url_chunk):
-        try:
-            driver = setup_driver()
 
-            # Log in to the website
-            driver.get(login_url)
+        driver = setup_driver()
 
-            # Wait for the username field to be present
-            wait = WebDriverWait(driver, 10)
-            username = wait.until(EC.presence_of_element_located((By.NAME, 'ctl00$MainContent$LoginControl$LoginBox$UserName')))
-            password = driver.find_element(By.NAME, 'ctl00$MainContent$LoginControl$LoginBox$Password')
+        # Log in to the website
+        driver.get(login_url)
 
-            # Enter login credentials
-            username.send_keys(username_str)
-            password.send_keys(password_str)
-            password.send_keys(Keys.RETURN)
+        # Wait for the username field to be present
+        wait = WebDriverWait(driver, 10)
+        username = wait.until(EC.presence_of_element_located((By.NAME, 'ctl00$MainContent$LoginControl$LoginBox$UserName')))
+        password = driver.find_element(By.NAME, 'ctl00$MainContent$LoginControl$LoginBox$Password')
 
-            # Wait for specific text that indicates a successful login
-            wait.until(EC.presence_of_element_located((By.XPATH, "//*[contains(text(), 'Home')]")))  # Replace 'Welcome' with the actual text
-            print("Login successful")
+        # Enter login credentials
+        username.send_keys(username_str)
+        password.send_keys(password_str)
+        password.send_keys(Keys.RETURN)
+
+        # Wait for specific text that indicates a successful login
+        wait.until(EC.presence_of_element_located((By.XPATH, "//*[contains(text(), 'Home')]")))  # Replace 'Welcome' with the actual text
+        print("Login successful")
+        print()
+
+        # Loop through each URL in the chunk starting from the last processed index
+        for data_url_index in range(last_processed_index, len(data_url_chunk)):
+            data_url = data_url_chunk[data_url_index]
+            start_time_for_this_url = time.time()
+            print(f"Downloading from {data_url} (Chunk {chunk_index + 1}, URL {data_url_index + 1}/{len(data_url_chunk)})")
+
+            # Save the current index to file
+            with open(state_file, 'w') as f:
+                f.write(str(data_url_index))
+
+            # Navigate to the data URL
+            driver.get(data_url)
+            #wait.until(EC.presence_of_element_located((By.TAG_NAME, 'a')))  # Wait for the page to load
+            #wait_for_page_load(driver)
+            time.sleep(1)
+            # Parse the HTML content using BeautifulSoup
+            soup = BeautifulSoup(driver.page_source, 'html.parser')
+
+            # Find and click the link
+            document_links = soup.find_all('a', href=True)
             print()
+            for link in document_links:
+                link_text = link.text.strip()
+                if link_text.endswith(('.txt', '.xls', '.ags', '.pdf')):
+                    print(f'Clicking link: {link_text}')
+                    element = wait.until(EC.element_to_be_clickable((By.LINK_TEXT, link_text)))
+                    element.click()
+                    #wait.until(EC.staleness_of(element))  # Wait for the download to complete
+                    time.sleep(1)  # Wait for the download to complete
 
-            # Loop through each URL in the chunk starting from the last processed index
-            for data_url_index in range(last_processed_index, len(data_url_chunk)):
-                data_url = data_url_chunk[data_url_index]
-                start_time_for_this_url = time.time()
-                print(f"Downloading from {data_url} (Chunk {chunk_index + 1}, URL {data_url_index + 1}/{len(data_url_chunk)})")
+            end_time_for_this_url = time.time()
+            print(f"Time taken for this URL: {end_time_for_this_url - start_time_for_this_url:.2f} seconds")
 
-                # Save the current index to file
-                with open(state_file, 'w') as f:
-                    f.write(str(data_url_index))
+        driver.quit()
+        break
 
-                # Navigate to the data URL
-                driver.get(data_url)
-                #wait.until(EC.presence_of_element_located((By.TAG_NAME, 'a')))  # Wait for the page to load
-                #wait_for_page_load(driver)
-                time.sleep(1)
-                # Parse the HTML content using BeautifulSoup
-                soup = BeautifulSoup(driver.page_source, 'html.parser')
-
-                # Find and click the link
-                document_links = soup.find_all('a', href=True)
-                print()
-                for link in document_links:
-                    link_text = link.text.strip()
-                    if link_text.endswith(('.txt', '.xls', '.ags', '.pdf')):
-                        print(f'Clicking link: {link_text}')
-                        element = wait.until(EC.element_to_be_clickable((By.LINK_TEXT, link_text)))
-                        element.click()
-                        #wait.until(EC.staleness_of(element))  # Wait for the download to complete
-                        time.sleep(1)  # Wait for the download to complete
-
-                end_time_for_this_url = time.time()
-                print(f"Time taken for this URL: {end_time_for_this_url - start_time_for_this_url:.2f} seconds")
-
-            driver.quit()
-            break
-
-        except Exception as e:
-            print(f"Error processing {data_url_chunk[last_processed_index]}: {e}")
-            print(f"Exception type: {type(e).__name__}")
-            print(f"Exception args: {e.args}")
-            driver.quit()
-            time.sleep(10)  # Wait before retrying
 
 # Define the number of chunks
 number_of_chunks = 8  # Adjust the number of chunks as needed

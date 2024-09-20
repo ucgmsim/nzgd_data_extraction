@@ -1,0 +1,15 @@
+data_lookup_index : "/home/arr65/data/nzgd/nzgd_index_files/csv_files/NZGD_Investigation_Report_19092024_1045.csv"
+load_wait_time_s : 5
+number_of_processes : 8
+
+### note that NZGD_Investigation_Report_19092024_1045.csv has 84172 rows (only counting CTP, SCPT, and Borehole data)
+### To do 3/4 on desktop, do up to 63129
+### To do 1/4 on laptop, do from 63129 to 84172
+dataframe_start_index : 0
+dataframe_end_index : 63129
+
+high_level_download_dir : "/home/arr65/data/nzgd/downloaded_files/download_run_3"
+last_attempted_download_dir : "/home/arr65/data/nzgd/last_attempted_downloads"
+name_to_files_highest_dir : "/home/arr65/data/nzgd/name_to_files_dicts"
+name_to_link_str_highest_dir : "/home/arr65/data/nzgd/name_to_link_str_dicts"
+login_url : 'https://www.nzgd.org.nz/Registration/Login.aspx'

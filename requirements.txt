@@ -1,0 +1,9 @@
+yaml
+pyyaml
+pandas
+toml
+tqdm
+python-dotenv
+beautifulsoup4
+selenium
+webdriver-manager

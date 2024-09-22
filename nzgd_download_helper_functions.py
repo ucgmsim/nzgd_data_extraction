@@ -36,8 +36,13 @@ def setup_driver(download_dir):
     }
     chrome_options.add_experimental_option("prefs", prefs)
 
+    # Specify the path to the manually downloaded ChromeDriver
+    driver_path = "/home/arr65/.wdm/drivers/chromedriver/linux64/128.0.6613.137/chromedriver"
+    if not os.path.exists(driver_path):
+        driver_path = ChromeDriverManager().install()
+
     return webdriver.Chrome(
-        service=Service(ChromeDriverManager().install()), options=chrome_options
+        service=Service(driver_path), options=chrome_options
     )
 
 
@@ -123,8 +128,8 @@ def process_chunk(chunk_index, url_chunk_df):
 
     url_chunk_df = url_chunk_df.reset_index(drop=True)
 
-    file_names_dict = {}
-    link_as_str_dict = {}
+
+
 
     load_wait_time_s = config.get_value("load_wait_time_s")
 
@@ -138,12 +143,26 @@ def process_chunk(chunk_index, url_chunk_df):
     last_attempted_download_file = (
         last_attempted_download_dir / f"last_attempted_download_index_{chunk_index}.txt"
     )
+    ### Load the last processed index if it exists
     if os.path.exists(last_attempted_download_file):
         with open(last_attempted_download_file, "r") as f:
             last_processed_index = int(f.read().strip())
     else:
         last_processed_index = url_chunk_df.index[0]
 
+    ### Load name_to_files_dir dictionary if it exists
+    if os.path.exists(name_to_files_dir):
+        with open(name_to_files_dir, "r") as f:
+            file_names_dict = toml.load(f)
+    else:
+        file_names_dict = {}
+
+    ### Load name_to_link_str dictionary if it exists
+    if os.path.exists(name_to_link_str):
+        with open(name_to_link_str, "r") as f:
+            link_as_str_dict = toml.load(f)
+    else:
+        link_as_str_dict = {}
     # Loop through each URL in the chunk starting from the last processed index
     for data_url_index in range(last_processed_index, len(url_chunk_df)):
 
@@ -154,9 +173,6 @@ def process_chunk(chunk_index, url_chunk_df):
         # Save the current index to file
         with open(last_attempted_download_file, "w") as f:
             f.write(str(data_url_index))
-
-        file_names_dict[url_chunk_df.at[data_url_index, "ID"]] = []
-        link_as_str_dict[url_chunk_df.at[data_url_index, "ID"]] = []
 
         download_dir = high_level_download_dir / url_chunk_df.at[data_url_index, "ID"]
 
@@ -201,11 +217,19 @@ def process_chunk(chunk_index, url_chunk_df):
         file_links = [link for link in document_links if "." in link.text.strip()]
 
         for link in file_links:
+            if url_chunk_df.at[data_url_index, "ID"] in file_names_dict.keys():
+                file_names_dict[url_chunk_df.at[data_url_index, "ID"]].append(
+                    link.text.strip()
+                )
+            else:
+                file_names_dict[url_chunk_df.at[data_url_index, "ID"]] = [link.text.strip()]
 
-            file_names_dict[url_chunk_df.at[data_url_index, "ID"]].append(
-                link.text.strip()
-            )
-            link_as_str_dict[url_chunk_df.at[data_url_index, "ID"]].append(str(link))
+
+            if url_chunk_df.at[data_url_index, "ID"] in link_as_str_dict.keys():
+                link_as_str_dict[url_chunk_df.at[data_url_index, "ID"]].append(str(link))
+            else:
+                link_as_str_dict[url_chunk_df.at[data_url_index, "ID"]] = [str(link)]
+
 
             element = wait.until(EC.element_to_be_clickable((By.LINK_TEXT, link.text)))
             element.click()

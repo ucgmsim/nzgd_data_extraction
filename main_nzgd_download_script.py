@@ -23,8 +23,6 @@ url_df = url_df[
     | (url_df["Type"] == "Borehole")
 ][["ID", "URL"]]
 
-print()
-
 url_df = url_df[
     config.get_value("dataframe_start_index") : config.get_value("dataframe_end_index")
 ]

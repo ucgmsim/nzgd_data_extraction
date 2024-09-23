@@ -128,9 +128,6 @@ def process_chunk(chunk_index, url_chunk_df):
 
     url_chunk_df = url_chunk_df.reset_index(drop=True)
 
-
-
-
     load_wait_time_s = config.get_value("load_wait_time_s")
 
     name_to_files_dir = (

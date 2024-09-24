@@ -5,6 +5,7 @@ Functions to facilitate automated downloading of data from the New Zealand Geote
 import os
 import time
 from pathlib import Path
+import numpy as np
 
 import pandas as pd
 import toml
@@ -114,129 +115,77 @@ def get_number_of_available_files(soup):
 
 
 # Function to process a chunk of URLs
-def process_chunk(chunk_index, url_chunk_df):
+def process_chunk(url_df_row_index, url_df_row):
+
+
 
     login_url = config.get_value("login_url")
     username_str = os.getenv("NZGD_USERNAME")
     password_str = os.getenv("NZGD_PASSWORD")
-    high_level_download_dir = Path(config.get_value("high_level_download_dir"))
-    last_attempted_download_dir = Path(config.get_value("last_attempted_download_dir"))
-    name_to_files_highest_dir = Path(config.get_value("name_to_files_highest_dir"))
-    name_to_link_str_highest_dir = Path(
-        config.get_value("name_to_link_str_highest_dir")
-    )
-
-    url_chunk_df = url_chunk_df.reset_index(drop=True)
 
     load_wait_time_s = config.get_value("load_wait_time_s")
 
-    name_to_files_dir = (
-        name_to_files_highest_dir / f"name_to_files_chunk_{chunk_index}.toml"
-    )
-    name_to_link_str = (
-        name_to_link_str_highest_dir / f"name_to_link_str_chunk_{chunk_index}.toml"
-    )
+    download_dir = Path(config.get_value("high_level_download_dir")) / url_df_row["ID"]
 
-    last_attempted_download_file = (
-        last_attempted_download_dir / f"last_attempted_download_index_{chunk_index}.txt"
-    )
-    ### Load the last processed index if it exists
-    if os.path.exists(last_attempted_download_file):
-        with open(last_attempted_download_file, "r") as f:
-            last_processed_index = int(f.read().strip())
-    else:
-        last_processed_index = url_chunk_df.index[0]
+    os.makedirs(download_dir, exist_ok=True)
+    driver = setup_driver(download_dir)
 
-    ### Load name_to_files_dir dictionary if it exists
-    if os.path.exists(name_to_files_dir):
-        with open(name_to_files_dir, "r") as f:
-            file_names_dict = toml.load(f)
-    else:
-        file_names_dict = {}
+    # Log in to the website
+    driver.get(login_url)
 
-    ### Load name_to_link_str dictionary if it exists
-    if os.path.exists(name_to_link_str):
-        with open(name_to_link_str, "r") as f:
-            link_as_str_dict = toml.load(f)
-    else:
-        link_as_str_dict = {}
-    # Loop through each URL in the chunk starting from the last processed index
-    for data_url_index in range(last_processed_index, len(url_chunk_df)):
-
-        print(
-            f"Doing chunk {chunk_index + 1} URL {data_url_index + 1}/{len(url_chunk_df)}"
+    # Wait for the username field to be present
+    wait = WebDriverWait(driver, load_wait_time_s)
+    username = wait.until(
+        EC.presence_of_element_located(
+            (By.NAME, "ctl00$MainContent$LoginControl$LoginBox$UserName")
         )
+    )
+    password = driver.find_element(
+        By.NAME, "ctl00$MainContent$LoginControl$LoginBox$Password"
+    )
 
-        # Save the current index to file
-        with open(last_attempted_download_file, "w") as f:
-            f.write(str(data_url_index))
+    # Enter login credentials
+    username.send_keys(username_str)
+    password.send_keys(password_str)
+    password.send_keys(Keys.RETURN)
 
-        download_dir = high_level_download_dir / url_chunk_df.at[data_url_index, "ID"]
+    # Wait for specific text that indicates a successful login
+    wait.until(
+        EC.presence_of_element_located((By.XPATH, "//*[contains(text(), 'Home')]"))
+    )  # Replace 'Welcome' with the actual text
 
-        os.makedirs(download_dir, exist_ok=True)
-        driver = setup_driver(download_dir)
+    data_url = url_df_row["URL"]
 
-        # Log in to the website
-        driver.get(login_url)
+    # Navigate to the data URL
+    driver.get(data_url)
+    time.sleep(load_wait_time_s)
 
-        # Wait for the username field to be present
-        wait = WebDriverWait(driver, load_wait_time_s)
-        username = wait.until(
-            EC.presence_of_element_located(
-                (By.NAME, "ctl00$MainContent$LoginControl$LoginBox$UserName")
-            )
-        )
-        password = driver.find_element(
-            By.NAME, "ctl00$MainContent$LoginControl$LoginBox$Password"
-        )
+    # Parse the HTML content using BeautifulSoup
+    soup = BeautifulSoup(driver.page_source, "html.parser")
 
-        # Enter login credentials
-        username.send_keys(username_str)
-        password.send_keys(password_str)
-        password.send_keys(Keys.RETURN)
+    document_links = soup.find_all("a", href=True)
 
-        # Wait for specific text that indicates a successful login
-        wait.until(
-            EC.presence_of_element_located((By.XPATH, "//*[contains(text(), 'Home')]"))
-        )  # Replace 'Welcome' with the actual text
+    file_links = [link for link in document_links if "." in link.text.strip()]
+    file_links_text = [link.text.strip() for link in file_links]
 
-        data_url = url_chunk_df.at[data_url_index, "URL"]
+    link_as_str_dict = {url_df_row["ID"] : []}
+    file_names_dict = {url_df_row["ID"] : file_links_text}
 
-        # Navigate to the data URL
-        driver.get(data_url)
-        time.sleep(load_wait_time_s)
+    for link in file_links:
 
-        # Parse the HTML content using BeautifulSoup
-        soup = BeautifulSoup(driver.page_source, "html.parser")
+        link_as_str_dict[url_df_row["ID"]].append(str(link))
 
-        document_links = soup.find_all("a", href=True)
-
-        file_links = [link for link in document_links if "." in link.text.strip()]
-
-        for link in file_links:
-            if url_chunk_df.at[data_url_index, "ID"] in file_names_dict.keys():
-                file_names_dict[url_chunk_df.at[data_url_index, "ID"]].append(
-                    link.text.strip()
-                )
-            else:
-                file_names_dict[url_chunk_df.at[data_url_index, "ID"]] = [link.text.strip()]
-
-
-            if url_chunk_df.at[data_url_index, "ID"] in link_as_str_dict.keys():
-                link_as_str_dict[url_chunk_df.at[data_url_index, "ID"]].append(str(link))
-            else:
-                link_as_str_dict[url_chunk_df.at[data_url_index, "ID"]] = [str(link)]
-
-
-            element = wait.until(EC.element_to_be_clickable((By.LINK_TEXT, link.text)))
-            element.click()
+        element = wait.until(EC.element_to_be_clickable((By.LINK_TEXT, link.text)))
+        element.click()
 
         time.sleep(load_wait_time_s)  # Wait for the download to complete
 
-        with open(name_to_files_dir, "w") as toml_file:
-            toml.dump(file_names_dict, toml_file)
+    np.savetxt(Path(config.get_value("downloaded_record_note_per_record")) / f"{url_df_row_index}.txt", np.array([url_df_row_index]))
 
-        with open(name_to_link_str, "w") as toml_file:
-            toml.dump(link_as_str_dict, toml_file)
+    with open(Path(config.get_value("name_to_files_dir_per_record")) / f"{url_df_row_index}.toml", "w") as toml_file:
+        toml.dump(file_names_dict, toml_file)
 
-        driver.quit()
+    with open(Path(config.get_value("name_to_link_str_dir_per_record")) / f"{url_df_row_index}.toml", "w") as toml_file:
+        toml.dump(link_as_str_dict, toml_file)
+
+    driver.quit()

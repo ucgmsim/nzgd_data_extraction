@@ -1,9 +1,11 @@
+"""
+This script downloads the data from the NZGD website.
+"""
+
 import os
 import time
 from multiprocessing import Pool
 from pathlib import Path
-
-from tqdm import tqdm
 
 
 import pandas as pd
@@ -17,13 +19,19 @@ import nzgd_download_helper_functions
 
 start_time = time.time()
 
-downloaded_records = os.listdir("/home/arr65/data/nzgd/downloaded_files/download_run_3")
+downloaded_records = os.listdir("/home/arr65/data/nzgd/downloaded_files/download_run_3") + \
+                     os.listdir("/home/arr65/data/nzgd/downloaded_files/download_run_4") + \
+                     os.listdir("/home/arr65/data/nzgd/downloaded_files/download_run_5") + \
+                     os.listdir("/home/arr65/data/nzgd/downloaded_files/download_run_6") + \
+                     os.listdir("/home/arr65/data/nzgd/downloaded_files/download_run_7")
+
 url_df = pd.read_csv(config.get_value("data_lookup_index"))
 
 url_df = url_df[
     (url_df["Type"] == "CPT")
     | (url_df["Type"] == "SCPT")
     | (url_df["Type"] == "Borehole")
+    | (url_df["Type"] == "VsVp")
 ][["ID", "URL"]]
 
 # Remove records that have already been downloaded
@@ -58,7 +66,7 @@ else:
 
 with Pool(processes=config.get_value("number_of_processes")) as pool:
     pool.starmap(
-        nzgd_download_helper_functions.process_chunk, url_df.iterrows()
+        nzgd_download_helper_functions.process_df_row, url_df.iterrows()
     )
 
 end_time = time.time()

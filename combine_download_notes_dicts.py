@@ -1,8 +1,27 @@
+"""
+Combine several toml files containing dictionaries into a single dictionary.
+"""
+
 from pathlib import Path
 import toml
 
 
 def combine_dicts(toml_files:list[Path]):
+
+    """
+    Combine several toml files containing dictionaries into a single dictionary.
+
+    Parameters
+    ----------
+    toml_files : list[Path]
+        Paths to the toml files to be combined.
+
+    Returns
+    -------
+    dict
+        A single dictionary containing the combined information from the
+        input toml files.
+    """
 
     combined_dict = {}
 
@@ -14,20 +33,14 @@ def combine_dicts(toml_files:list[Path]):
 
 if __name__ == "__main__":
 
-    # dict_dirs = [Path("/home/arr65/data/nzgd/name_to_files_dicts"),
-    #              Path("/home/arr65/data/nzgd/nzgd_from_laptop/nzgd/name_to_files_dicts")]
+    toml_file_paths = []
+    for batch_num in range(3,8,1):
+        #toml_file_paths.append(Path("/home/arr65/data/nzgd/combined_dicts")/f"combined_name_to_files_dict_batch{batch_num}.toml")
+        toml_file_paths.append(Path("/home/arr65/data/nzgd/combined_dicts")/f"combined_name_to_link_strs_dict_batch{batch_num}.toml")
 
-    dict_dirs = [Path("/home/arr65/data/nzgd/name_to_link_str_dicts"),
-                 Path("/home/arr65/data/nzgd/nzgd_from_laptop/nzgd/name_to_link_str_dicts")]
+    combined_files_dict = combine_dicts(toml_file_paths)
 
-    toml_files = [list(x.iterdir()) for x in dict_dirs]
-
-    toml_files = [item for sublist in toml_files for item in sublist]
-
-    combined_files_dict = combine_dicts(toml_files)
-
-    # with open(Path("/home/arr65/data/nzgd/combined_dicts")/"combined_name_to_files_dict.toml", "w") as toml_file:
-    #     toml.dump(combined_files_dict, toml_file)
-
-    with open(Path("/home/arr65/data/nzgd/combined_dicts")/"combined_name_to_link_strs_dict.toml", "w") as toml_file:
+    #with open(Path("/home/arr65/data/nzgd/combined_dicts")/"record_id_to_file_name_dict_25_Sept_2024.toml", "w") as toml_file:
+    with open(Path("/home/arr65/data/nzgd/combined_dicts") / "record_id_to_link_str_dict_25_Sept_2024.toml",
+              "w") as toml_file:
         toml.dump(combined_files_dict, toml_file)

@@ -26,6 +26,19 @@ config = cfg.Config()
 
 # Function to set up Selenium WebDriver
 def setup_driver(download_dir):
+    """
+    Sets up the Selenium WebDriver with specified options and preferences.
+
+    Parameters
+    ----------
+    download_dir : Path
+        The directory where downloaded files will be saved.
+
+    Returns
+    -------
+    selenium.webdriver.Chrome
+        An instance of the Chrome WebDriver configured with the specified options.
+    """
     chrome_options = Options()
     chrome_options.add_argument("--headless")  # Run in headless mode
     chrome_options.binary_location = "/usr/bin/google-chrome"  # Path to Chrome binary
@@ -47,86 +60,43 @@ def setup_driver(download_dir):
     )
 
 
-# Function to divide data_urls into chunks
-def chunkify(lst, n):
-    k, m = divmod(len(lst), n)
-    return [lst[i * k + min(i, m) : (i + 1) * k + min(i + 1, m)] for i in range(n)]
-
-
-def chunkify_dataframe(df, n):
+def wait_for_page_load(driver):
     """
-    Divide a pandas DataFrame into n chunks.
+    Waits for the page to fully load by checking the document.readyState.
 
     Parameters
     ----------
-    df : pandas.DataFrame
-        The DataFrame to be divided.
-    n : int
-        The number of chunks to divide the DataFrame into.
-
-    Returns
-    -------
-    list of pandas.DataFrame
-        A list containing the DataFrame chunks.
+    driver : selenium.webdriver.Chrome
+        The Selenium WebDriver instance used to interact with the web page.
     """
-    k, m = divmod(len(df), n)
-    return [df.iloc[i * k + min(i, m) : (i + 1) * k + min(i + 1, m)] for i in range(n)]
-
-
-# Save chunks to CSV using pandas
-def save_chunks_to_csv(chunks, output_file):
-    max_length = max(len(chunk) for chunk in chunks)
-    chunk_dict = {
-        f"chunk_{i+1}": chunk + [""] * (max_length - len(chunk))
-        for i, chunk in enumerate(chunks)
-    }
-    df = pd.DataFrame(chunk_dict)
-    df.to_csv(output_file, index=False)
-
-
-def wait_for_page_load(driver):
     WebDriverWait(driver, 10).until(
         lambda d: d.execute_script("return document.readyState") == "complete"
     )
 
 
-def get_number_of_available_files(soup):
+# Function to process a chunk of URLs
+def process_df_row(url_df_row_index, url_df_row):
     """
-    Get the number of available files from the soup object
+    Processes a row from a DataFrame containing URLs, logs into the NZGD website,
+    navigates to the data URL, and downloads the files linked on the page.
 
     Parameters
     ----------
-    soup : BeautifulSoup
-        The BeautifulSoup object containing the HTML content
+    url_df_row_index : int
+        The index of the row in the DataFrame.
+    url_df_row : pandas.Series
+        A row from the DataFrame containing the URL and ID.
 
     Returns
     -------
-    int
-        The number of available files
+    None
     """
-
-    all_links = soup.find_all("a", href=True)
-
-    available_files = [
-        link.text.strip() for link in all_links if "." in link.text.strip()
-    ]
-
-    return len(available_files)
-
-
-# Function to process a chunk of URLs
-def process_chunk(url_df_row_index, url_df_row):
-
-
-
     login_url = config.get_value("login_url")
     username_str = os.getenv("NZGD_USERNAME")
     password_str = os.getenv("NZGD_PASSWORD")
-
     load_wait_time_s = config.get_value("load_wait_time_s")
 
     download_dir = Path(config.get_value("high_level_download_dir")) / url_df_row["ID"]
-
     os.makedirs(download_dir, exist_ok=True)
     driver = setup_driver(download_dir)
 
@@ -174,14 +144,12 @@ def process_chunk(url_df_row_index, url_df_row):
     for link in file_links:
 
         link_as_str_dict[url_df_row["ID"]].append(str(link))
-
         element = wait.until(EC.element_to_be_clickable((By.LINK_TEXT, link.text)))
         element.click()
 
         time.sleep(load_wait_time_s)  # Wait for the download to complete
 
     np.savetxt(Path(config.get_value("downloaded_record_note_per_record")) / f"{url_df_row_index}.txt", np.array([url_df_row_index]))
-
     with open(Path(config.get_value("name_to_files_dir_per_record")) / f"{url_df_row_index}.toml", "w") as toml_file:
         toml.dump(file_names_dict, toml_file)
 

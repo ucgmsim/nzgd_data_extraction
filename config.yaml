@@ -1,8 +1,8 @@
-data_lookup_index : "/home/arr65/data/nzgd/nzgd_index_files/csv_files/NZGD_Investigation_Report_19092024_1045.csv"
-load_wait_time_s : 5
+data_lookup_index : "/home/arr65/data/nzgd/nzgd_index_files/csv_files/NZGD_Investigation_Report_25092024_1043.csv"
+load_wait_time_s : 15
 number_of_processes : 8
 
-high_level_download_dir : "/home/arr65/data/nzgd/downloaded_files/download_run_4"
+high_level_download_dir : "/home/arr65/data/nzgd/downloaded_files/download_run_8"
 login_url : 'https://www.nzgd.org.nz/Registration/Login.aspx'
 
 downloaded_record_note_per_record : "/home/arr65/data/nzgd/downloaded_record_note_per_record"

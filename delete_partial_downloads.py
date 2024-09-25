@@ -16,6 +16,7 @@ def delete_partial_downloads(partial_download_ids: list[str], high_level_downloa
             num_deletions += 1
 
     print("Number of deletions: ", num_deletions)
+    print()
 
 def remove_partial_download_ids_from_dict(partial_download_ids: list[str], name_to_files_dict: dict):
 
@@ -33,24 +34,27 @@ def remove_partial_download_ids_from_dict(partial_download_ids: list[str], name_
 
 if __name__ == "__main__":
 
-    file_path = Path("/home/arr65/data/nzgd/combined_dicts/records_with_download_issues.txt")
+    batch_num = 7
+
+    file_path = Path(f"/home/arr65/data/nzgd/combined_dicts/records_with_download_issues_in_batch_{batch_num}.txt")
+    print()
     with open(file_path, "r") as file:
         partial_download_ids = file.readlines()
     partial_download_ids = [line.strip() for line in partial_download_ids]
 
-    high_level_download_dir = Path("/home/arr65/data/nzgd/downloaded_files/download_run_3")
+    high_level_download_dir = Path(f"/home/arr65/data/nzgd/downloaded_files/download_run_{batch_num}")
     delete_partial_downloads(partial_download_ids, high_level_download_dir)
 
-    name_to_files_dict = toml.load(Path("/home/arr65/data/nzgd/combined_dicts") / "combined_name_to_files_dict.toml")
+    name_to_files_dict = toml.load(Path("/home/arr65/data/nzgd/combined_dicts") / f"combined_name_to_files_dict_batch{batch_num}.toml")
     name_to_files_dict = remove_partial_download_ids_from_dict(partial_download_ids, name_to_files_dict)
 
-    name_to_link_strs_dict = toml.load(Path("/home/arr65/data/nzgd/combined_dicts") / "combined_name_to_link_strs_dict.toml")
+    name_to_link_strs_dict = toml.load(Path("/home/arr65/data/nzgd/combined_dicts") / f"combined_name_to_link_strs_dict_batch{batch_num}.toml")
     name_to_link_strs_dict = remove_partial_download_ids_from_dict(partial_download_ids, name_to_link_strs_dict)
 
-    with open(Path("/home/arr65/data/nzgd/combined_dicts")/"combined_name_to_files_dict.toml", "w") as toml_file:
+    with open(Path("/home/arr65/data/nzgd/combined_dicts")/f"combined_name_to_files_dict_batch{batch_num}.toml", "w") as toml_file:
         toml.dump(name_to_files_dict, toml_file)
 
-    with open(Path("/home/arr65/data/nzgd/combined_dicts")/"combined_name_to_link_strs_dict.toml", "w") as toml_file:
+    with open(Path("/home/arr65/data/nzgd/combined_dicts")/f"combined_name_to_link_strs_dict_batch{batch_num}.toml", "w") as toml_file:
         toml.dump(name_to_link_strs_dict, toml_file)
 
     print("Done")

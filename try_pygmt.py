@@ -8,15 +8,16 @@ import matplotlib.dates as mdates
 
 record_id_df = pd.read_csv("/home/arr65/data/nzgd/nzgd_index_files/csv_files/NZGD_Investigation_Report_25092024_1043.csv")
 categorized_record_ids = toml.load("/home/arr65/data/nzgd/stats_plots/categorized_record_ids.toml")
+sung_id_with_nzgd_match_df = pd.read_csv("/home/arr65/data/nzgd/stats_plots/sung_id_with_nzgd_match.csv")
 
-# record_id_df_digitized_borehole = record_id_df[record_id_df["ID"].isin(categorized_record_ids["Digitized data Borehole"])]
-# record_id_df_digitized_cpt = record_id_df[record_id_df["ID"].isin(categorized_record_ids["Digitized data CPT"])]
-# record_id_df_digitized_scpt = record_id_df[record_id_df["ID"].isin(categorized_record_ids["Digitized data SCPT"])]
-# record_id_df_digitized_vsvp = record_id_df[record_id_df["ID"].isin(categorized_record_ids["Digitized data VsVp"])]
+record_id_df_digitized_borehole = record_id_df[record_id_df["ID"].isin(categorized_record_ids["Digitized data Borehole"])]
+record_id_df_digitized_cpt = record_id_df[record_id_df["ID"].isin(categorized_record_ids["Digitized data CPT"])]
+record_id_df_digitized_scpt = record_id_df[record_id_df["ID"].isin(categorized_record_ids["Digitized data SCPT"])]
+record_id_df_digitized_vsvp = record_id_df[record_id_df["ID"].isin(categorized_record_ids["Digitized data VsVp"])]
 
-record_id_df_digitized_borehole = record_id_df[record_id_df["ID"].isin(categorized_record_ids["Non-data Borehole"])]
-record_id_df_digitized_cpt = record_id_df[record_id_df["ID"].isin(categorized_record_ids["Non-data CPT"])]
-record_id_df_digitized_scpt = record_id_df[record_id_df["ID"].isin(categorized_record_ids["Non-data SCPT"])]
+record_id_df_not_digitized_borehole = record_id_df[record_id_df["ID"].isin(categorized_record_ids["Non-data Borehole"])]
+record_id_df_not_digitized_cpt = record_id_df[record_id_df["ID"].isin(categorized_record_ids["Non-data CPT"])]
+record_id_df_not_digitized_scpt = record_id_df[record_id_df["ID"].isin(categorized_record_ids["Non-data SCPT"])]
 
 #################################
 
@@ -75,35 +76,26 @@ record_id_df_digitized_scpt = record_id_df[record_id_df["ID"].isin(categorized_r
 # plt.savefig("/home/arr65/data/nzgd/stats_plots/investigation_date_vs_publication_date.png", dpi=500)
 # print()
 
-#################################
 
-sung_cpt_names = np.loadtxt("/home/arr65/data/nzgd/stats_plots/sung_cpt_names.txt", dtype=str)
-
-cpt_df = record_id_df[record_id_df["Type"] == "CPT"]
-cpt_not_in_sung_df = cpt_df[~cpt_df["ID"].isin(sung_cpt_names)]
-cpt_in_sung_df = cpt_df[cpt_df["ID"].isin(sung_cpt_names)]
-
-print()
-
-num_sung_scpt = 0
-for scpt_name in sung_cpt_names:
-    if "SCPT" in scpt_name:
-        num_sung_scpt += 1
-
-print()
 
 ### All NZ
-region = [164, 180, -49, -33.]
-output_ffp = Path("/home/arr65/data/nzgd/map_plots/All_NZ_only_pdf_colorsV2.png")
+# region = [166, 179, -47.5, -34.1]
+
 
 ### CHC
 # lat = -43.5320
 # lon = 172.6366
 #
-# dlat = 0.1
-# dlon = 0.1
-#
-# region = [lon-dlon, lon+dlon, lat-dlat, lat+dlat]
+# dlat = 0.05
+# dlon = 0.15
+
+### Up North
+lat = -37.96
+lon = 177
+dlat = 0.02
+dlon = 0.05
+
+region = [lon-dlon, lon+dlon, lat-dlat, lat+dlat]
 # output_ffp = Path("/home/arr65/data/nzgd/map_plots/CHC_data.png")
 
 
@@ -111,8 +103,8 @@ output_ffp = Path("/home/arr65/data/nzgd/map_plots/All_NZ_only_pdf_colorsV2.png"
 # Is part of the qcore package, once installed it
 # can be found under qcore/qcore/data
 # Set to None for lower quality map, but much faster plotting time
-map_data_ffp = None
-#map_data_ffp = Path("/home/arr65/src/qcore/qcore/data")
+#map_data_ffp = None
+map_data_ffp = Path("/home/arr65/src/qcore/qcore/data")
 
 # If true, then use the high resolution topography
 # This will further increase plot time, and only has an
@@ -137,25 +129,30 @@ fig = plotting.gen_region_fig(
         MAP_FRAME_TYPE="plain",
         FORMAT_GEO_MAP="ddd.xx",
         MAP_FRAME_PEN="thinner,black",
-        FONT_ANNOT_PRIMARY="6p,Helvetica,black",
+        FONT_ANNOT_PRIMARY="20p,Helvetica,black",
     ),
 )
-fig.plot(x=record_id_df_digitized_borehole["Longitude"], y=record_id_df_digitized_borehole["Latitude"], style="s0.3c", fill="forestgreen", label="Borehole")
 
-fig.plot(x=record_id_df_digitized_cpt["Longitude"], y=record_id_df_digitized_cpt["Latitude"], style="c0.3c", fill="blue", label="CPT")
-fig.plot(x=record_id_df_digitized_scpt["Longitude"], y=record_id_df_digitized_scpt["Latitude"], style="d0.3c", fill="orange", label="SCPT")
-#fig.plot(x=record_id_df_digitized_vsvp["Longitude"], y=record_id_df_digitized_vsvp["Latitude"], style="t0.1c", fill="red", label="VsVp")
+output_ffp = Path("/home/arr65/data/nzgd/map_plots/up_north_VsVp.png")
 
-# fig.plot(x=record_id_df_digitized_cpt["Longitude"], y=record_id_df_digitized_cpt["Latitude"], style="c0.3c", fill="blue", label="CPT")
-# fig.plot(x=record_id_df_digitized_scpt["Longitude"], y=record_id_df_digitized_scpt["Latitude"], style="d0.3c", fill="orange", label="SCPT")
-# fig.plot(x=record_id_df_digitized_borehole["Longitude"], y=record_id_df_digitized_borehole["Latitude"], style="s0.3c", fill="forestgreen", label="Borehole")
-# fig.plot(x=record_id_df_digitized_vsvp["Longitude"], y=record_id_df_digitized_vsvp["Latitude"], style="t0.3c", fill="red", label="VsVp")
+# fig.plot(x=record_id_df_not_digitized_borehole["Longitude"], y=record_id_df_not_digitized_borehole["Latitude"], style="c0.35c", fill="#2ca02c", label="only pdf")
+# fig.plot(x=record_id_df_digitized_borehole["Longitude"], y=record_id_df_digitized_borehole["Latitude"], style="d0.3c", fill="#ff7f0e", label="data")
 
-# fig.plot(x=cpt_in_sung_df["Longitude"], y=cpt_in_sung_df["Latitude"], style="c0.1c", fill="blue", label="old CPT dataset")
-# fig.plot(x=cpt_not_in_sung_df["Longitude"], y=cpt_not_in_sung_df["Latitude"], style="t0.1c", fill="orange", label="new CPT dataset")
+# fig.plot(x=record_id_df_digitized_scpt["Longitude"], y=record_id_df_digitized_scpt["Latitude"], style="d0.3c", fill="#ff7f0e", label="data")
+# fig.plot(x=record_id_df_not_digitized_scpt["Longitude"], y=record_id_df_not_digitized_scpt["Latitude"], style="c0.25c", fill="#2ca02c", label="only pdf")
 
+# fig.plot(x=record_id_df_digitized_cpt["Longitude"], y=record_id_df_digitized_cpt["Latitude"], style="d0.3c", fill="#ff7f0e", label="data")
+# fig.plot(x=record_id_df_not_digitized_cpt["Longitude"], y=record_id_df_not_digitized_cpt["Latitude"], style="c0.25c", fill="#2ca02c", label="only pdf")
+
+# fig.plot(x=record_id_df_digitized_cpt["Longitude"], y=record_id_df_digitized_cpt["Latitude"], style="d0.3c", fill="DARKMAGENTA", label="new CPT dataset")
+# fig.plot(x=sung_id_with_nzgd_match_df["lon"], y=sung_id_with_nzgd_match_df["lat"], style="c0.35c", fill="forestgreen", label="old CPT dataset")
+
+fig.plot(x=record_id_df_digitized_vsvp["Longitude"], y=record_id_df_digitized_vsvp["Latitude"], style="d0.3c", fill="#ff7f0e", label="data")
+
+
+
+#fig.legend(position="JTL+jTL+o0.2c", box="+gwhite")
 fig.legend()
-
 fig.savefig(
     output_ffp,
     dpi=900,

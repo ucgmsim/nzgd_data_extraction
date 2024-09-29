@@ -56,7 +56,6 @@ def find_records_with_only_these_file_types(record_id_to_files: dict[str, list[s
 record_id_to_files = toml.load("/home/arr65/data/nzgd/record_name_to_file_dicts/record_id_to_file_name_dict_25_Sept_2024.toml")
 record_id_df = pd.read_csv("/home/arr65/data/nzgd/nzgd_index_files/csv_files/NZGD_Investigation_Report_25092024_1043.csv")
 
-
 ## For every record, the file names are stored in a dictionary
 ## Count the number of files of each file type for each record
 
@@ -147,13 +146,69 @@ stats_plots_dir.mkdir(exist_ok=True)
 # fig, ax = plt.subplots()
 # sizes = [len(non_data_borehole), len(borehole_ids) - len(non_data_borehole)]
 # labels = [f"only pdf\n({sizes[0]})", f"digitized data\n({sizes[1]})"]
+# colors = ["#2ca02c", "#ff7f0e"]
 # ax.pie(sizes,
 #        labels=labels,
+#        colors=colors,
 #        autopct='%1.1f%%',
 #        textprops={'fontsize': 16})
 # total_num = sum(sizes)
 # plt.title(f"Borehole (Total: {total_num} records)", fontsize=25)
 # plt.savefig(stats_plots_dir / "borehole_non_pdf.png",dpi=500)
+
+# fig, ax = plt.subplots()
+# sizes = [len(borehole_ids) - len(non_data_borehole), len(non_data_borehole)]
+# labels = [f"digitized data\n({sizes[0]})", f"only pdf\n({sizes[1]})"]
+# colors = ["#ff7f0e", "#2ca02c"]
+# ax.pie(sizes,
+#        labels=labels,
+#        colors=colors,
+#        autopct='%1.1f%%',
+#        textprops={'fontsize': 16})
+# total_num = sum(sizes)
+# plt.title(f"Borehole (Total: {total_num} records)", fontsize=25)
+# plt.savefig(stats_plots_dir / "borehole_non_pdf.png",dpi=500)
+
+
+# fig, ax = plt.subplots()
+# sizes = [len(scpt_ids) - len(non_data_scpts), len(non_data_scpts)]
+# labels = [f"digitized data\n({sizes[0]})", f"only pdf\n({sizes[1]})"]
+# colors = ["#ff7f0e", "#2ca02c"]
+# ax.pie(sizes,
+#        labels=labels,
+#        colors=colors,
+#        autopct='%1.1f%%',
+#        textprops={'fontsize': 16})
+# total_num = sum(sizes)
+# plt.title(f"SCPT (Total: {total_num} records)", fontsize=25)
+# plt.savefig(stats_plots_dir / "scpt_only_pdf_pie_chart.png",dpi=500)
+#
+# fig, ax = plt.subplots()
+# sizes = [len(cpt_ids) - len(non_data_cpts), len(non_data_cpts)]
+# labels = [f"digitized data\n({sizes[0]})", f"only pdf\n({sizes[1]})"]
+# colors = ["#ff7f0e", "#2ca02c"]
+# ax.pie(sizes,
+#        labels=labels,
+#        colors=colors,
+#        autopct='%1.1f%%',
+#        textprops={'fontsize': 16})
+# total_num = sum(sizes)
+# plt.title(f"CPT (Total: {total_num} records)", fontsize=25)
+# plt.savefig(stats_plots_dir / "cpt_only_pdf_pie_chart.png",dpi=500)
+
+fig, ax = plt.subplots()
+sizes = [len(vsvp_ids)]
+labels = [f"digitized data\n({sizes[0]})"]
+colors = ["tab:orange"]
+ax.pie(sizes,
+       labels=labels,
+       autopct='%1.1f%%',
+       colors=colors,
+       textprops={'fontsize': 16})
+total_num = sum(sizes)
+plt.title(f"velocity profiles (Total: {total_num} records)", fontsize=25)
+plt.savefig(stats_plots_dir / "vsvp_pie_chart.png",dpi=500)
+
 # plt.show()
 #
 #
@@ -173,39 +228,41 @@ stats_plots_dir.mkdir(exist_ok=True)
 # plt.show()
 
 ### All NZGD digitized records
-fig, ax = plt.subplots()
-sizes = [len(digitized_data_cpts), len(digitized_data_scpts), len(digitized_data_borehole), len(digitized_data_vsvp)]
-labels = [f"CPT\n({sizes[0]})", f"SCPT\n({sizes[1]})", f"Borehole\n({sizes[2]})", f"VsVp\n({sizes[3]})"]
-ax.pie(sizes,
-       labels=labels,
-       autopct='%1.1f%%',
-       textprops={'fontsize': 16})
-total_num = sum(sizes)
-plt.title(f"NZGD records with data\n(Total: {total_num} records)", fontsize=15)
-plt.savefig(stats_plots_dir / "all_NZGD_digitized_records.png",dpi=500)
-plt.show()
+# fig, ax = plt.subplots()
+# sizes = [len(digitized_data_cpts), len(digitized_data_scpts), len(digitized_data_borehole), len(digitized_data_vsvp)]
+# labels = [f"CPT\n({sizes[0]})", f"SCPT\n({sizes[1]})", f"Borehole\n({sizes[2]})", f"VsVp\n({sizes[3]})"]
+# ax.pie(sizes,
+#        labels=labels,
+#        autopct='%1.1f%%',
+#        textprops={'fontsize': 16})
+# total_num = sum(sizes)
+# plt.title(f"NZGD records with data\n(Total: {total_num} records)", fontsize=15)
+# plt.savefig(stats_plots_dir / "all_NZGD_digitized_records.png",dpi=500)
+# plt.show()
 
 ### All NZGD records
-fig, ax = plt.subplots()
-sizes = [len(cpt_ids), len(scpt_ids), len(borehole_ids), len(vsvp_ids)]
-labels = [f"CPT\n({sizes[0]})", f"SCPT\n({sizes[1]})", f"Borehole\n({sizes[2]})", f"VsVp\n({sizes[3]})"]
-ax.pie(sizes,
-       labels=labels,
-       autopct='%1.1f%%',
-       textprops={'fontsize': 16})
-total_num = sum(sizes)
-plt.title(f"All NZGD records including only pdf\n(Total: {total_num} records)", fontsize=15)
-plt.savefig(stats_plots_dir / "all_NZGD_records_including_only_pdf.png",dpi=500)
-plt.show()
+# fig, ax = plt.subplots()
+# sizes = [len(cpt_ids), len(scpt_ids), len(borehole_ids), len(vsvp_ids)]
+# labels = [f"CPT\n({sizes[0]})", f"SCPT\n({sizes[1]})", f"Borehole\n({sizes[2]})", f"VsVp\n({sizes[3]})"]
+# ax.pie(sizes,
+#        labels=labels,
+#        autopct='%1.1f%%',
+#        textprops={'fontsize': 16})
+# total_num = sum(sizes)
+# plt.title(f"All NZGD records including only pdf\n(Total: {total_num} records)", fontsize=15)
+# plt.savefig(stats_plots_dir / "all_NZGD_records_including_only_pdf.png",dpi=500)
+# plt.show()
+#
+# print()
 
-print()
 
-record_id_df = pd.read_csv("/home/arr65/data/nzgd/nzgd_index_files/csv_files/NZGD_Investigation_Report_25092024_1043.csv")
 
-## Borehole, CPT, HandAuger, HandAugerScala, Other, Scala, SCPT, SDMT, SWS, TestPit, VsVp
-#other_investigation_types = ["HandAuger", "HandAugerScala", "Other", "Scala", "SDMT", "SWS", "TestPit"]
+# ##### Make the pie chart of other data types
+#
+# ## Borehole, CPT, HandAuger, HandAugerScala, Other, Scala, SCPT, SDMT, SWS, TestPit, VsVp
+# #other_investigation_types = ["HandAuger", "HandAugerScala", "Other", "Scala", "SDMT", "SWS", "TestPit"]
 other_investigation_types = ["HandAuger", "HandAugerScala", "Other", "Scala", "TestPit"]
-
+#
 sizes = []
 for investigation_type in other_investigation_types:
     sizes.append(len(record_id_df[record_id_df["Type"] == investigation_type]))
@@ -217,16 +274,36 @@ labels = []
 for investigation_type, size in zip(other_investigation_types, sizes):
     labels.append(f"{investigation_type}\n({size})")
 
-ax.pie(sizes,
-       labels=labels,
-       autopct='%1.1f%%',
-       textprops={'fontsize': 14})
-total_num = sum(sizes)
-plt.text(-2.0, 1.0, 'Also SDMT (181)\nand SWS (65)', fontsize=12, bbox=dict(facecolor='white', alpha=0.5))
+### make a bar plot of sizes vs labels
+bars = ax.bar(labels, sizes, width=0.5)  # Adjust the width parameter to increase spacing
+ax.set_ylabel("Number of Records")
+plt.savefig(stats_plots_dir / "other_NZGD_records_bar_plot.png", dpi=500)
 
 
-plt.title(f"Other investigation types\n(Total: {total_num} records)", fontsize=15)
-plt.savefig(stats_plots_dir / "other_NZGD_records.png",dpi=500)
-plt.show()
+#
+# ax.pie(sizes,
+#        labels=labels,
+#        autopct='%1.1f%%',
+#        textprops={'fontsize': 14})
+# total_num = sum(sizes)
+# plt.text(-2.0, 1.0, 'Also SDMT (181)\nand SWS (65)', fontsize=12, bbox=dict(facecolor='white', alpha=0.5))
+#
+#
+# plt.title(f"Other investigation types\n(Total: {total_num} records)", fontsize=15)
+# plt.savefig(stats_plots_dir / "other_NZGD_records.png",dpi=500)
+# plt.show()
+#
+# print()
 
-print()
+nums = np.array([49124, len(digitized_data_cpts), len(record_id_df[record_id_df["Type"] == "CPT"])])
+labels = ["old CPT dataset", "new CPT dataset\nexcluding records\nwith only pdfs",
+          "new CPT dataset\nincluding records\nwith only pdfs"]
+
+fig, ax = plt.subplots()
+bars = ax.bar(labels, nums, color=["#228B22", "#8B008B", "#8B008B"])
+ax.set_ylabel("Number of Records")
+bars[2].set_alpha(0.5)
+
+#ax.set_title("Comparison of Old and New CPT Datasets")
+plt.savefig(stats_plots_dir / "cpt_dataset_comparison_bar_plot.png", dpi=500)
+

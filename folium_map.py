@@ -6,12 +6,12 @@ import toml
 
 record_id_df = pd.read_csv("/home/arr65/data/nzgd/nzgd_index_files/csv_files/NZGD_Investigation_Report_25092024_1043.csv")
 
-record_id_df = record_id_df[record_id_df["Type"] == "Borehole"]
+record_id_df = record_id_df[record_id_df["Type"] == "VsVp"]
 
-categorized_record_ids = toml.load("/home/arr65/data/nzgd/stats_plots/categorized_record_ids.toml")
+#categorized_record_ids = toml.load("/home/arr65/data/nzgd/stats_plots/categorized_record_ids.toml")
 
 
-record_id_df = record_id_df[record_id_df["ID"].isin(categorized_record_ids["Digitized data Borehole"])]
+#record_id_df = record_id_df[record_id_df["ID"].isin(categorized_record_ids["VsVp"])]
 
 
 print()
@@ -38,7 +38,7 @@ for i in range(0,len(record_id_df)):
       popup=record_id_df.iloc[i]['ID'],
    ).add_to(m)
 
-m.save('/home/arr65/data/nzgd/stats_plots/borehole_v0.html')
+m.save('/home/arr65/data/nzgd/stats_plots/CHC_vsvp_v0.html')
 
 # Make an empty map
 

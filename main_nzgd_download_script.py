@@ -11,6 +11,7 @@ from pathlib import Path
 import pandas as pd
 from dotenv import load_dotenv
 
+import enum
 import config as cfg
 
 config = cfg.Config()
@@ -19,19 +20,35 @@ import nzgd_download_helper_functions
 
 start_time = time.time()
 
-downloaded_records = os.listdir("/home/arr65/data/nzgd/downloaded_files/download_run_3") + \
-                     os.listdir("/home/arr65/data/nzgd/downloaded_files/download_run_4") + \
-                     os.listdir("/home/arr65/data/nzgd/downloaded_files/download_run_5") + \
-                     os.listdir("/home/arr65/data/nzgd/downloaded_files/download_run_6") + \
-                     os.listdir("/home/arr65/data/nzgd/downloaded_files/download_run_7")
+class DownloadMode(enum.StrEnum):
+
+    files = "files"
+    meta_data = "meta_data"
+
+
+download_mode = DownloadMode.meta_data
+
+
+# downloaded_records = os.listdir("/home/arr65/data/nzgd/downloaded_files/download_run_3") + \
+#                      os.listdir("/home/arr65/data/nzgd/downloaded_files/download_run_4") + \
+#                      os.listdir("/home/arr65/data/nzgd/downloaded_files/download_run_5") + \
+#                      os.listdir("/home/arr65/data/nzgd/downloaded_files/download_run_6") + \
+#                      os.listdir("/home/arr65/data/nzgd/downloaded_files/download_run_7")
+
+downloaded_records = []
 
 url_df = pd.read_csv(config.get_value("data_lookup_index"))
 
+# url_df = url_df[
+#     (url_df["Type"] == "CPT")
+#     | (url_df["Type"] == "SCPT")
+#     | (url_df["Type"] == "Borehole")
+#     | (url_df["Type"] == "VsVp")
+# ][["ID", "URL"]]
+
+### Only the velocity profiles
 url_df = url_df[
-    (url_df["Type"] == "CPT")
-    | (url_df["Type"] == "SCPT")
-    | (url_df["Type"] == "Borehole")
-    | (url_df["Type"] == "VsVp")
+    (url_df["Type"] == "VsVp")
 ][["ID", "URL"]]
 
 # Remove records that have already been downloaded
@@ -48,13 +65,14 @@ username_str = os.getenv("NZGD_USERNAME")
 password_str = os.getenv("NZGD_PASSWORD")
 
 # Set up the download directory
-high_level_download_dir = Path(config.get_value("high_level_download_dir"))
-os.makedirs(high_level_download_dir, exist_ok=True)
+# high_level_download_dir = Path(config.get_value("high_level_download_dir"))
+# os.makedirs(high_level_download_dir, exist_ok=True)
 
 # create directories
-os.makedirs(config.get_value("downloaded_record_note_per_record"), exist_ok=True)
-os.makedirs(config.get_value("name_to_files_dir_per_record"), exist_ok=True)
-os.makedirs(config.get_value("name_to_link_str_dir_per_record"), exist_ok=True)
+# os.makedirs(config.get_value("downloaded_record_note_per_record"), exist_ok=True)
+# os.makedirs(config.get_value("name_to_files_dir_per_record"), exist_ok=True)
+# os.makedirs(config.get_value("name_to_link_str_dir_per_record"), exist_ok=True)
+
 
 ### Load the last processed index if it exists
 if os.path.exists(config.get_value("downloaded_record_note_per_record")):
@@ -64,10 +82,19 @@ if os.path.exists(config.get_value("downloaded_record_note_per_record")):
 else:
     last_processed_index = 0
 
-with Pool(processes=config.get_value("number_of_processes")) as pool:
-    pool.starmap(
-        nzgd_download_helper_functions.process_df_row, url_df.iterrows()
-    )
+if download_mode == DownloadMode.files:
+
+    with Pool(processes=config.get_value("number_of_processes")) as pool:
+        pool.starmap(
+            nzgd_download_helper_functions.process_df_row, url_df.iterrows()
+        )
+
+if download_mode == DownloadMode.meta_data:
+
+    with Pool(processes=config.get_value("number_of_processes")) as pool:
+        pool.starmap(
+            nzgd_download_helper_functions.get_metadata_from_nzgd_record_page, url_df.iterrows()
+        )
 
 end_time = time.time()
 print(f"Time taken: {(end_time - start_time)/3600:.2f} hours")

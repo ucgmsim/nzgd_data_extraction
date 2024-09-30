@@ -157,3 +157,152 @@ def process_df_row(url_df_row_index, url_df_row):
         toml.dump(link_as_str_dict, toml_file)
 
     driver.quit()
+
+
+# Function to process a chunk of URLs
+def get_metadata_from_nzgd_record_page(url_df_row_index, url_df_row):
+    """
+    Processes a row from a DataFrame containing URLs, logs into the NZGD website,
+    navigates to the data URL, and downloads the files linked on the page.
+
+    Parameters
+    ----------
+    url_df_row_index : int
+        The index of the row in the DataFrame.
+    url_df_row : pandas.Series
+        A row from the DataFrame containing the URL and ID.
+
+    Returns
+    -------
+    None
+    """
+    login_url = config.get_value("login_url")
+    username_str = os.getenv("NZGD_USERNAME")
+    password_str = os.getenv("NZGD_PASSWORD")
+    load_wait_time_s = config.get_value("load_wait_time_s")
+
+    driver = setup_driver(config.get_value("name_to_metadata_dir_per_record"))
+
+    # Log in to the website
+    driver.get(login_url)
+
+    # Wait for the username field to be present
+    wait = WebDriverWait(driver, load_wait_time_s)
+    username = wait.until(
+        EC.presence_of_element_located(
+            (By.NAME, "ctl00$MainContent$LoginControl$LoginBox$UserName")
+        )
+    )
+    password = driver.find_element(
+        By.NAME, "ctl00$MainContent$LoginControl$LoginBox$Password"
+    )
+
+    # Enter login credentials
+    username.send_keys(username_str)
+    password.send_keys(password_str)
+    password.send_keys(Keys.RETURN)
+
+    # Wait for specific text that indicates a successful login
+    wait.until(
+        EC.presence_of_element_located((By.XPATH, "//*[contains(text(), 'Home')]"))
+    )  # Replace 'Welcome' with the actual text
+
+    data_url = url_df_row["URL"]
+
+    # Navigate to the data URL
+    driver.get(data_url)
+    time.sleep(load_wait_time_s)
+
+    nzgd_id = WebDriverWait(driver, 10).until(
+        EC.presence_of_element_located((By.XPATH, "//h4[contains(text(), 'NZGD ID:')]"))
+    ).text
+
+    # Extract Project Name (optional)
+    project_name = driver.find_element(By.NAME, "projectName").get_attribute("value")
+
+    # Extract Project Client
+    project_client = driver.find_element(By.NAME, "projectClient").get_attribute("value")
+
+    # Extract Supervising Company
+    supervising_company = driver.find_element(By.NAME, "engineeringCompany").get_attribute("value")
+
+    # Extract Status
+    status = driver.find_element(By.XPATH, "//label[text()='Status :']/following-sibling::div/label").text
+
+    # Extract Investigation Type
+    investigation_type = driver.find_element(By.NAME, "investigationType").get_attribute("value")
+
+    # Extract Location ID
+    location_id = driver.find_element(By.NAME, "reference").get_attribute("value")
+
+    # Extract Supervising Technician
+    technician = driver.find_element(By.NAME, "technician").get_attribute("value")
+
+    # Extract Drill Rig Name
+    drill_rig = driver.find_element(By.NAME, "drillRig").get_attribute("value")
+
+    # Extract Drilling Company
+    drilling_company = driver.find_element(By.NAME, "drillingCompany").get_attribute("value")
+
+    # Extract End Date
+    end_date = driver.find_element(By.NAME, "dateInvestigation").get_attribute("value")
+
+    # Extract total depth
+    total_depth = driver.find_element(By.NAME, "depthOfSoilTest").get_attribute("value")
+
+    # Extract Pre-drill Depth
+    pre_drill_depth = driver.find_element(By.NAME, "preDrillDepth").get_attribute("value")
+
+    # Extract Known Issue (Yes/No Checkboxes)
+    known_issue_no = driver.find_element(By.XPATH,
+                                         "//input[@name='isKnownIssueWithRawData'][@value='false']").get_attribute(
+        "checked")
+    known_issue_yes = driver.find_element(By.XPATH,
+                                          "//input[@name='isKnownIssueWithRawData'][@value='true']").get_attribute(
+        "checked")
+
+    # Extract Ground Water Measured (Yes/No Checkboxes)
+    ground_water_no = driver.find_element(By.XPATH, "//input[@name='isGwMeasured'][@value='false']").get_attribute(
+        "checked")
+    ground_water_yes = driver.find_element(By.XPATH, "//input[@name='isGwMeasured'][@value='true']").get_attribute(
+        "checked")
+
+    # Extract Cone Serial Number
+    cone_serial_number = driver.find_element(By.NAME, "coneId").get_attribute("value")
+
+    # Extract Remarks
+    remarks = driver.find_element(By.NAME, "remark").get_attribute("value")
+
+
+    data = {
+        'nzgd_id': nzgd_id.strip("NZGD ID:"),
+        'technician': technician.strip("string:"),
+        'drill_rig': drill_rig.strip("string:"),
+        'drilling_company': drilling_company.strip("string:"),
+        'end_date': end_date,
+        'project_name': project_name,
+        'project_client': project_client,
+        'supervising_company': supervising_company.strip("string:"),
+        'status': status,
+        'investigation_type': investigation_type.strip("string:"),
+        'location_id': location_id,
+        'total_depth': total_depth,
+        'pre_drill_depth': pre_drill_depth,
+        'known_issue_no': known_issue_no,
+        'known_issue_yes': known_issue_yes,
+        'ground_water_no': ground_water_no,
+        'ground_water_yes': ground_water_yes,
+        'cone_serial_number': cone_serial_number,
+        'remarks': remarks
+    }
+
+    # Create a DataFrame with a single row from the extracted data
+    metadata_df = pd.DataFrame([data])
+
+    # Save the metadata to a CSV file
+    metadata_df.to_csv(Path(config.get_value("name_to_metadata_dir_per_record")) / f"row_{url_df_row_index}_metadata.csv", index=False)
+    #
+    #
+    #
+    # Quit the driver
+    driver.quit()

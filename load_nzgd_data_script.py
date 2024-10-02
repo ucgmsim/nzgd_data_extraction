@@ -1,17 +1,10 @@
-from multiprocessing.managers import Value
-
-from python_ags4 import AGS4
-from typing import Union
-from pathlib import Path
-import pandas as pd
-import natsort
 import numpy as np
-from tqdm import tqdm
-import os
-import pandas as pd
-from itertools import product
+from pathlib import Path
 import toml
 import loading_funcs_for_nzgd_data
+import xlrd
+from tqdm import tqdm
+import natsort
 
 parquet_output_dir = Path("/home/arr65/data/nzgd/standard_format/cpt/data")
 metadata_output_dir = Path("/home/arr65/data/nzgd/standard_format/cpt/metadata")
@@ -30,20 +23,26 @@ possible_xls_cols = [
 
 downloaded_files = Path("/home/arr65/data/nzgd/downloaded_files/cpt")
 
-meta_info = {"loaded_records_and_files": {}, "failed_ags_loads": {}, "failed_xls_loads": {},
-             "all_loading_attempts_failed": []}
+meta_successfully_loaded = []
+meta_failed_to_load = []
+meta_ags_failed_to_load = []
+meta_xls_failed_to_load = []
+
+record_counter = 0
 
 for record_dir in tqdm(natsort.natsorted(list(downloaded_files.glob("*")))):
 #for record_dir in tqdm(natsort.natsorted(list(downloaded_files.glob("*")))[0:100]):
-#for record_dir in [Path("/home/arr65/data/nzgd/downloaded_files/cpt/CPT_225072")]:
+#for record_dir in [Path("/home/arr65/data/nzgd/downloaded_files/cpt/CPT_1")]:
 #for record_dir in failed_ags_loads:
 
-    #record_dir = Path(str(record_dir)).parent
-
+    record_counter += 1
+    if record_counter % 500 == 0:
+        np.savetxt(metadata_output_dir / "successfully_loaded.txt", np.array(meta_successfully_loaded), fmt="%s")
+        np.savetxt(metadata_output_dir / "failed_to_load.txt", np.array(meta_failed_to_load), fmt="%s")
+        np.savetxt(metadata_output_dir / "ags_failed_to_load .txt", np.array(meta_ags_failed_to_load), fmt="%s")
+        np.savetxt(metadata_output_dir / "xls_failed_to_load .txt", np.array(meta_xls_failed_to_load), fmt="%s")
 
     has_loaded_a_file_for_this_record = False
-
-    file_types = [file.suffix for file in record_dir.glob("*")]
 
     ### ags files
     files_to_try = list(record_dir.glob("*.ags")) + list(record_dir.glob("*.AGS"))
@@ -51,15 +50,16 @@ for record_dir in tqdm(natsort.natsorted(list(downloaded_files.glob("*")))):
         for file_to_try in files_to_try:
             try:
                 record_df = loading_funcs_for_nzgd_data.load_ags(file_to_try)
-                record_df.original_file_name = file_to_try.name
+                record_df.attrs["original_file_name"] = file_to_try.name
                 record_df.to_parquet(parquet_output_dir / f"{record_dir.name}.parquet")
-                meta_info["loaded_records_and_files"][record_dir.name] = file_to_try.name
+                meta_successfully_loaded.append(file_to_try.name)
+
                 has_loaded_a_file_for_this_record = True
                 continue
 
             ## If the ags file is missing data, KeyError or UnboundLocalError will be raised
-            except(KeyError, UnboundLocalError):
-                meta_info["failed_ags_loads"][record_dir.name] = file_to_try.name
+            except(KeyError, UnboundLocalError) as e:
+                meta_ags_failed_to_load.append(f"{record_dir.name}, {file_to_try.name}, {str(e)}")
                 pass
 
     if has_loaded_a_file_for_this_record:
@@ -68,33 +68,24 @@ for record_dir in tqdm(natsort.natsorted(list(downloaded_files.glob("*")))):
     ### xls files
     files_to_try = list(record_dir.glob("*.xls")) + list(record_dir.glob("*.XLS")) + \
                    list(record_dir.glob("*.xlsx")) + list(record_dir.glob("*.XLSX"))
+
     if len(files_to_try) > 0:
         for file_to_try in files_to_try:
             try:
                 record_df = loading_funcs_for_nzgd_data.load_xls_file_brute_force(file_to_try, possible_xls_cols)
-                record_df.original_file_name = file_to_try.name
+                record_df.attrs["original_file_name"] = file_to_try.name
                 record_df.to_parquet(parquet_output_dir / f"{record_dir.name}.parquet")
-                meta_info["loaded_records_and_files"][record_dir.name] = file_to_try.name
+                meta_successfully_loaded.append(file_to_try.name)
                 has_loaded_a_file_for_this_record = True
                 continue
-            except(ValueError):
-                meta_info["failed_xls_loads"][record_dir.name] = file_to_try.name
+            except(ValueError, xlrd.compdoc.CompDocError, Exception) as e:
+                meta_xls_failed_to_load.append(f"{record_dir.name}, {file_to_try.name}, {e}")
                 pass
 
     if not has_loaded_a_file_for_this_record:
-        meta_info["all_loading_attempt_failed"].append(record_dir.name)
+        meta_failed_to_load.append(record_dir.name)
 
-### save metadata to toml file on every iteration in case of failure
-with open(metadata_output_dir /  "record_standardization_metadata.toml", "w") as f:
-    toml.dump(meta_info, f)
-
-
-# ## save the failed ags loads
-# np.savetxt("/home/arr65/data/nzgd/debugging_output/ags_loading_failed.txt", records_with_failed_ags_load, fmt="%s")
-#
-# ## save the failed xls loads
-# np.savetxt("/home/arr65/data/nzgd/debugging_output/xls_loading_failed.txt", records_with_failed_xls_load, fmt="%s")
-#
-# np.savetxt("/home/arr65/data/nzgd/debugging_output/records_not_loaded.txt", records_not_loaded, fmt="%s")
-
-#print()
+np.savetxt(metadata_output_dir / "successfully_loaded.txt", np.array(meta_successfully_loaded), fmt="%s")
+np.savetxt(metadata_output_dir / "failed_to_load.txt", np.array(meta_failed_to_load), fmt="%s")
+np.savetxt(metadata_output_dir / "ags_failed_to_load .txt", np.array(meta_ags_failed_to_load), fmt="%s")
+np.savetxt(metadata_output_dir / "xls_failed_to_load .txt", np.array(meta_xls_failed_to_load), fmt="%s")

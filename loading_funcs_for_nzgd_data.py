@@ -6,11 +6,6 @@ from python_ags4 import AGS4
 from typing import Union
 from pathlib import Path
 import pandas as pd
-import natsort
-import numpy as np
-from tqdm import tqdm
-import os
-import pandas as pd
 from itertools import product
 
 def load_ags(file_path: Union[Path, str]):

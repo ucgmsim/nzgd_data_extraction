@@ -25,8 +25,6 @@ downloaded_files = Path("/home/arr65/data/nzgd/downloaded_files/cpt")
 
 meta_successfully_loaded = []
 meta_failed_to_load = []
-meta_ags_failed_to_load = []
-meta_xls_failed_to_load = []
 
 record_counter = 0
 
@@ -36,11 +34,9 @@ for record_dir in tqdm(natsort.natsorted(list(downloaded_files.glob("*")))):
 #for record_dir in failed_ags_loads:
 
     record_counter += 1
-    if record_counter % 500 == 0:
+    if record_counter % 100 == 0:
         np.savetxt(metadata_output_dir / "successfully_loaded.txt", np.array(meta_successfully_loaded), fmt="%s")
         np.savetxt(metadata_output_dir / "failed_to_load.txt", np.array(meta_failed_to_load), fmt="%s")
-        np.savetxt(metadata_output_dir / "ags_failed_to_load .txt", np.array(meta_ags_failed_to_load), fmt="%s")
-        np.savetxt(metadata_output_dir / "xls_failed_to_load .txt", np.array(meta_xls_failed_to_load), fmt="%s")
 
     has_loaded_a_file_for_this_record = False
 
@@ -59,7 +55,7 @@ for record_dir in tqdm(natsort.natsorted(list(downloaded_files.glob("*")))):
 
             ## If the ags file is missing data, KeyError or UnboundLocalError will be raised
             except(KeyError, UnboundLocalError) as e:
-                meta_ags_failed_to_load.append(f"{record_dir.name}, {file_to_try.name}, {str(e)}")
+                meta_failed_to_load.append(f"{record_dir.name}, {file_to_try.name}, {str(e)}")
                 pass
 
     if has_loaded_a_file_for_this_record:
@@ -79,13 +75,11 @@ for record_dir in tqdm(natsort.natsorted(list(downloaded_files.glob("*")))):
                 has_loaded_a_file_for_this_record = True
                 continue
             except(ValueError, xlrd.compdoc.CompDocError, Exception) as e:
-                meta_xls_failed_to_load.append(f"{record_dir.name}, {file_to_try.name}, {e}")
+                meta_failed_to_load.append(f"{record_dir.name}, {file_to_try.name}, {e}")
                 pass
 
     if not has_loaded_a_file_for_this_record:
-        meta_failed_to_load.append(record_dir.name)
+        meta_failed_to_load.append(f"{record_dir.name}, Did_not_attempt_to_load_any_files, ")
 
 np.savetxt(metadata_output_dir / "successfully_loaded.txt", np.array(meta_successfully_loaded), fmt="%s")
 np.savetxt(metadata_output_dir / "failed_to_load.txt", np.array(meta_failed_to_load), fmt="%s")
-np.savetxt(metadata_output_dir / "ags_failed_to_load .txt", np.array(meta_ags_failed_to_load), fmt="%s")
-np.savetxt(metadata_output_dir / "xls_failed_to_load .txt", np.array(meta_xls_failed_to_load), fmt="%s")

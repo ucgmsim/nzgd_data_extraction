@@ -7,3 +7,5 @@ python-dotenv
 beautifulsoup4
 selenium
 webdriver-manager
+pytables
+xkrd

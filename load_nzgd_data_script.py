@@ -43,6 +43,8 @@ for record_dir in natsort.natsorted(list(downloaded_files.glob("*"))):
 for record_dir in tqdm(records_to_convert):
 #for record_dir in [Path("/home/arr65/data/nzgd/downloaded_files/cpt/CPT_12402")]:
 
+    has_loaded_a_file_for_this_record = False
+
     ags_file_load_attempted = False
     xls_file_load_attempted = False
 
@@ -60,7 +62,9 @@ for record_dir in tqdm(records_to_convert):
         np.savetxt(metadata_output_dir / "xls_failed_to_load.txt", np.array(meta_xls_failed_to_load), fmt="%s",
                    header="record_name, file_name, error_message")
 
-    has_loaded_a_file_for_this_record = False
+    ### Skip this record if the only available files are pdf
+    if len(list(record_dir.glob("*.pdf"))) == len(list(record_dir.glob("*"))):
+        meta_failed_to_load.append(f"{record_dir.name}, N/A, only_pdf_files_are_available")
 
     ### ags files
     files_to_try = list(record_dir.glob("*.ags")) + list(record_dir.glob("*.AGS"))

@@ -47,19 +47,15 @@ def find_col_name_from_substring(df:pd.DataFrame,
                         candidate_col_names.append(col_name)
 
     if len(candidate_col_names) >= 1:
+
+        col = candidate_col_names[0]
+
         # check for "Clean" which is sometimes used for a cleaned version of the same data
         if len(candidate_col_names) > 1:
-            col = None
             for candidate_name in candidate_col_names:
                 if "clean" in candidate_name.lower():
                     col = candidate_name
                     break
-            if col is None:
-                col = candidate_col_names[0]
-
-
-        else:
-            col = candidate_col_names[0]
 
         df.attrs[f"candidate_{target_column_name}_column_names_in_original_file"] = candidate_col_names
         df.attrs[f"adopted_{target_column_name}_column_name_in_original_file"] = col

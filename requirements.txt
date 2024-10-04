@@ -9,3 +9,5 @@ selenium
 webdriver-manager
 pytables
 xkrd
+python-calamine
+pyxlsb

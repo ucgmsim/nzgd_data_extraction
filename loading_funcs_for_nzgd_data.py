@@ -152,30 +152,41 @@ def load_cpt_xls_file(file_path: Path) -> pd.DataFrame:
     ValueError
         If the required columns are not found in any sheet of the Excel file.
     """
-    if file_path.suffix.lower() == ".xls":
-        engine = "xlrd"
-    elif file_path.suffix.lower() == ".xlsx":
-        engine = "openpyxl"
 
-    # Some .xls files are actually xlsx files and need to be opened with openpyxl
-    try:
-        sheet_names = pd.ExcelFile(file_path, engine=engine).sheet_names
-    except(xlrd.biffh.XLRDError):
-        if engine == "xlrd":
-            other_engine = "openpyxl"
-        if engine == "openpyxl":
-            other_engine = "xlrd"
+    if file_path.suffix.lower() == ".csv":
+        # A dummy variable to allow the function to be called with a csv file which do not consist of multiple sheets
+        sheet_names = [0]
 
-        engine = other_engine
+    else:
 
-        sheet_names = pd.ExcelFile(file_path, engine=engine).sheet_names
+        if file_path.suffix.lower() == ".xls":
+            engine = "xlrd"
+        elif file_path.suffix.lower() == ".xlsx":
+            engine = "openpyxl"
+
+        # Some .xls files are actually xlsx files and need to be opened with openpyxl
+        try:
+            sheet_names = pd.ExcelFile(file_path, engine=engine).sheet_names
+        except(xlrd.biffh.XLRDError):
+            if engine == "xlrd":
+                other_engine = "openpyxl"
+            if engine == "openpyxl":
+                other_engine = "xlrd"
+
+            engine = other_engine
+
+            sheet_names = pd.ExcelFile(file_path, engine=engine).sheet_names
+
     missing_cols_per_sheet = []
 
     # Iterate through each sheet
     for sheet_idx, sheet in enumerate(sheet_names):
 
         # Load the entire sheet without specifying headers
-        df = pd.read_excel(file_path, sheet_name=sheet, header=None, engine=engine)
+        if file_path.suffix.lower() == ".csv":
+            df = pd.read_csv(file_path)
+        else:
+            df = pd.read_excel(file_path, sheet_name=sheet, header=None, engine=engine)
 
         df.attrs["original_file_name"] = file_path.name
         df.attrs["source_sheet_in_original_file"] = sheet
@@ -183,35 +194,38 @@ def load_cpt_xls_file(file_path: Path) -> pd.DataFrame:
         df_for_counting_str_per_row = df.map(lambda x: 1.0 if isinstance(x, (str)) else 0)
         num_str_per_row = np.nansum(df_for_counting_str_per_row, axis=1)
 
-        #col_name_rows = np.where(num_str_per_row >= np.median(num_str_per_row) + 5*np.std(num_str_per_row))[0]
-
         df_nan_to_str = df.fillna("nan")
         df_for_counting_num_per_row = df_nan_to_str.map(lambda x:1.0 if isinstance(x, (int, float)) else 0)
 
         num_num_per_row = np.nansum(df_for_counting_num_per_row, axis=1)
 
-        # The last available sheet
-        if sheet_idx == len(sheet_names) - 1:
-            if df.shape == (0,0):
-                raise ValueError(f"No data found in file {file_path.name}")
-            if ((df.shape[1]) > 0 and (df.shape[1]) < 4):
-                final_missing_cols = find_missing_cols_for_best_sheet(missing_cols_per_sheet)
+        min_num_numerical_rows_with_at_least_4_cols = 5
 
+        num_data_rows_with_at_least_4_cols = np.sum(num_num_per_row >= 4)
+
+        if df.shape == (0,0):
+            if sheet_idx == len(sheet_names) - 1:
+                # no other sheets so raise error for this file
+                raise ValueError(f"No data found in file {file_path.name}")
+            else:
+                # There are more sheets to check so continue to next sheet
+                continue
+
+        if num_data_rows_with_at_least_4_cols < min_num_numerical_rows_with_at_least_4_cols:
+            # There are not enough rows with numerical data in all required columns
+
+            if sheet_idx == len(sheet_names) - 1:
+                # no other sheets so raise error for this file
+                final_missing_cols = find_missing_cols_for_best_sheet(missing_cols_per_sheet)
                 if len(final_missing_cols) > 0:
                     raise ValueError(f"Missing columns, {' - '.join(final_missing_cols)}")
 
-                elif len(final_missing_cols) == 0:
-                    raise ValueError(f"File {file_path.name} is missing {4-df.shape[1]} required columns")
+                raise ValueError(f"There are fewer than {min_num_numerical_rows_with_at_least_4_cols} rows (probably none) that have the required number of numerical columns in {file_path.name}")
 
-        if (df.shape[1] < 4)  and sheet_idx < len(sheet_names) - 1:
-            # There are not enough columns to contain the required data so continue to the next sheet
-            continue
-        if (df.shape[1] < 4) and sheet_idx == len(sheet_names) - 1:
-            # There are not enough columns to contain the required data so return the missing columns
-            final_missing_cols = find_missing_cols_for_best_sheet(missing_cols_per_sheet)
-            raise ValueError(f"Missing columns, {' - '.join(final_missing_cols)}")
+            else:
+                # There are more sheets to check so continue to next sheet
+                continue
 
-        #first_data_row = np.where(num_num_per_row >= 4)[0][0]
         last_data_row = np.where(num_num_per_row >= 4)[0][-1]
 
         num_num_in_last_data_row = num_num_per_row[last_data_row]
@@ -278,17 +292,25 @@ def load_cpt_xls_file(file_path: Path) -> pd.DataFrame:
         candidate_depth_col_names = []
         for col_name in df.columns:
             if isinstance(col_name, str):
+                if len(col_name) == 1:
+                    if col_name.lower() == "m":
+                        candidate_depth_col_names.append(col_name)
+                        break
+
                 for letter_idx, letter in enumerate(col_name):
                     if letter.lower() == "m":
+                        print()
 
+                        # if the letter is the first character
                         if (letter_idx == 0) and (col_name[letter_idx+1] in [" ", "]", ")"]) and (col_name not in candidate_depth_col_names):
                             candidate_depth_col_names.append(col_name)
                             break
+                        # if the letter is the last character
                         # including "c" when checking preceeding characters to check for "cm"
                         elif (letter_idx == len(col_name)-1) and (col_name[letter_idx-1] in ["c", " ", "[", "("]) and (col_name not in candidate_depth_col_names):
                             candidate_depth_col_names.append(col_name)
                             break
-                        # it's somewhere in the middle
+                        # the letter is somewhere in the middle
                         else:
                             # including "c" when checking preceeding characters to check for "cm"
                             if (col_name[letter_idx-1] in ["c", " ", "[", "("]) and (col_name[letter_idx+1] in [" ", "]", ")"]) and (col_name not in candidate_depth_col_names):

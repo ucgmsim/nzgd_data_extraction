@@ -109,7 +109,10 @@ for record_dir in tqdm(records_to_convert):
     ### xls files
     files_to_try = list(record_dir.glob("*.xls")) + list(record_dir.glob("*.XLS")) + \
                    list(record_dir.glob("*.xlsx")) + list(record_dir.glob("*.XLSX")) + \
-                   list(record_dir.glob("*.csv")) + list(record_dir.glob("*.CSV"))
+                   list(record_dir.glob("*.csv")) + list(record_dir.glob("*.CSV")) +\
+                   list(record_dir.glob("*.txt")) + list(record_dir.glob("*.Txt")) +\
+                   list(record_dir.glob("*.TXT")) + list(record_dir.glob("*.CPT")) +\
+                   list(record_dir.glob("*.cpt"))
 
     for file_to_try_index, file_to_try in enumerate(files_to_try):
         try:
@@ -149,9 +152,6 @@ for record_dir in tqdm(records_to_convert):
             else:
                 # there are other files to try so continue to the next file
                 continue
-
-    # ### csv files
-    # files_to_try = list(record_dir.glob("*.csv")) + list(record_dir.glob("*.CSV"))
 
     if (not ags_file_load_attempted) and (not xls_file_load_attempted):
         meta_failed_to_load.append(f"{record_dir.name}, N/A, Did_not_attempt_to_load_any_files")

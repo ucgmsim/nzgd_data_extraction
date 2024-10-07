@@ -299,7 +299,6 @@ def load_cpt_xls_file(file_path: Path) -> pd.DataFrame:
 
                 for letter_idx, letter in enumerate(col_name):
                     if letter.lower() == "m":
-                        print()
 
                         # if the letter is the first character
                         if (letter_idx == 0) and (col_name[letter_idx+1] in [" ", "]", ")"]) and (col_name not in candidate_depth_col_names):

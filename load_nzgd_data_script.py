@@ -44,7 +44,7 @@ for record_dir in natsort.natsorted(list(downloaded_files.glob("*"))):
 xls_format_description = pd.DataFrame()
 
 for record_dir in tqdm(records_to_convert):
-#for record_dir in [Path("/home/arr65/data/nzgd/downloaded_files/cpt/CPT_18878")]:
+#for record_dir in [Path("/home/arr65/data/nzgd/downloaded_files/cpt/CPT_57409")]:
 
     has_loaded_a_file_for_this_record = False
 

@@ -190,19 +190,35 @@ def load_cpt_xls_file(file_path: Path) -> pd.DataFrame:
 
         num_num_per_row = np.nansum(df_for_counting_num_per_row, axis=1)
 
-        if ((df.shape[1] < 4) or (all(num_num_per_row<4))) and sheet_idx < len(sheet_names) - 1:
+        # The last available sheet
+        if sheet_idx == len(sheet_names) - 1:
+            if df.shape == (0,0):
+                raise ValueError(f"No data found in file {file_path.name}")
+            if ((df.shape[1]) > 0 and (df.shape[1]) < 4):
+                final_missing_cols = find_missing_cols_for_best_sheet(missing_cols_per_sheet)
+
+                if len(final_missing_cols) > 0:
+                    raise ValueError(f"Missing columns, {' - '.join(final_missing_cols)}")
+
+                elif len(final_missing_cols) == 0:
+                    raise ValueError(f"File {file_path.name} is missing {4-df.shape[1]} required columns")
+
+        if (df.shape[1] < 4)  and sheet_idx < len(sheet_names) - 1:
             # There are not enough columns to contain the required data so continue to the next sheet
             continue
-        if ((df.shape[1] < 4) or (all(num_num_per_row<4))) and sheet_idx == len(sheet_names) - 1:
+        if (df.shape[1] < 4) and sheet_idx == len(sheet_names) - 1:
             # There are not enough columns to contain the required data so return the missing columns
             final_missing_cols = find_missing_cols_for_best_sheet(missing_cols_per_sheet)
             raise ValueError(f"Missing columns, {' - '.join(final_missing_cols)}")
 
         #first_data_row = np.where(num_num_per_row >= 4)[0][0]
+        last_data_row = np.where(num_num_per_row >= 4)[0][-1]
 
-        # some files have a lot of numbers in the rows to skip so now find the first row with at least the same number of numbers as the second to last row.
-        # need to use the second to last row as some have string in the last row
-        first_data_row = np.where(num_num_per_row >= num_num_per_row[-2])[0][0]
+        num_num_in_last_data_row = num_num_per_row[last_data_row]
+
+        # some files have a lot of numbers in the rows to skip so now find the first row with at least the same number
+        # of numbers as the last data row. This assumes that all extra information is before the data.
+        first_data_row = np.where(num_num_per_row >= num_num_in_last_data_row)[0][0]
 
         col_name_rows = []
         #check_row = first_data_row - 1
@@ -229,6 +245,9 @@ def load_cpt_xls_file(file_path: Path) -> pd.DataFrame:
 
         # the header search algorithm finds in reverse order so sort to be in ascending order
         col_name_rows = np.sort(col_name_rows)
+
+        if len(col_name_rows) == 0:
+            raise ValueError(f"No header row found in file {file_path.name} sheet {sheet}")
 
         # if there are multiple header rows, combine them into one
         if len(col_name_rows) > 1:

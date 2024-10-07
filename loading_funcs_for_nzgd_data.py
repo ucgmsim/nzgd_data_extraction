@@ -11,6 +11,30 @@ import numpy as np
 import scipy
 import copy
  #scipy.stats import mode
+import xlrd
+
+def find_missing_cols_for_best_sheet(missing_cols_per_sheet: list[list]) -> list:
+    """
+    Find the sheet with the fewest missing columns.
+
+    Parameters
+    ----------
+    missing_cols_per_sheet : list[list]
+        A list of lists, where each inner list contains the missing columns for a sheet.
+
+    Returns
+    -------
+    list
+        The list of missing columns for the sheet with the fewest missing columns.
+    """
+
+    final_num_missing_cols = 5
+    final_missing_cols = []
+    for missing_cols in missing_cols_per_sheet:
+        if len(missing_cols) < final_num_missing_cols:
+            final_num_missing_cols = len(missing_cols)
+            final_missing_cols = missing_cols
+    return final_missing_cols
 
 def find_col_name_from_substring(df:pd.DataFrame,
                                  substrings:list[str],
@@ -132,12 +156,19 @@ def load_cpt_xls_file(file_path: Path) -> pd.DataFrame:
         engine = "xlrd"
     elif file_path.suffix.lower() == ".xlsx":
         engine = "openpyxl"
-    else:
-        engine = "calamine"
 
-    # Load all sheet names in the file
-    sheet_names = pd.ExcelFile(file_path, engine=engine).sheet_names
+    # Some .xls files are actually xlsx files and need to be opened with openpyxl
+    try:
+        sheet_names = pd.ExcelFile(file_path, engine=engine).sheet_names
+    except(xlrd.biffh.XLRDError):
+        if engine == "xlrd":
+            other_engine = "openpyxl"
+        if engine == "openpyxl":
+            other_engine = "xlrd"
 
+        engine = other_engine
+
+        sheet_names = pd.ExcelFile(file_path, engine=engine).sheet_names
     missing_cols_per_sheet = []
 
     # Iterate through each sheet
@@ -145,20 +176,59 @@ def load_cpt_xls_file(file_path: Path) -> pd.DataFrame:
 
         # Load the entire sheet without specifying headers
         df = pd.read_excel(file_path, sheet_name=sheet, header=None, engine=engine)
-        if df.shape[1] < 4:
-            # There are not enough columns to contain the required data so continue to the next sheet
-            continue
 
         df.attrs["original_file_name"] = file_path.name
         df.attrs["source_sheet_in_original_file"] = sheet
 
-        df_float_cell_to_1 = df.map(lambda x: np.nan if isinstance(x, (str)) else 1)
-        num_data_cols = scipy.stats.mode(np.sum(df_float_cell_to_1, axis=1)).mode
+        df_for_counting_str_per_row = df.map(lambda x: 1.0 if isinstance(x, (str)) else 0)
+        num_str_per_row = np.nansum(df_for_counting_str_per_row, axis=1)
 
-        df_str_cell_to_1 = df.map(lambda x: np.nan if isinstance(x, (int, float)) else 1)
+        #col_name_rows = np.where(num_str_per_row >= np.median(num_str_per_row) + 5*np.std(num_str_per_row))[0]
 
-        num_text_cells_per_row = np.nansum(df_str_cell_to_1, axis=1)
-        col_name_rows = np.where(num_text_cells_per_row >= num_data_cols)[0]
+        df_nan_to_str = df.fillna("nan")
+        df_for_counting_num_per_row = df_nan_to_str.map(lambda x:1.0 if isinstance(x, (int, float)) else 0)
+
+        num_num_per_row = np.nansum(df_for_counting_num_per_row, axis=1)
+
+        if ((df.shape[1] < 4) or (all(num_num_per_row<4))) and sheet_idx < len(sheet_names) - 1:
+            # There are not enough columns to contain the required data so continue to the next sheet
+            continue
+        if ((df.shape[1] < 4) or (all(num_num_per_row<4))) and sheet_idx == len(sheet_names) - 1:
+            # There are not enough columns to contain the required data so return the missing columns
+            final_missing_cols = find_missing_cols_for_best_sheet(missing_cols_per_sheet)
+            raise ValueError(f"Missing columns, {' - '.join(final_missing_cols)}")
+
+        #first_data_row = np.where(num_num_per_row >= 4)[0][0]
+
+        # some files have a lot of numbers in the rows to skip so now find the first row with at least the same number of numbers as the second to last row.
+        # need to use the second to last row as some have string in the last row
+        first_data_row = np.where(num_num_per_row >= num_num_per_row[-2])[0][0]
+
+        col_name_rows = []
+        #check_row = first_data_row - 1
+        #prev_num_str_per_row = num_str_per_row[first_data_row]
+        found_a_header_row = False
+
+        max_num_rows_to_check_for_header = 4
+        num_rows_checked_for_header = 0
+
+        while num_rows_checked_for_header <= max_num_rows_to_check_for_header:
+            check_row = first_data_row - num_rows_checked_for_header - 1
+            # print(
+            #     f"check row {check_row}, num_str_per_row {num_str_per_row[check_row]}, num_rows_checked_for_header {num_rows_checked_for_header}")
+            if check_row < 0:
+                break
+            if num_str_per_row[check_row] >= 4:
+                col_name_rows.append(check_row)
+                found_a_header_row = True
+
+            if found_a_header_row and (num_str_per_row[check_row] == 0):
+                break
+
+            num_rows_checked_for_header += 1
+
+        # the header search algorithm finds in reverse order so sort to be in ascending order
+        col_name_rows = np.sort(col_name_rows)
 
         # if there are multiple header rows, combine them into one
         if len(col_name_rows) > 1:
@@ -167,8 +237,6 @@ def load_cpt_xls_file(file_path: Path) -> pd.DataFrame:
             df2 = df.copy()
             for row_idx in col_name_rows[0:col_name_row]:
                 for col_idx in range(df.shape[1]):
-
-                    # up to but not including the header_row which is taken as the lowest
                     df2.iloc[col_name_row, col_idx] = str(df.iloc[col_name_row,col_idx]) + " " + str(df.iloc[row_idx,col_idx])
 
             df = df2.copy()
@@ -176,13 +244,13 @@ def load_cpt_xls_file(file_path: Path) -> pd.DataFrame:
         # If there is only one header row, take it as the header row
         else:
             col_name_row = col_name_rows[0]
-
-
-
         # set dataframe's headers/column names. Note that .values is used so that the row's index is not included in the header
         df.columns = df.iloc[col_name_row].values
         # Skip the rows that originally contained the column names as they are now stored as the dataframe header
         df = df.iloc[col_name_row+1:]
+
+        # set the data types to float
+        df.attrs["header_row_index_in_original_file"] = float(col_name_row)
         # reset the index so that the first row is index 0
         df.reset_index(inplace=True, drop=True)
 
@@ -216,16 +284,12 @@ def load_cpt_xls_file(file_path: Path) -> pd.DataFrame:
             remaining_cols_to_search = list(df.columns)
             remaining_cols_to_search.remove(col1)
 
-
-
-
         # If no columns with "m" or "cm" are found, look for columns with "depth" or "length" or "h "
         else:
             col1, df, remaining_cols_to_search = find_col_name_from_substring(df,
                                                                               ["depth", "length", "h "],
                                                                               list(df.columns),
                                                                               "depth")
-
 
         # Identify the cone resistance, q_c, column
         col2, df, remaining_cols_to_search = find_col_name_from_substring(df,
@@ -246,18 +310,23 @@ def load_cpt_xls_file(file_path: Path) -> pd.DataFrame:
                                                                                     "water"],
                                                                           remaining_cols_to_search,
                                                                           "porewater_pressure")
-        ################################################
 
+        ################################################
         if (col1 is not None) and (col2 is not None) and (col3 is not None) and (col4 is not None):
 
             # Return the DataFrame with only the relevant columns
-            df = df[[col1, col2, col3, col4]].rename(
-                columns={col1: "depth_m", col2: "qc_mpa", col3: "fs_mpa", col4: "u_mpa"})
+            # df = df[[col1, col2, col3, col4]].rename(
+            #     columns={col1: "depth_m", col2: "qc_mpa", col3: "fs_mpa", col4: "u_mpa"})
+            df = (df[[col1, col2, col3, col4]].rename(
+                columns={col1: "depth_m", col2: "qc_mpa", col3: "fs_mpa", col4: "u_mpa"})).apply(pd.to_numeric, errors='coerce').astype({
+                "depth_m": float,
+                "qc_mpa": float,
+                "fs_mpa": float,
+                "u_mpa": float})
 
             return df
 
         else:
-
             missing_cols = []
             if col1 is None:
                 missing_cols.append("depth")
@@ -269,18 +338,117 @@ def load_cpt_xls_file(file_path: Path) -> pd.DataFrame:
                 missing_cols.append("porewater_pressure")
 
             missing_cols_per_sheet.append(missing_cols)
-
             if sheet_idx < len(sheet_names) - 1:
                 # There are more sheets to check so continue onto the next sheet
                 continue
 
             else:
                 # There are no more sheets to check so return the missing columns
-                final_num_missing_cols = 5
-                final_missing_cols = []
-                for missing_cols in missing_cols_per_sheet:
-                    if len(missing_cols) < final_num_missing_cols:
-                        final_num_missing_cols = len(missing_cols)
-                        final_missing_cols = missing_cols
+                final_missing_cols = find_missing_cols_for_best_sheet(missing_cols_per_sheet)
 
-                raise ValueError(f"Missing columns: {' ;'.join(final_missing_cols)}")
+                raise ValueError(f"Missing columns, {' - '.join(final_missing_cols)}")
+
+def load_cpt_csv(file_path: Path) -> pd.DataFrame:
+    """
+    Load the results of a Cone Penetration Test (CPT) from a CSV file.
+
+    Parameters
+    ----------
+    file_path : Path
+        The path to the CSV file.
+
+    Returns
+    -------
+    pandas.DataFrame
+        A DataFrame containing the relevant CPT data columns:
+            depth, cone resistance, sleeve friction, and porewater pressure.
+
+    Raises
+    ------
+    ValueError
+        If the required columns are not found in the CSV file.
+    """
+    df = pd.read_csv(file_path)
+    df.attrs["original_file_name"] = file_path.name
+
+    # Find the depth column
+    # First search for a column name containing "m" or "cm"
+    candidate_depth_col_names = []
+    for col_name in df.columns:
+        if isinstance(col_name, str):
+            for letter_idx, letter in enumerate(col_name):
+                if letter.lower() == "m":
+
+                    if (letter_idx == 0) and (col_name[letter_idx+1] in [" ", "]", ")"]) and (col_name not in candidate_depth_col_names):
+                        candidate_depth_col_names.append(col_name)
+                        break
+                    # including "c" when checking preceeding characters to check for "cm"
+                    elif (letter_idx == len(col_name)-1) and (col_name[letter_idx-1] in ["c", " ", "[", "("]) and (col_name not in candidate_depth_col_names):
+                        candidate_depth_col_names.append(col_name)
+                        break
+                    # it's somewhere in the middle
+                    else:
+                        # including "c" when checking preceeding characters to check for "cm"
+                        if (col_name[letter_idx-1] in ["c", " ", "[", "("]) and (col_name[letter_idx+1] in [" ", "]", ")"]) and (col_name not in candidate_depth_col_names):
+                            candidate_depth_col_names.append(col_name)
+                            break
+
+    # The search for "m" identified the depth column
+    if len(candidate_depth_col_names) >= 1:
+        col1 = candidate_depth_col_names[0]
+        df.attrs["candidate_depth_column_names_in_original_file"] = candidate_depth_col_names
+        df.attrs["adopted_depth_column_name_in_original_file"] = col1
+        remaining_cols_to_search = list(df.columns)
+        remaining_cols_to_search.remove(col1)
+
+    # If no columns with "m" or "cm" are found, look for columns with "depth" or "length" or "h "
+    else:
+        col1, df, remaining_cols_to_search = find_col_name_from_substring(df,
+                                                                          ["depth", "length", "h "],
+                                                                          list(df.columns),
+                                                                          "depth")
+
+    # Identify the cone resistance, q_c, column
+    col2, df, remaining_cols_to_search = find_col_name_from_substring(df,
+                                                                      [" q ", "qc","q_c", "cone",
+                                                                                 "resistance", "res", "tip"],
+                                                                      remaining_cols_to_search,
+                                                                      "cone_resistance")
+
+    # Identify the sleeve friction, f_s, column
+    col3, df, remaining_cols_to_search = find_col_name_from_substring(df,
+                                                                      ["fs", "sleeve", "friction",
+                                                                                 "local"],
+                                                                      remaining_cols_to_search,
+                                                                      "sleeve_friction")
+    # Identify the porewater pressure, u2, column
+    col4, df, remaining_cols_to_search = find_col_name_from_substring(df,
+                                                                      ["dynamic", "u2", "pore","u",
+                                                                                "water"],
+                                                                      remaining_cols_to_search,
+                                                                      "porewater_pressure")
+
+    if (col1 is not None) and (col2 is not None) and (col3 is not None) and (col4 is not None):
+
+            # Return the DataFrame with only the relevant columns
+            df = df[[col1, col2, col3, col4]].rename(
+                columns={col1: "depth_m", col2: "qc_mpa", col3: "fs_mpa", col4: "u_mpa"})
+
+            return df
+
+    else:
+        missing_cols = []
+        if col1 is None:
+            missing_cols.append("depth")
+        if col2 is None:
+            missing_cols.append("cone_resistance")
+        if col3 is None:
+            missing_cols.append("sleeve_friction")
+        if col4 is None:
+            missing_cols.append("porewater_pressure")
+
+        raise ValueError(f"Missing columns, {' - '.join(missing_cols)}")
+
+
+
+

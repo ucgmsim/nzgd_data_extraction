@@ -8,6 +8,7 @@ import loading_funcs_for_nzgd_data
 import xlrd
 from tqdm import tqdm
 import natsort
+import pandas as pd
 
 output_dir = Path("/home/arr65/data/nzgd/standard_format_batch1/cpt")
 
@@ -40,8 +41,10 @@ for record_dir in natsort.natsorted(list(downloaded_files.glob("*"))):
     if record_dir.name not in previously_converted_records:
         records_to_convert.append(record_dir)
 
+xls_format_description = pd.DataFrame()
+
 for record_dir in tqdm(records_to_convert):
-#for record_dir in [Path("/home/arr65/data/nzgd/downloaded_files/cpt/CPT_12402")]:
+#for record_dir in [Path("/home/arr65/data/nzgd/downloaded_files/cpt/CPT_18878")]:
 
     has_loaded_a_file_for_this_record = False
 
@@ -60,7 +63,8 @@ for record_dir in tqdm(records_to_convert):
         np.savetxt(metadata_output_dir / "ags_failed_to_load.txt", np.array(meta_ags_failed_to_load), fmt="%s",
                    header="record_name, file_name, error_message")
         np.savetxt(metadata_output_dir / "xls_failed_to_load.txt", np.array(meta_xls_failed_to_load), fmt="%s",
-                   header="record_name, file_name, error_message")
+                   header="record_name, file_name, category, details")
+        xls_format_description.to_csv(metadata_output_dir / "xls_format_description.csv", index=False)
 
     ### Skip this record if the only available files are pdf
     if len(list(record_dir.glob("*.pdf"))) == len(list(record_dir.glob("*"))):
@@ -96,7 +100,7 @@ for record_dir in tqdm(records_to_convert):
                    list(record_dir.glob("*.xlsx")) + list(record_dir.glob("*.XLSX"))
 
     if len(files_to_try) > 0:
-        for file_to_try in files_to_try:
+        for file_to_try_index, file_to_try in enumerate(files_to_try):
             try:
                 xls_file_load_attempted = True
                 record_df = loading_funcs_for_nzgd_data.load_cpt_xls_file(file_to_try)
@@ -106,12 +110,30 @@ for record_dir in tqdm(records_to_convert):
                 record_df.to_parquet(parquet_output_dir / f"{record_dir.name}.parquet")
                 meta_successfully_loaded.append(file_to_try.name)
                 has_loaded_a_file_for_this_record = True
+                xls_format_description_per_record = pd.DataFrame([{"record_id":record_dir.name,
+                                                                   "header_row_index":record_df.attrs["header_row_index_in_original_file"],
+                                                                   "depth_col_name_in_original_file": record_df.attrs[
+                                                                   "adopted_depth_column_name_in_original_file"],
+                                                                   "adopted_cone_resistance_column_name_in_original_file": record_df.attrs["adopted_cone_resistance_column_name_in_original_file"],
+                                                                   "adopted_sleeve_friction_column_name_in_original_file":record_df.attrs["adopted_sleeve_friction_column_name_in_original_file"],
+                                                                   "adopted_porewater_pressure_column_name_in_original_file":
+                                                                       record_df.attrs[
+                                                                           "adopted_porewater_pressure_column_name_in_original_file"],
+                                                                  "file_name":file_to_try.name}])
+                xls_format_description = pd.concat([xls_format_description,xls_format_description_per_record],ignore_index=True)
                 continue
 
             except(ValueError, xlrd.compdoc.CompDocError, Exception) as e:
-                meta_xls_failed_to_load.append(f"{record_dir.name}, {file_to_try.name}, {e}")
-                pass
-                xls_load_failed = True
+                if file_to_try_index == len(files_to_try) - 1:
+                    meta_xls_failed_to_load.append(f"{record_dir.name}, {file_to_try.name}, {e}")
+                    xls_load_failed = True
+                    pass
+                else:
+                    continue
+
+    # ### csv files
+    # files_to_try = list(record_dir.glob("*.csv")) + list(record_dir.glob("*.CSV"))
+
 
     if (not ags_file_load_attempted) and (not xls_file_load_attempted):
         meta_failed_to_load.append(f"{record_dir.name}, N/A, Did_not_attempt_to_load_any_files")
@@ -131,4 +153,5 @@ for record_dir in tqdm(records_to_convert):
 np.savetxt(metadata_output_dir / "successfully_loaded.txt", np.array(meta_successfully_loaded), fmt="%s",header="successfully_loaded_files")
 np.savetxt(metadata_output_dir / "failed_to_load.txt", np.array(meta_failed_to_load), fmt="%s",header="record_name, file_name, error_message")
 np.savetxt(metadata_output_dir / "ags_failed_to_load.txt", np.array(meta_ags_failed_to_load), fmt="%s",header="record_name, file_name, error_message")
-np.savetxt(metadata_output_dir / "xls_failed_to_load.txt", np.array(meta_xls_failed_to_load), fmt="%s",header="record_name, file_name, error_message")
+np.savetxt(metadata_output_dir / "xls_failed_to_load.txt", np.array(meta_xls_failed_to_load), fmt="%s",header="record_name, file_name, category, details")
+xls_format_description.to_csv(metadata_output_dir / "xls_format_description.csv", index=False)

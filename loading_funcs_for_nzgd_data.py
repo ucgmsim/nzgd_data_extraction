@@ -12,6 +12,13 @@ import scipy
 import copy
  #scipy.stats import mode
 import xlrd
+import pandas
+
+def convert_str_to_float(val):
+    try:
+        return float(val)
+    except ValueError:
+        return val
 
 def find_missing_cols_for_best_sheet(missing_cols_per_sheet: list[list]) -> list:
     """
@@ -153,7 +160,7 @@ def load_cpt_xls_file(file_path: Path) -> pd.DataFrame:
         If the required columns are not found in any sheet of the Excel file.
     """
 
-    if file_path.suffix.lower() == ".csv":
+    if file_path.suffix.lower() in [".csv", ".txt"]:
         # A dummy variable to allow the function to be called with a csv file which do not consist of multiple sheets
         sheet_names = [0]
 
@@ -184,9 +191,63 @@ def load_cpt_xls_file(file_path: Path) -> pd.DataFrame:
 
         # Load the entire sheet without specifying headers
         if file_path.suffix.lower() == ".csv":
-            df = pd.read_csv(file_path)
+
+            encodings = ['utf-8', 'latin1', 'iso-8859-1', 'cp1252']
+
+            for encoding in encodings:
+                print("trying encoding: ", encoding)
+                try:
+                    # open the text file
+
+                    with open(file_path, 'r', encoding=encoding) as file:
+                        lines = file.readlines()
+
+                    num_cols_per_line = [len(line.split(",")) for line in lines]
+
+
+
+                    num_rows_to_skip = len(np.where(num_cols_per_line < np.max(num_cols_per_line))[0])
+
+                    df = pd.read_csv(file_path, header=None, encoding=encoding, skiprows=num_rows_to_skip).map(convert_str_to_float)
+                    print(f"Successfully read the file with encoding: {encoding}")
+                    break
+                except UnicodeDecodeError:
+                    print(f"Failed to read the file with encoding: {encoding}")
+
+            #df = pd.read_csv(file_path, header=None, encoding_errors="replace").map(convert_str_to_float)
+
+        if file_path.suffix.lower() == ".txt":
+            encodings = ['utf-8', 'latin1', 'iso-8859-1', 'cp1252']
+            for encoding in encodings:
+                print("trying encoding: ", encoding)
+                try:
+                    with open(file_path, 'r', encoding=encoding) as file:
+                        lines = file.readlines()
+                        break
+                except:
+                    continue
+
+            df_last_row = pd.read_csv(file_path, header=None, encoding=encoding, delim_whitespace=True,
+                                      skiprows=len(lines) - 1)
+
+
+            for num_skipped_rows in range(len(lines)-1):
+                print(f"num_skipped_lines: {num_skipped_rows}")
+                try:
+                    test_df = pd.read_csv(file_path, header=None, encoding=encoding, delim_whitespace=True,
+                                          skiprows=num_skipped_rows,usecols=np.arange(0,df_last_row.shape[1]))
+
+                    if test_df.shape[1] == df_last_row.shape[1]:
+                        break
+
+                except(pandas.errors.ParserError, ValueError):
+                    continue
+
+
+
         else:
             df = pd.read_excel(file_path, sheet_name=sheet, header=None, engine=engine)
+
 
         df.attrs["original_file_name"] = file_path.name
         df.attrs["source_sheet_in_original_file"] = sheet
@@ -283,7 +344,10 @@ def load_cpt_xls_file(file_path: Path) -> pd.DataFrame:
         df = df.iloc[col_name_row+1:]
 
         # set the data types to float
-        df.attrs["header_row_index_in_original_file"] = float(col_name_row)
+        if file_path.suffix.lower() == ".csv":
+            df.attrs["header_row_index_in_original_file"] = float(num_rows_to_skip) # this is the index of the header row which is the same as the preceeding number of rows to skip
+        else:
+            df.attrs["header_row_index_in_original_file"] = float(col_name_row)
         # reset the index so that the first row is index 0
         df.reset_index(inplace=True, drop=True)
 

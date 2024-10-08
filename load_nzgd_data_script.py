@@ -44,7 +44,11 @@ for record_dir in natsort.natsorted(list(downloaded_files.glob("*"))):
 xls_format_description = pd.DataFrame()
 
 for record_dir in tqdm(records_to_convert):
-#for record_dir in [Path("/home/arr65/data/nzgd/downloaded_files/cpt/CPT_25033")]:
+#for record_dir in [Path("/home/arr65/data/nzgd/downloaded_files/cpt/CPT_94836")]:
+
+    if record_dir.name not in nzgd_index_df["ID"].values:
+        # it has been removed from the NZGD so just skip it and don't try to load any files
+        continue
 
     location_df = nzgd_index_df[nzgd_index_df["ID"]==record_dir.name]
     latitude = location_df["Latitude"].values[0]
@@ -111,8 +115,7 @@ for record_dir in tqdm(records_to_convert):
                    list(record_dir.glob("*.xlsx")) + list(record_dir.glob("*.XLSX")) + \
                    list(record_dir.glob("*.csv")) + list(record_dir.glob("*.CSV")) +\
                    list(record_dir.glob("*.txt")) + list(record_dir.glob("*.Txt")) +\
-                   list(record_dir.glob("*.TXT")) + list(record_dir.glob("*.CPT")) +\
-                   list(record_dir.glob("*.cpt"))
+                   list(record_dir.glob("*.TXT"))
 
     for file_to_try_index, file_to_try in enumerate(files_to_try):
         try:

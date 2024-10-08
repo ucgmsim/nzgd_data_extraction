@@ -44,7 +44,7 @@ for record_dir in natsort.natsorted(list(downloaded_files.glob("*"))):
 xls_format_description = pd.DataFrame()
 
 for record_dir in tqdm(records_to_convert):
-#for record_dir in [Path("/home/arr65/data/nzgd/downloaded_files/cpt/CPT_94836")]:
+#for record_dir in [Path("/home/arr65/data/nzgd/downloaded_files/cpt/CPT_56151")]:
 
     if record_dir.name not in nzgd_index_df["ID"].values:
         # it has been removed from the NZGD so just skip it and don't try to load any files
@@ -115,42 +115,42 @@ for record_dir in tqdm(records_to_convert):
                    list(record_dir.glob("*.TXT"))
 
     for file_to_try_index, file_to_try in enumerate(files_to_try):
-        try:
-            xls_file_load_attempted = True
-            record_df = loading_funcs_for_nzgd_data.load_cpt_xls_file(file_to_try)
+        # try:
+        xls_file_load_attempted = True
+        record_df = loading_funcs_for_nzgd_data.load_cpt_xls_file(file_to_try)
 
-            # record original name and location as attributes and columns
-            record_df.attrs["original_file_name"] = file_to_try.name
-            record_df.attrs["nzgd_meta_data"] = nzgd_meta_data_record
-            record_df.insert(0, "record_name", record_dir.name)
-            record_df.insert(1, "latitude", nzgd_meta_data_record["Latitude"])
-            record_df.insert(2, "longitude", nzgd_meta_data_record["Longitude"])
+        # record original name and location as attributes and columns
+        record_df.attrs["original_file_name"] = file_to_try.name
+        record_df.attrs["nzgd_meta_data"] = nzgd_meta_data_record
+        record_df.insert(0, "record_name", record_dir.name)
+        record_df.insert(1, "latitude", nzgd_meta_data_record["Latitude"])
+        record_df.insert(2, "longitude", nzgd_meta_data_record["Longitude"])
 
-            record_df.reset_index(inplace=True, drop=True)
-            record_df.to_parquet(parquet_output_dir / f"{record_dir.name}.parquet")
-            meta_successfully_loaded.append(file_to_try.name)
-            has_loaded_a_file_for_this_record = True
-            xls_format_description_per_record = pd.DataFrame([{"record_id":record_dir.name,
-                                                               "header_row_index":record_df.attrs["header_row_index_in_original_file"],
-                                                               "depth_col_name_in_original_file": record_df.attrs[
-                                                               "adopted_depth_column_name_in_original_file"],
-                                                               "adopted_cone_resistance_column_name_in_original_file": record_df.attrs["adopted_cone_resistance_column_name_in_original_file"],
-                                                               "adopted_sleeve_friction_column_name_in_original_file":record_df.attrs["adopted_sleeve_friction_column_name_in_original_file"],
-                                                               "adopted_porewater_pressure_column_name_in_original_file":
-                                                                   record_df.attrs[
-                                                                       "adopted_porewater_pressure_column_name_in_original_file"],
-                                                              "file_name":file_to_try.name}])
-            xls_format_description = pd.concat([xls_format_description,xls_format_description_per_record],ignore_index=True)
-            break
+        record_df.reset_index(inplace=True, drop=True)
+        record_df.to_parquet(parquet_output_dir / f"{record_dir.name}.parquet")
+        meta_successfully_loaded.append(file_to_try.name)
+        has_loaded_a_file_for_this_record = True
+        xls_format_description_per_record = pd.DataFrame([{"record_id":record_dir.name,
+                                                           "header_row_index":record_df.attrs["header_row_index_in_original_file"],
+                                                           "depth_col_name_in_original_file": record_df.attrs[
+                                                           "adopted_depth_column_name_in_original_file"],
+                                                           "adopted_cone_resistance_column_name_in_original_file": record_df.attrs["adopted_cone_resistance_column_name_in_original_file"],
+                                                           "adopted_sleeve_friction_column_name_in_original_file":record_df.attrs["adopted_sleeve_friction_column_name_in_original_file"],
+                                                           "adopted_porewater_pressure_column_name_in_original_file":
+                                                               record_df.attrs[
+                                                                   "adopted_porewater_pressure_column_name_in_original_file"],
+                                                          "file_name":file_to_try.name}])
+        xls_format_description = pd.concat([xls_format_description,xls_format_description_per_record],ignore_index=True)
+        break
 
-        except(ValueError, xlrd.compdoc.CompDocError, Exception) as e:
-            if file_to_try_index == len(files_to_try) - 1:
-                # it's the last file to try
-                meta_xls_failed_to_load.append(f"{record_dir.name}, {file_to_try.name}, {e}")
-                xls_load_failed = True
-            else:
-                # there are other files to try so continue to the next file
-                continue
+        # except(ValueError, xlrd.compdoc.CompDocError, Exception) as e:
+        #     if file_to_try_index == len(files_to_try) - 1:
+        #         # it's the last file to try
+        #         meta_xls_failed_to_load.append(f"{record_dir.name}, {file_to_try.name}, {e}")
+        #         xls_load_failed = True
+        #     else:
+        #         # there are other files to try so continue to the next file
+        #         continue
 
     if (not ags_file_load_attempted) and (not xls_file_load_attempted):
         meta_failed_to_load.append(f"{record_dir.name}, N/A, Did_not_attempt_to_load_any_files")

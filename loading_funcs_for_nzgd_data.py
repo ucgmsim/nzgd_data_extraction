@@ -13,14 +13,63 @@ import copy
  #scipy.stats import mode
 import xlrd
 import pandas
+import re
 
-def convert_str_to_float(val):
+
+
+def convert_num_as_str_to_float(val):
     try:
         return float(val)
     except ValueError:
         return val
 
+def can_convert_str_to_float(value: str) -> bool:
+
+    """
+    Check if a string can be converted to a float.
+
+    Parameters
+    ----------
+    value : str
+        The string to check.
+
+    Returns
+    -------
+    bool
+        True if the string can be converted to a float, False otherwise.
+    """
+
+    try:
+        float(value)
+        return True
+    except ValueError:
+        return False
+
+def str_cannot_become_float(value: str) -> bool:
+
+    """
+    Check if a string cannot be converted to a float.
+
+    Parameters
+    ----------
+    value : str
+        The string to check.
+
+    Returns
+    -------
+    bool
+        True if the string cannot be converted to a float, False otherwise.
+    """
+
+    try:
+        float(value)
+        return False
+    except ValueError:
+        return True
+
+
 def find_missing_cols_for_best_sheet(missing_cols_per_sheet: list[list]) -> list:
+
     """
     Find the sheet with the fewest missing columns.
 
@@ -160,6 +209,8 @@ def load_cpt_xls_file(file_path: Path) -> pd.DataFrame:
         If the required columns are not found in any sheet of the Excel file.
     """
 
+    min_num_numerical_rows_with_at_least_4_cols = 5
+
     if file_path.suffix.lower() in [".csv", ".txt"]:
         # A dummy variable to allow the function to be called with a csv file which do not consist of multiple sheets
         sheet_names = [0]
@@ -195,31 +246,23 @@ def load_cpt_xls_file(file_path: Path) -> pd.DataFrame:
             encodings = ['utf-8', 'latin1', 'iso-8859-1', 'cp1252']
 
             for encoding in encodings:
-                print("trying encoding: ", encoding)
                 try:
                     # open the text file
-
                     with open(file_path, 'r', encoding=encoding) as file:
                         lines = file.readlines()
 
                     num_cols_per_line = [len(line.split(",")) for line in lines]
-
-
-
                     num_rows_to_skip = len(np.where(num_cols_per_line < np.max(num_cols_per_line))[0])
 
-                    df = pd.read_csv(file_path, header=None, encoding=encoding, skiprows=num_rows_to_skip).map(convert_str_to_float)
+                    df = pd.read_csv(file_path, header=None, encoding=encoding, skiprows=num_rows_to_skip).map(convert_num_as_str_to_float)
                     print(f"Successfully read the file with encoding: {encoding}")
                     break
                 except UnicodeDecodeError:
                     print(f"Failed to read the file with encoding: {encoding}")
 
-            #df = pd.read_csv(file_path, header=None, encoding_errors="replace").map(convert_str_to_float)
-
-        if file_path.suffix.lower() == ".txt":
+        elif file_path.suffix.lower() == ".txt":
             encodings = ['utf-8', 'latin1', 'iso-8859-1', 'cp1252']
             for encoding in encodings:
-                print("trying encoding: ", encoding)
                 try:
                     with open(file_path, 'r', encoding=encoding) as file:
                         lines = file.readlines()
@@ -227,28 +270,52 @@ def load_cpt_xls_file(file_path: Path) -> pd.DataFrame:
                 except:
                     continue
 
-            df_last_row = pd.read_csv(file_path, header=None, encoding=encoding, delim_whitespace=True,
-                                      skiprows=len(lines) - 1)
+            split_lines = []
+
+            for line in lines:
+                split_lines.append(re.split(r"\s+", line))
+
+            for line in split_lines:
+                for string in line:
+                    if string == "":
+                        line.remove(string)
 
 
-            for num_skipped_rows in range(len(lines)-1):
-                print(f"num_skipped_lines: {num_skipped_rows}")
-                try:
-                    test_df = pd.read_csv(file_path, header=None, encoding=encoding, delim_whitespace=True,
-                                          skiprows=num_skipped_rows,usecols=np.arange(0,df_last_row.shape[1]))
+            split_lines_string_check = copy.deepcopy(split_lines)
+            split_lines_float_check = copy.deepcopy(split_lines)
 
-                    if test_df.shape[1] == df_last_row.shape[1]:
-                        break
+            for line in split_lines_string_check:
+                for idx, string in enumerate(line):
+                    line[idx] = str_cannot_become_float(string)
 
-                except(pandas.errors.ParserError, ValueError):
-                    continue
+            for line in split_lines_float_check:
+                for idx, string in enumerate(line):
+                    line[idx] = can_convert_str_to_float(string)
 
+            num_str_cell_per_row = np.array([np.sum(line) for line in split_lines_string_check])
+            num_float_cell_per_row = np.array([np.sum(line) for line in split_lines_float_check])
 
+            col_name_row_idx = np.argmax(num_str_cell_per_row)
 
+            if len(num_float_cell_per_row[num_float_cell_per_row >= 4]) < min_num_numerical_rows_with_at_least_4_cols:
+                raise ValueError(
+                    f"There are fewer than {min_num_numerical_rows_with_at_least_4_cols} rows (probably none) that have the required number of numerical columns in {file_path.name}")
+
+            if num_str_cell_per_row[col_name_row_idx] == num_str_cell_per_row[col_name_row_idx + 1]:
+                col_name_row_idx += 1
+
+            num_cols_to_use = len(split_lines[col_name_row_idx])
+
+            df = pd.read_csv(file_path, header=None, encoding=encoding, sep=r"\s+",
+                        skiprows=col_name_row_idx, usecols=np.arange(0, num_cols_to_use)).map(convert_num_as_str_to_float)
+
+        ### This else statement is to load the xls and xlsx files
         else:
             df = pd.read_excel(file_path, sheet_name=sheet, header=None, engine=engine)
 
-
+        ####################################################################################################################
+        ####################################################################################################################
+        # Now xls, csv and txt should all be in a dataframe so continue the same for all
         df.attrs["original_file_name"] = file_path.name
         df.attrs["source_sheet_in_original_file"] = sheet
 
@@ -259,9 +326,6 @@ def load_cpt_xls_file(file_path: Path) -> pd.DataFrame:
         df_for_counting_num_per_row = df_nan_to_str.map(lambda x:1.0 if isinstance(x, (int, float)) else 0)
 
         num_num_per_row = np.nansum(df_for_counting_num_per_row, axis=1)
-
-        min_num_numerical_rows_with_at_least_4_cols = 5
-
         num_data_rows_with_at_least_4_cols = np.sum(num_num_per_row >= 4)
 
         if df.shape == (0,0):
@@ -303,23 +367,28 @@ def load_cpt_xls_file(file_path: Path) -> pd.DataFrame:
         max_num_rows_to_check_for_header = 4
         num_rows_checked_for_header = 0
 
-        while num_rows_checked_for_header <= max_num_rows_to_check_for_header:
-            check_row = first_data_row - num_rows_checked_for_header - 1
-            # print(
-            #     f"check row {check_row}, num_str_per_row {num_str_per_row[check_row]}, num_rows_checked_for_header {num_rows_checked_for_header}")
-            if check_row < 0:
-                break
-            if num_str_per_row[check_row] >= 4:
-                col_name_rows.append(check_row)
-                found_a_header_row = True
+        if file_path.suffix.lower() != ".txt":
 
-            if found_a_header_row and (num_str_per_row[check_row] == 0):
-                break
+            while num_rows_checked_for_header <= max_num_rows_to_check_for_header:
+                check_row = first_data_row - num_rows_checked_for_header - 1
+                print(
+                    f"check row {check_row}, num_str_per_row {num_str_per_row[check_row]}, num_rows_checked_for_header {num_rows_checked_for_header}")
+                if check_row < 0:
+                    break
+                if num_str_per_row[check_row] >= 4:
+                    col_name_rows.append(check_row)
+                    found_a_header_row = True
 
-            num_rows_checked_for_header += 1
+                if found_a_header_row and (num_str_per_row[check_row] == 0):
+                    break
 
-        # the header search algorithm finds in reverse order so sort to be in ascending order
-        col_name_rows = np.sort(col_name_rows)
+                num_rows_checked_for_header += 1
+
+            # the header search algorithm finds in reverse order so sort to be in ascending order
+            col_name_rows = np.sort(col_name_rows)
+
+        else:
+            col_name_rows = np.where(num_num_per_row == 0)[0]
 
         if len(col_name_rows) == 0:
             raise ValueError(f"No header row found in file {file_path.name} sheet {sheet}")
@@ -346,6 +415,8 @@ def load_cpt_xls_file(file_path: Path) -> pd.DataFrame:
         # set the data types to float
         if file_path.suffix.lower() == ".csv":
             df.attrs["header_row_index_in_original_file"] = float(num_rows_to_skip) # this is the index of the header row which is the same as the preceeding number of rows to skip
+        if file_path.suffix.lower() == ".txt":
+            df.attrs["header_row_index_in_original_file"] = float(col_name_row_idx) # this is the index of the header row which is the same as the preceeding number of rows to skip
         else:
             df.attrs["header_row_index_in_original_file"] = float(col_name_row)
         # reset the index so that the first row is index 0

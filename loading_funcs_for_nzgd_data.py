@@ -360,8 +360,6 @@ def load_cpt_xls_file(file_path: Path) -> pd.DataFrame:
         first_data_row = np.where(num_num_per_row >= num_num_in_last_data_row)[0][0]
 
         col_name_rows = []
-        #check_row = first_data_row - 1
-        #prev_num_str_per_row = num_str_per_row[first_data_row]
         found_a_header_row = False
 
         max_num_rows_to_check_for_header = 4

@@ -255,10 +255,10 @@ def load_cpt_xls_file(file_path: Path) -> pd.DataFrame:
                     num_rows_to_skip = len(np.where(num_cols_per_line < np.max(num_cols_per_line))[0])
 
                     df = pd.read_csv(file_path, header=None, encoding=encoding, skiprows=num_rows_to_skip).map(convert_num_as_str_to_float)
-                    print(f"Successfully read the file with encoding: {encoding}")
                     break
                 except UnicodeDecodeError:
-                    print(f"Failed to read the file with encoding: {encoding}")
+                    continue
+
 
         elif file_path.suffix.lower() == ".txt":
             encodings = ['utf-8', 'latin1', 'iso-8859-1', 'cp1252']
@@ -371,8 +371,6 @@ def load_cpt_xls_file(file_path: Path) -> pd.DataFrame:
 
             while num_rows_checked_for_header <= max_num_rows_to_check_for_header:
                 check_row = first_data_row - num_rows_checked_for_header - 1
-                print(
-                    f"check row {check_row}, num_str_per_row {num_str_per_row[check_row]}, num_rows_checked_for_header {num_rows_checked_for_header}")
                 if check_row < 0:
                     break
                 if num_str_per_row[check_row] >= 4:

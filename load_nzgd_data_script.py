@@ -11,7 +11,7 @@ import natsort
 import pandas as pd
 
 nzgd_index_df = pd.read_csv(Path("/home/arr65/data/nzgd/nzgd_index_files/csv_files/NZGD_Investigation_Report_25092024_1043.csv"))
-output_dir = Path("/home/arr65/data/nzgd/standard_format_batch1/cpt")
+output_dir = Path("/home/arr65/data/nzgd/standard_format_batch555/cpt")
 
 parquet_output_dir = output_dir / "data"
 metadata_output_dir = output_dir / "metadata"
@@ -50,9 +50,7 @@ for record_dir in tqdm(records_to_convert):
         # it has been removed from the NZGD so just skip it and don't try to load any files
         continue
 
-    location_df = nzgd_index_df[nzgd_index_df["ID"]==record_dir.name]
-    latitude = location_df["Latitude"].values[0]
-    longitude = location_df["Longitude"].values[0]
+    nzgd_meta_data_record = nzgd_index_df[nzgd_index_df["ID"]==record_dir.name].to_dict(orient="records")[0]
 
     has_loaded_a_file_for_this_record = False
 
@@ -88,11 +86,10 @@ for record_dir in tqdm(records_to_convert):
 
                 # record original name and location as attributes and columns
                 record_df.attrs["original_file_name"] = file_to_try.name
-                record_df.attrs["latitude"] = latitude
-                record_df.attrs["longitude"] = longitude
+                record_df.attrs["nzgd_meta_data"] = nzgd_meta_data_record
                 record_df.insert(0,"record_name",record_dir.name)
-                record_df.insert(1, "latitude", latitude)
-                record_df.insert(2, "longitude", longitude)
+                record_df.insert(1, "latitude", nzgd_meta_data_record["Latitude"])
+                record_df.insert(2, "longitude", nzgd_meta_data_record["Longitude"])
 
                 record_df.reset_index(inplace=True, drop=True)
                 record_df.to_parquet(parquet_output_dir / f"{record_dir.name}.parquet")
@@ -124,11 +121,10 @@ for record_dir in tqdm(records_to_convert):
 
             # record original name and location as attributes and columns
             record_df.attrs["original_file_name"] = file_to_try.name
-            record_df.attrs["latitude"] = latitude
-            record_df.attrs["longitude"] = longitude
+            record_df.attrs["nzgd_meta_data"] = nzgd_meta_data_record
             record_df.insert(0, "record_name", record_dir.name)
-            record_df.insert(1, "latitude", latitude)
-            record_df.insert(2, "longitude", longitude)
+            record_df.insert(1, "latitude", nzgd_meta_data_record["Latitude"])
+            record_df.insert(2, "longitude", nzgd_meta_data_record["Longitude"])
 
             record_df.reset_index(inplace=True, drop=True)
             record_df.to_parquet(parquet_output_dir / f"{record_dir.name}.parquet")

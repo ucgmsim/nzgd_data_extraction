@@ -109,6 +109,7 @@ for record_dir in tqdm(records_to_convert):
     if len(list(record_dir.glob("*.pdf"))) == len(list(record_dir.glob("*"))):
         loading_summary_df = partial_summary_df_helper(loading_summary_df, file_was_loaded=False,
                                                        loaded_file_type="N/A", loaded_file_name="N/A")
+        continue
 
     ### ags files
     files_to_try = list(record_dir.glob("*.ags")) + list(record_dir.glob("*.AGS"))

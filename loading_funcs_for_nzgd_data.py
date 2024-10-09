@@ -176,7 +176,15 @@ def load_ags(file_path: Union[Path, str]) -> pd.DataFrame:
         The CPT data from the AGS file.
     """
 
-    tables, headings = AGS4.AGS4_to_dataframe(file_path)
+    try:
+        tables, headings = AGS4.AGS4_to_dataframe(file_path)
+    except(UnboundLocalError):
+        # Found the meaning of this UnboundLocalError by uploading one of these files to the AGS file conversion tool on https://agsapi.bgs.ac.uk
+        raise ValueError("ags_duplicate_headers - AGS file contains duplicate headers")
+
+    if len(tables) == 0:
+        raise ValueError("no_ags_data_tables - no data tables found in the AGS file")
+
     loaded_data_df = pd.DataFrame({
         "depth_m": tables["SCPT"]["SCPT_DPTH"],
         "qc_mpa": tables["SCPT"]["SCPT_RES"],

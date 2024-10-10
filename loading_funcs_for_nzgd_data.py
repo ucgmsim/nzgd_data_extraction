@@ -467,20 +467,28 @@ def load_cpt_spreadsheet_file(file_path: Path) -> pd.DataFrame:
 
         max_num_rows_to_check_for_header = 4
         num_rows_checked_for_header = 0
-
         ### If the file is not a text file
         if file_path.suffix.lower() != ".txt":
 
             ## test to see if the first or second row is a header row
             ## (including second in case the header spans two rows)
-            if test_if_row_idx_n_is_column_names(df,1) or test_if_row_idx_n_is_column_names(df,0):
+            if ((np.argmax(num_str_per_row) == 0) and (test_if_row_idx_n_is_column_names(df,1) or test_if_row_idx_n_is_column_names(df,0))):
                 col_name_rows = [0]
+
+            ## then test to see if the row with the most text cells is the header row
+            elif test_if_row_idx_n_is_column_names(df, np.argmax(num_str_per_row)):
+                col_name_rows = [np.argmax(num_str_per_row)]
+
+            ## then search upwards to find the header row
 
             else:
                 while num_rows_checked_for_header <= max_num_rows_to_check_for_header:
                     check_row = first_data_row - num_rows_checked_for_header - 1
                     if check_row < 0:
                         break
+                    ## TODO: could potentially replace this with the test_if_row_idx_n_is_column_names function
+                    ## TODO: but might need to change so that it captures the case of two header rows
+                    ## TODO: with a different number of text cells in each row
                     if num_str_per_row[check_row] >= 4:
                         col_name_rows.append(check_row)
                         found_a_header_row = True

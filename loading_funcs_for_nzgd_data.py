@@ -478,12 +478,10 @@ def load_cpt_spreadsheet_file(file_path: Path) -> pd.DataFrame:
                     col_name_rows = [0, 1]
                 else:
                     col_name_rows = [0]
-                print()
 
             ## then test to see if the row with the most text cells is the header row
             elif test_if_row_idx_n_is_column_names(df, np.argmax(num_str_per_row)):
                 col_name_rows = [np.argmax(num_str_per_row)]
-                print()
 
             ## then search upwards to find the header row
 
@@ -622,6 +620,9 @@ def load_cpt_spreadsheet_file(file_path: Path) -> pd.DataFrame:
                 "qc_mpa": float,
                 "fs_mpa": float,
                 "u_mpa": float})
+
+            # ensure that the depth column is defined as positive (some have depth as negative)
+            df["depth_m"] = np.abs(df["depth_m"])
 
             return df
 

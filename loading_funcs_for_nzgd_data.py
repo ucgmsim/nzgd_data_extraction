@@ -126,6 +126,7 @@ def find_col_name_from_substring(df:pd.DataFrame,
                     if col_name not in candidate_col_names:
                         candidate_col_names.append(col_name)
 
+    ## Check that there are some candidate column names
     if len(candidate_col_names) >= 1:
 
         col = candidate_col_names[0]
@@ -133,7 +134,10 @@ def find_col_name_from_substring(df:pd.DataFrame,
         # check for "Clean" which is sometimes used for a cleaned version of the same data
         if len(candidate_col_names) > 1:
             for candidate_name in candidate_col_names:
-                if "clean" in candidate_name.lower():
+                if (("clean" in candidate_name.lower()) and
+                        ## some "clean" columns are full of nans (no data) so also check that the number of nans
+                        ## in the "clean" column is less than or equal to the number of nans in the current column
+                        (np.sum(np.isnan(df[candidate_name])) <= np.sum (np.isnan(df[col])))):
                     col = candidate_name
                     break
 
@@ -199,7 +203,7 @@ def load_ags(file_path: Union[Path, str]) -> pd.DataFrame:
 ##########################################################################################################
 ##########################################################################################################
 
-depth_col_substrings = ["depth", "length", "h ", "TOP", "w"]
+depth_col_substrings = ["depth", "length", "h ", "top", "w"]
 
 cone_resistance_col_substrings = [" q ", "qc", "q_c", "cone", "resistance", "res", "tip"]
 
@@ -247,8 +251,7 @@ def test_if_row_idx_n_is_column_names(df_no_col_names: pd.DataFrame, n, num_cols
     df.columns = df_no_col_names.iloc[n].values
 
     col1, df, remaining_cols_to_search = find_col_name_from_substring(df,
-                                                                      ["depth", "length", "h ", "TOP",
-                                                                       "w"],
+                                                                      ["depth", "length", "h ", "top"],
                                                                       list(df.columns),
                                                                       "depth")
 
@@ -369,7 +372,6 @@ def load_cpt_spreadsheet_file(file_path: Path) -> pd.DataFrame:
                         break
                 except:
                     continue
-
             split_lines = []
 
             for line in lines:
@@ -379,7 +381,6 @@ def load_cpt_spreadsheet_file(file_path: Path) -> pd.DataFrame:
                 for string in line:
                     if string == "":
                         line.remove(string)
-
 
             split_lines_string_check = copy.deepcopy(split_lines)
             split_lines_float_check = copy.deepcopy(split_lines)
@@ -470,14 +471,19 @@ def load_cpt_spreadsheet_file(file_path: Path) -> pd.DataFrame:
         ### If the file is not a text file
         if file_path.suffix.lower() != ".txt":
 
-            ## test to see if the first or second row is a header row
-            ## (including second in case the header spans two rows)
-            if ((np.argmax(num_str_per_row) == 0) and (test_if_row_idx_n_is_column_names(df,1) or test_if_row_idx_n_is_column_names(df,0))):
-                col_name_rows = [0]
+            ## test to see if the first row is a header row
+            if ((np.argmax(num_str_per_row) == 0) and test_if_row_idx_n_is_column_names(df,0)):
+                if test_if_row_idx_n_is_column_names(df,1):
+                    ## Check if the second row is also a header for the common case of two header rows
+                    col_name_rows = [0, 1]
+                else:
+                    col_name_rows = [0]
+                print()
 
             ## then test to see if the row with the most text cells is the header row
             elif test_if_row_idx_n_is_column_names(df, np.argmax(num_str_per_row)):
                 col_name_rows = [np.argmax(num_str_per_row)]
+                print()
 
             ## then search upwards to find the header row
 
@@ -523,9 +529,11 @@ def load_cpt_spreadsheet_file(file_path: Path) -> pd.DataFrame:
         else:
             col_name_row = col_name_rows[0]
         # set dataframe's headers/column names. Note that .values is used so that the row's index is not included in the header
+
         df.columns = df.iloc[col_name_row].values
         # Skip the rows that originally contained the column names as they are now stored as the dataframe header
         df = df.iloc[col_name_row+1:]
+
 
         # set the data types to float
         if file_path.suffix.lower() == ".csv":
@@ -577,8 +585,7 @@ def load_cpt_spreadsheet_file(file_path: Path) -> pd.DataFrame:
         # If no columns with "m" or "cm" are found, look for columns with "depth" or "length" or "h "
         else:
             col1, df, remaining_cols_to_search = find_col_name_from_substring(df,
-                                                                              ["depth", "length", "h ", "TOP",
-                                                                               "w"],
+                                                                              ["depth", "length", "h ", "top"],
                                                                               list(df.columns),
                                                                               "depth")
 
@@ -603,7 +610,6 @@ def load_cpt_spreadsheet_file(file_path: Path) -> pd.DataFrame:
                                                                           "porewater_pressure")
 
 
-        print()
         ################################################
         if (col1 is not None) and (col2 is not None) and (col3 is not None) and (col4 is not None):
 

@@ -75,7 +75,7 @@ loading_summary_df = pd.DataFrame(columns=["record_name", "file_was_loaded", "lo
 record_counter = 0
 #for record_dir in tqdm(records_to_convert):
 #for record_dir in [Path("/home/arr65/data/nzgd/downloaded_files/cpt/CPT_29555")]:
-for record_dir in [Path("/home/arr65/data/nzgd/downloaded_files/cpt/CPT_40705")]:
+for record_dir in [Path("/home/arr65/data/nzgd/downloaded_files/cpt/CPT_62549")]:
 
     ags_file_list = list(record_dir.glob("*.ags")) + list(record_dir.glob("*.AGS"))
     xls_file_list = list(record_dir.glob("*.xls")) + list(record_dir.glob("*.XLS"))

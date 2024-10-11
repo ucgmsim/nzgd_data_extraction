@@ -14,6 +14,7 @@ import copy
 import xlrd
 import pandas
 import re
+import better_funcs
 
 
 
@@ -134,10 +135,10 @@ def find_col_name_from_substring(df:pd.DataFrame,
         # check for "Clean" which is sometimes used for a cleaned version of the same data
         if len(candidate_col_names) > 1:
             for candidate_name in candidate_col_names:
+                ## some "clean" columns are full of nans (no data) so also check that the number of nans
+                ## in the "clean" column is less than or equal to the number of nans in the current column
                 if (("clean" in candidate_name.lower()) and
-                        ## some "clean" columns are full of nans (no data) so also check that the number of nans
-                        ## in the "clean" column is less than or equal to the number of nans in the current column
-                        (np.sum(np.isnan(df[candidate_name])) <= np.sum (np.isnan(df[col])))):
+                        (np.sum(pd.isnull(df[candidate_name])) <= np.sum(pd.isnull(df[col])))):
                     col = candidate_name
                     break
 
@@ -189,12 +190,16 @@ def load_ags(file_path: Union[Path, str]) -> pd.DataFrame:
     if len(tables) == 0:
         raise ValueError("no_ags_data_tables - no data tables found in the AGS file")
 
-    loaded_data_df = pd.DataFrame({
-        "depth_m": tables["SCPT"]["SCPT_DPTH"],
-        "qc_mpa": tables["SCPT"]["SCPT_RES"],
-        "fs_mpa": tables["SCPT"]["SCPT_FRES"],
-        "u_mpa": tables["SCPT"]["SCPT_PWP2"]  ## Assuming dynamic pore pressure (u2) in MPa ???
-    })
+    try:
+        loaded_data_df = pd.DataFrame({
+            "depth_m": tables["SCPT"]["SCPT_DPTH"],
+            "qc_mpa": tables["SCPT"]["SCPT_RES"],
+            "fs_mpa": tables["SCPT"]["SCPT_FRES"],
+            "u_mpa": tables["SCPT"]["SCPT_PWP2"]  ## Assuming dynamic pore pressure (u2) in MPa ???
+        })
+    except(KeyError):
+        raise ValueError("ags_missing_columns - AGS file is missing at least one of the required columns")
+
 
     ### The first two rows are dropped as they contain header information from the ags file
     return loaded_data_df.apply(pd.to_numeric, errors='coerce').dropna()
@@ -246,16 +251,22 @@ def identify_needed_data_columns(df: pd.DataFrame, depth_col_substrings:list[str
 
 ##################################################################################################################
 
+
+
+
+
+
 def test_if_row_idx_n_is_column_names(df_no_col_names: pd.DataFrame, n, num_cols_required = 4) -> bool:
+
     df = df_no_col_names.copy()
     df.columns = df_no_col_names.iloc[n].values
+    df = df.iloc[n+1:]
+
 
     col1, df, remaining_cols_to_search = find_col_name_from_substring(df,
                                                                       ["depth", "length", "h ", "top"],
                                                                       list(df.columns),
                                                                       "depth")
-
-        # Identify the cone resistance, q_c, column
 
 
     col2, df, remaining_cols_to_search = find_col_name_from_substring(df,
@@ -316,7 +327,7 @@ def load_cpt_spreadsheet_file(file_path: Path) -> pd.DataFrame:
 
     if file_path.suffix.lower() in [".csv", ".txt"]:
         # A dummy variable to allow the function to be called with a csv file which do not consist of multiple sheets
-        sheet_names = [0]
+        sheet_names = ["0"]
 
     else:
 
@@ -339,7 +350,7 @@ def load_cpt_spreadsheet_file(file_path: Path) -> pd.DataFrame:
             sheet_names = pd.ExcelFile(file_path, engine=engine).sheet_names
 
     missing_cols_per_sheet = []
-
+    sheet_names = ["CPTU001"]
     # Iterate through each sheet
     for sheet_idx, sheet in enumerate(sheet_names):
 
@@ -356,7 +367,6 @@ def load_cpt_spreadsheet_file(file_path: Path) -> pd.DataFrame:
 
                     num_cols_per_line = [len(line.split(",")) for line in lines]
                     num_rows_to_skip = len(np.where(num_cols_per_line < np.max(num_cols_per_line))[0])
-
                     df = pd.read_csv(file_path, header=None, encoding=encoding, skiprows=num_rows_to_skip).map(convert_num_as_str_to_float)
                     break
                 except UnicodeDecodeError:
@@ -455,60 +465,22 @@ def load_cpt_spreadsheet_file(file_path: Path) -> pd.DataFrame:
                 # There are more sheets to check so continue to next sheet
                 continue
 
-        last_data_row = np.where(num_num_per_row >= 4)[0][-1]
+        #first_check_rows = np.array([-1, 0, 1]) + np.argmax(num_str_per_row)
+        first_check_rows = [np.argmax(num_str_per_row)]
 
-        num_num_in_last_data_row = num_num_per_row[last_data_row]
+        col_name_rows = better_funcs.get_header_rows(df, first_check_rows)
+        print()
 
-        # some files have a lot of numbers in the rows to skip so now find the first row with at least the same number
-        # of numbers as the last data row. This assumes that all extra information is before the data.
-        first_data_row = np.where(num_num_per_row >= num_num_in_last_data_row)[0][0]
+        if len(col_name_rows) == 0:
+            col_name_rows = better_funcs.get_header_rows(df, np.arange(0, 50))
 
-        col_name_rows = []
-        found_a_header_row = False
-
-        max_num_rows_to_check_for_header = 4
-        num_rows_checked_for_header = 0
-        ### If the file is not a text file
-        if file_path.suffix.lower() != ".txt":
-
-            ## test to see if the first row is a header row
-            if ((np.argmax(num_str_per_row) == 0) and test_if_row_idx_n_is_column_names(df,0)):
-                if test_if_row_idx_n_is_column_names(df,1):
-                    ## Check if the second row is also a header for the common case of two header rows
-                    col_name_rows = [0, 1]
-                else:
-                    col_name_rows = [0]
-
-            ## then test to see if the row with the most text cells is the header row
-            elif test_if_row_idx_n_is_column_names(df, np.argmax(num_str_per_row)):
-                col_name_rows = [np.argmax(num_str_per_row)]
-
-            ## then search upwards to find the header row
-
-            else:
-                while num_rows_checked_for_header <= max_num_rows_to_check_for_header:
-                    check_row = first_data_row - num_rows_checked_for_header - 1
-                    if check_row < 0:
-                        break
-                    ## TODO: could potentially replace this with the test_if_row_idx_n_is_column_names function
-                    ## TODO: but might need to change so that it captures the case of two header rows
-                    ## TODO: with a different number of text cells in each row
-                    if num_str_per_row[check_row] >= 4:
-                        col_name_rows.append(check_row)
-                        found_a_header_row = True
-
-                    if found_a_header_row and (num_str_per_row[check_row] == 0):
-                        break
-
-                    num_rows_checked_for_header += 1
-
-                # the header search algorithm finds in reverse order so sort to be in ascending order
-                col_name_rows = np.sort(col_name_rows)
+        print()
 
         ### If the file is a text file, skiprows is used so the header row is now the first row
         ### with zero numerical cells per row
-        else:
-            col_name_rows = np.where(num_num_per_row == 0)[0]
+        # else:
+        #     col_name_rows = np.where(num_num_per_row == 0)[0]
+
         if len(col_name_rows) == 0:
             raise ValueError(f"no_header_row - sheet ({sheet.replace("-", "_")}) has no header row")
         # if there are multiple header rows, combine them into one
@@ -531,6 +503,8 @@ def load_cpt_spreadsheet_file(file_path: Path) -> pd.DataFrame:
         df.columns = df.iloc[col_name_row].values
         # Skip the rows that originally contained the column names as they are now stored as the dataframe header
         df = df.iloc[col_name_row+1:]
+
+        print()
 
 
         # set the data types to float

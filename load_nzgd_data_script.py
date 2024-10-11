@@ -74,8 +74,10 @@ loading_summary_df = pd.DataFrame(columns=["record_name", "file_was_loaded", "lo
 
 record_counter = 0
 #for record_dir in tqdm(records_to_convert):
-#for record_dir in [Path("/home/arr65/data/nzgd/downloaded_files/cpt/CPT_29555")]:
-for record_dir in [Path("/home/arr65/data/nzgd/downloaded_files/cpt/CPT_62549")]:
+for record_dir in [Path("/home/arr65/data/nzgd/downloaded_files/cpt/CPT_24230")]:
+#for record_dir in [Path("/home/arr65/data/nzgd/downloaded_files/cpt/CPT_72538")]:
+#for record_dir in [Path("/home/arr65/data/nzgd/downloaded_files/cpt/CPT_187908")]:
+
 
     ags_file_list = list(record_dir.glob("*.ags")) + list(record_dir.glob("*.AGS"))
     xls_file_list = list(record_dir.glob("*.xls")) + list(record_dir.glob("*.XLS"))
@@ -179,64 +181,65 @@ for record_dir in [Path("/home/arr65/data/nzgd/downloaded_files/cpt/CPT_62549")]
                    list(record_dir.glob("*.TXT"))
 
     for file_to_try_index, file_to_try in enumerate(files_to_try):
-        try:
-            xls_file_load_attempted = True
-            record_df = loading_funcs_for_nzgd_data.load_cpt_spreadsheet_file(file_to_try)
+        # try:
+        xls_file_load_attempted = True
+        record_df = loading_funcs_for_nzgd_data.load_cpt_spreadsheet_file(file_to_try)
 
-            # record original name and location as attributes and columns
-            record_df.attrs["original_file_name"] = file_to_try.name
-            record_df.attrs["nzgd_meta_data"] = nzgd_meta_data_record
-            record_df.insert(0, "record_name", record_dir.name)
-            record_df.insert(1, "latitude", nzgd_meta_data_record["Latitude"])
-            record_df.insert(2, "longitude", nzgd_meta_data_record["Longitude"])
 
-            record_df.reset_index(inplace=True, drop=True)
-            record_df.to_parquet(parquet_output_dir / f"{record_dir.name}.parquet")
-            has_loaded_a_file_for_this_record = True
-            spreadsheet_format_description_per_record = pd.DataFrame([{"record_name":record_dir.name,
-                                                               "header_row_index":record_df.attrs["header_row_index_in_original_file"],
-                                                               "depth_col_name_in_original_file": record_df.attrs[
-                                                               "adopted_depth_column_name_in_original_file"],
-                                                               "adopted_cone_resistance_column_name_in_original_file": record_df.attrs["adopted_cone_resistance_column_name_in_original_file"],
-                                                               "adopted_sleeve_friction_column_name_in_original_file":record_df.attrs["adopted_sleeve_friction_column_name_in_original_file"],
-                                                               "adopted_porewater_pressure_column_name_in_original_file":
-                                                                   record_df.attrs[
-                                                                "adopted_porewater_pressure_column_name_in_original_file"],
-                                                              "file_name":file_to_try.name}])
+        # record original name and location as attributes and columns
+        record_df.attrs["original_file_name"] = file_to_try.name
+        record_df.attrs["nzgd_meta_data"] = nzgd_meta_data_record
+        record_df.insert(0, "record_name", record_dir.name)
+        record_df.insert(1, "latitude", nzgd_meta_data_record["Latitude"])
+        record_df.insert(2, "longitude", nzgd_meta_data_record["Longitude"])
 
-            spreadsheet_format_description = pd.concat([spreadsheet_format_description,
-                                                        spreadsheet_format_description_per_record],ignore_index=True)
+        record_df.reset_index(inplace=True, drop=True)
+        record_df.to_parquet(parquet_output_dir / f"{record_dir.name}.parquet")
+        has_loaded_a_file_for_this_record = True
+        spreadsheet_format_description_per_record = pd.DataFrame([{"record_name":record_dir.name,
+                                                           "header_row_index":record_df.attrs["header_row_index_in_original_file"],
+                                                           "depth_col_name_in_original_file": record_df.attrs[
+                                                           "adopted_depth_column_name_in_original_file"],
+                                                           "adopted_cone_resistance_column_name_in_original_file": record_df.attrs["adopted_cone_resistance_column_name_in_original_file"],
+                                                           "adopted_sleeve_friction_column_name_in_original_file":record_df.attrs["adopted_sleeve_friction_column_name_in_original_file"],
+                                                           "adopted_porewater_pressure_column_name_in_original_file":
+                                                               record_df.attrs[
+                                                            "adopted_porewater_pressure_column_name_in_original_file"],
+                                                          "file_name":file_to_try.name}])
 
-            loading_summary_df = partial_summary_df_helper(loading_summary_df, file_was_loaded=True,
-                                                           loaded_file_type=file_to_try.suffix.lower(),
-                                                           loaded_file_name=record_dir.name)
+        spreadsheet_format_description = pd.concat([spreadsheet_format_description,
+                                                    spreadsheet_format_description_per_record],ignore_index=True)
 
-            break
+        loading_summary_df = partial_summary_df_helper(loading_summary_df, file_was_loaded=True,
+                                                       loaded_file_type=file_to_try.suffix.lower(),
+                                                       loaded_file_name=record_dir.name)
 
-        except(ValueError, xlrd.compdoc.CompDocError, Exception) as e:
+        break
 
-            loading_summary_df = partial_summary_df_helper(loading_summary_df, file_was_loaded=False,
-                                                           loaded_file_type="N/A",
-                                                           loaded_file_name="N/A")
-            error_as_string = str(e)
-
-            if "-" not in error_as_string:
-                error_as_string = "unknown_category - " + error_as_string
-
-            all_failed_loads_df = pd.concat([all_failed_loads_df,
-                    pd.DataFrame({"record_name": [record_dir.name],
-                                 "file_type": [file_to_try.suffix.lower()],
-                                 "file_name": [file_to_try.name],
-                                 "category": [error_as_string.split("-")[0].strip()],
-                                 "details": [error_as_string.split("-")[1].strip()]})], ignore_index=True)
-
-            if file_to_try_index == len(files_to_try) - 1:
-                # it's the last file to try
-                #meta_xls_failed_to_load.append(f"{record_dir.name}, {file_to_try.name}, {e}")
-                xls_load_failed = True
-            else:
-                # there are other files to try so continue to the next file
-                continue
+        # except(ValueError, xlrd.compdoc.CompDocError, Exception) as e:
+        #
+        #     loading_summary_df = partial_summary_df_helper(loading_summary_df, file_was_loaded=False,
+        #                                                    loaded_file_type="N/A",
+        #                                                    loaded_file_name="N/A")
+        #     error_as_string = str(e)
+        #
+        #     if "-" not in error_as_string:
+        #         error_as_string = "unknown_category - " + error_as_string
+        #
+        #     all_failed_loads_df = pd.concat([all_failed_loads_df,
+        #             pd.DataFrame({"record_name": [record_dir.name],
+        #                          "file_type": [file_to_try.suffix.lower()],
+        #                          "file_name": [file_to_try.name],
+        #                          "category": [error_as_string.split("-")[0].strip()],
+        #                          "details": [error_as_string.split("-")[1].strip()]})], ignore_index=True)
+        #
+        #     if file_to_try_index == len(files_to_try) - 1:
+        #         # it's the last file to try
+        #         #meta_xls_failed_to_load.append(f"{record_dir.name}, {file_to_try.name}, {e}")
+        #         xls_load_failed = True
+        #     else:
+        #         # there are other files to try so continue to the next file
+        #         continue
 
 spreadsheet_format_description.to_csv(metadata_output_dir / "spreadsheet_format_description.csv", index=False)
 all_failed_loads_df.to_csv(metadata_output_dir / "all_failed_loads.csv", index=False)

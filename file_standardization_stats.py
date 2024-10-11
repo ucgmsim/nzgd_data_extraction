@@ -1,11 +1,16 @@
 import numpy as np
 import pandas as pd
+from pathlib import Path
 
-summary_df = pd.read_csv("/home/arr65/data/nzgd/standard_format_batch1/cpt/metadata/loading_summary.csv")
-failed_df = pd.read_csv("/home/arr65/data/nzgd/standard_format_batch1/cpt/metadata/all_failed_loads.csv")
+
+output_path = Path("/home/arr65/data/nzgd/standard_format_batch2/cpt")
+
+
+summary_df = pd.read_csv(output_path / "metadata/loading_summary.csv")
+failed_df = pd.read_csv(output_path / "metadata/all_failed_loads.csv")
 
 failed_df_no_ags = failed_df[failed_df["category"] != "bad_ags"]
-failed_df_no_ags.to_csv("/home/arr65/data/nzgd/standard_format_batch1/cpt/metadata/failed_df_no_ags.csv")
+# failed_df_no_ags.to_csv(output_path / "metadata/failed_df_no_ags.csv")
 
 failed_record_names = failed_df["record_name"]
 
@@ -20,7 +25,7 @@ multiple_load_failures_no_ags_names = multiple_load_failures_no_ags["record_name
 
 multiple_load_failures_no_ags_duplicate_names = multiple_load_failures_no_ags_names[multiple_load_failures_no_ags_names.duplicated()]
 
-multiple_load_failures.to_csv("/home/arr65/data/nzgd/standard_format_batch1/cpt/metadata/multiple_load_failures.csv")
+# multiple_load_failures.to_csv(output_path / "metadata/multiple_load_failures.csv")
 
 
 
@@ -48,14 +53,16 @@ summary_df.insert(2, "has_only_pdf", records_with_only_pdf_idx)
 summary_df_only_failed = summary_df[summary_df["file_was_loaded"] == False]
 
 summary_df_with_spreadsheet_file_loads = summary_df_only_failed[summary_df_only_failed["has_only_pdf"] == False]
-summary_df_with_spreadsheet_file_loads.to_csv("/home/arr65/data/nzgd/standard_format_batch1/cpt/metadata/summary_df_with_spreadsheet_file_loads.csv")
+# summary_df_with_spreadsheet_file_loads.to_csv(output_path / "metadata/summary_df_with_spreadsheet_file_loads.csv")
 
 
 # joined_df = pd.merge(failed_df, summary_df, on="record_name", how="outer")
 # joined_df.to_csv("/home/arr65/data/nzgd/standard_format_batch1/cpt/metadata/outer_joined.csv")
 
 failed_files_outer_merge_df = pd.merge(summary_df_with_spreadsheet_file_loads, failed_df, on="record_name", how="outer")
-failed_files_outer_merge_df.to_csv("/home/arr65/data/nzgd/standard_format_batch1/cpt/metadata/failed_files_outer_merge_df.csv")
+# failed_files_outer_merge_df.to_csv("metadata/failed_files_outer_merge_df.csv")
+
+
 
 
 num_only_pdf = records_with_only_pdf_idx.sum()

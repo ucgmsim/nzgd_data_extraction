@@ -466,8 +466,8 @@ def load_cpt_spreadsheet_file(file_path: Path) -> pd.DataFrame:
                 continue
 
         #first_check_rows = np.array([-1, 0, 1]) + np.argmax(num_str_per_row)
-        first_check_rows = [np.argmax(num_str_per_row)]
-
+        first_check_rows = np.argmax(num_str_per_row)+np.array([0,1])
+        print()
         col_name_rows = better_funcs.get_header_rows(df, first_check_rows)
         print()
 

@@ -79,6 +79,7 @@ for record_dir in [Path("/home/arr65/data/nzgd/downloaded_files/cpt/CPT_24230")]
 #for record_dir in [Path("/home/arr65/data/nzgd/downloaded_files/cpt/CPT_187908")]:
 
 
+
     ags_file_list = list(record_dir.glob("*.ags")) + list(record_dir.glob("*.AGS"))
     xls_file_list = list(record_dir.glob("*.xls")) + list(record_dir.glob("*.XLS"))
     xlsx_file_list = list(record_dir.glob("*.xlsx")) + list(record_dir.glob("*.XLSX"))

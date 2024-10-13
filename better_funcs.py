@@ -153,24 +153,24 @@ def get_header_rows(df, check_rows):
     header_rows = []
 
     for check_row in check_rows:
-        print()
         line1_check = search_line_for_all_needed_cells(df.iloc[check_row])
-        print()
-        line2_check = search_line_for_all_needed_cells(df.iloc[check_row]+1)
+        line2_check = search_line_for_all_needed_cells(df.iloc[check_row+1])
 
         if (np.sum(np.isfinite(line1_check)) == 4) & (np.unique(line1_check).size == 4):
             # found at least one header row so check the next row for a partial
             header_rows.append(check_row)
             if (np.sum(np.isfinite(line2_check)) == partial_header_length) & (np.unique(line2_check).size == partial_header_length):
                 header_rows.append(check_row+1)
-                return np.array(header_rows)
+
+            return np.array(header_rows)
 
         elif (np.sum(np.isfinite(line2_check)) == 4) & (np.unique(line2_check).size == 4):
             # found a full header row so check if the previous row was a partial
             header_rows.append(check_row+1)
             if (np.sum(np.isfinite(line1_check)) == partial_header_length) & (np.unique(line1_check).size == partial_header_length):
                 header_rows.append(check_row)
-                return np.array(header_rows)
+
+            return np.array(header_rows)
 
     # if no header rows were found after checking all check_rows, return an empty array
     return np.array([])

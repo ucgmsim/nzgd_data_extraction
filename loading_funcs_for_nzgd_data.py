@@ -469,12 +469,9 @@ def load_cpt_spreadsheet_file(file_path: Path) -> pd.DataFrame:
         first_check_rows = np.argmax(num_str_per_row)+np.array([0,1])
         print()
         col_name_rows = better_funcs.get_header_rows(df, first_check_rows)
-        print()
 
         if len(col_name_rows) == 0:
             col_name_rows = better_funcs.get_header_rows(df, np.arange(0, 50))
-
-        print()
 
         ### If the file is a text file, skiprows is used so the header row is now the first row
         ### with zero numerical cells per row
@@ -483,7 +480,8 @@ def load_cpt_spreadsheet_file(file_path: Path) -> pd.DataFrame:
 
         if len(col_name_rows) == 0:
             raise ValueError(f"no_header_row - sheet ({sheet.replace("-", "_")}) has no header row")
-        # if there are multiple header rows, combine them into one
+
+        # if there are multiple header rows, combine them into the lowest row
         if len(col_name_rows) > 1:
             col_name_row = np.max(col_name_rows)
             # copy the column names from the rows above the header row
@@ -499,13 +497,9 @@ def load_cpt_spreadsheet_file(file_path: Path) -> pd.DataFrame:
         else:
             col_name_row = col_name_rows[0]
         # set dataframe's headers/column names. Note that .values is used so that the row's index is not included in the header
-
         df.columns = df.iloc[col_name_row].values
         # Skip the rows that originally contained the column names as they are now stored as the dataframe header
         df = df.iloc[col_name_row+1:]
-
-        print()
-
 
         # set the data types to float
         if file_path.suffix.lower() == ".csv":

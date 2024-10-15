@@ -2,6 +2,7 @@ import numpy as np
 import xlrd
 import pandas as pd
 import re
+import toml
 
 def find_cell_in_line_containing_single_character(line, character):
     """Return the index of the first cell containing the given character in the given line."""
@@ -49,13 +50,14 @@ def search_line_for_all_needed_cells(
         line,
         output_all_candidates=False,
         characters1=["m","w","h"],
-        substrings1=["depth", "length", "h ", "top"],
-        characters2=["q"],
-        substrings2 = [" q ", "q ", " q", "qc", "q_c", "cone", "resistance", "res", "tip"],
-        characters3=[],
+        substrings1=["depth", "length", "top"],
+        characters2=["q","mpa"],
+        substrings2 = ["qc", "q_c", "cone", "resistance", "res", "tip"],
+        characters3=['mpa'],
         substrings3=["fs", "sleeve", "friction","local"],
-        characters4=["u"],
-        substrings4=["u ", " u", "u2", "dynamic", "pore","water"]):
+        characters4=["u","mpa"],
+        substrings4=["u2", "pore","water","dynamic"]):
+
 
     col1_search = search_line_for_cell(line, characters1, substrings1)
     col2_search = search_line_for_cell(line, characters2, substrings2)
@@ -123,6 +125,8 @@ def search_line_for_all_needed_cells(
 #     return np.array(header_rows)
 
 def get_header_rows(iterable, check_rows):
+    # ensure that it will not try to check beyond the last row
+    check_rows = check_rows[check_rows<len(iterable)-1]
 
     best_partial_header_row = np.nan
     num_cols_in_best_possible_row = 0
@@ -148,82 +152,26 @@ def get_header_rows(iterable, check_rows):
             num_cols_in_check_row = np.sum(np.isfinite(line1_check))
 
             if num_cols_in_check_row > num_cols_in_best_possible_row:
-                print()
+
                 best_partial_header_row = check_row
                 num_cols_in_best_possible_row = num_cols_in_check_row
 
     if best_partial_header_row is not np.nan:
-        print()
         header_rows.append(best_partial_header_row)
         # check following line for a single column name
-        print()
         if isinstance(iterable, pd.DataFrame):
             line2_check = search_line_for_all_needed_cells(iterable.iloc[best_partial_header_row + 1])
         else:
             line2_check = search_line_for_all_needed_cells(iterable[best_partial_header_row + 1])
         if np.sum(np.isfinite(line2_check)) >= 1:
             header_rows.append(best_partial_header_row + 1)
-        print()
+
         return np.array(header_rows)
 
     else:
-        print()
+
         return np.array([])
 
-
-# best_partial_row_check =
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#             header_rows.extend([check_row, check_row + 1])
-#             return np.array(header_rows)
-#
-#         if np.sum(np.isfinite(line1_check)) >= 1:
-#             header_rows.append(check_row)
-#             if np.sum(np.isfinite(line2_check)) >= 1:
-#                 header_rows.append(check_row + 1)
-#
-#             break
-#
-#         elif np.sum(np.isfinite(line2_check)) >= 1:
-#             header_rows.append(check_row + 1)
-#
-#     return np.array(header_rows)
-
-
-
-    #     if (np.sum(np.isfinite(line1_check)) > 4) & (np.unique(line1_check).size == 4):
-    #         # found at least one header row so check the next row for a partial
-    #         header_rows.append(check_row)
-    #         print()
-    #         if (np.sum(np.isfinite(line2_check)) == partial_header_length) & (np.unique(line2_check).size == partial_header_length):
-    #             header_rows.append(check_row+1)
-    #         return np.array(header_rows)
-    #
-    #     elif (np.sum(np.isfinite(line2_check)) == 4) & (np.unique(line2_check).size == 4):
-    #         # found a full header row so check if the previous row was a partial
-    #         header_rows.append(check_row+1)
-    #         if (np.sum(np.isfinite(line1_check)) == partial_header_length) & (np.unique(line1_check).size == partial_header_length):
-    #             header_rows.append(check_row)
-    #         return np.array(header_rows)
-    #
-    #     elif np.sum(np.isfinite(np.unique(line1_check))) > most_columns_found:
-    #             most_likely_partial_header_row = check_row
-    #             most_columns_found = np.sum(np.isfinite(np.unique(line1_check)))
-    #
-    # if np.isfinite(most_likely_partial_header_row):
-    #     print()
-    #     header_rows.append(most_likely_partial_header_row)
-    #     return np.array(header_rows)
-    # else:
-    #     # if no partial header rows were found after checking all check_rows, return an empty array
-    #     return np.array([])
 
 def get_xls_sheet_names(file_path):
 
@@ -261,8 +209,15 @@ def find_encoding(file_path, encodings = ['utf-8', 'latin1', 'iso-8859-1', 'cp12
 
 def get_csv_or_txt_split_readlines(file_path, encoding):
 
+    known_note_labels = toml.load("resources/known_note_labels.toml")
+
     with open(file_path, 'r', encoding=encoding) as file:
         lines = file.readlines()
+
+        if lines[0] == known_note_labels["note_label_1"]:
+            raise ValueError(f"note_file_without_data - {known_note_labels["note_label_1"].replace(",", "")}")
+
+
 
     sep = r"," if file_path.suffix == ".csv" else r"\s+"
 
@@ -282,11 +237,9 @@ def check_for_clean_cols(df):
                                                                                      output_all_candidates=True)
     final_col_names = []
     for target_col_index, target_col_candidate_indices in enumerate(all_target_col_candidate_indices):
-        print()
         #candidate_finite_indices = target_col_candidate_indices[np.isfinite(target_col_candidate_indices)]
 
         if len(target_col_candidate_indices) == 0:
-            print()
             final_col_names.append(None)
 
             if "missing_columns" not in df.attrs:
@@ -295,8 +248,6 @@ def check_for_clean_cols(df):
                 df.attrs["missing_columns"].append(target_col_index_to_name[target_col_index])
 
         else:
-            print()
-            #candidate_finite_indices = target_col_candidate_indices[np.isfinite(target_col_candidate_indices)]
             target_col_candidate_names = [df.columns[int(idx)] for idx in target_col_candidate_indices]
 
             candidate_col_name = target_col_candidate_names[0]

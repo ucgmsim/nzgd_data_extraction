@@ -14,7 +14,11 @@ import copy
 import xlrd
 import pandas
 import re
+
+from scipy.special import special
+
 import loading_helper_functions
+import toml
 
 def convert_num_as_str_to_float(val):
     try:
@@ -191,9 +195,9 @@ def load_ags(file_path: Union[Path, str]) -> pd.DataFrame:
     try:
         loaded_data_df = pd.DataFrame({
             "depth_m": tables["SCPT"]["SCPT_DPTH"],
-            "qc_mpa": tables["SCPT"]["SCPT_RES"],
-            "fs_mpa": tables["SCPT"]["SCPT_FRES"],
-            "u_mpa": tables["SCPT"]["SCPT_PWP2"]  ## Assuming dynamic pore pressure (u2) in MPa ???
+            "cone_resistance_qc_mpa": tables["SCPT"]["SCPT_RES"],
+            "sleeve_friction_fs_mpa": tables["SCPT"]["SCPT_FRES"],
+            "pore_pressure_u2_mpa": tables["SCPT"]["SCPT_PWP2"]  ## Assuming dynamic pore pressure (u2) in MPa ???
         })
     except(KeyError):
         raise ValueError("ags_missing_columns - AGS file is missing at least one of the required columns")
@@ -242,11 +246,17 @@ def load_cpt_spreadsheet_file(file_path: Path) -> pd.DataFrame:
         If the required columns are not found in any sheet of the Excel file.
     """
 
-    min_num_numerical_rows_with_at_least_4_cols = 5
+    known_special_cases = toml.load("./resources/known_special_cases.toml")
+    record_id = f"{file_path.name.split("_")[0]}_{file_path.name.split("_")[1]}"
+    if record_id in known_special_cases.keys():
+        raise ValueError(known_special_cases[record_id])
+
+    known_note_labels = toml.load("./resources/known_note_labels.toml")
+
+    col_data_types = np.array(["depth", "cone_resistance", "sleeve_friction", "porewater_pressure"])
 
     if file_path.suffix.lower() in [".xls", ".xlsx"]:
         sheet_names, engine = loading_helper_functions.get_xls_sheet_names(file_path)
-
     else:
         # A dummy sheet name as .txt and .csv files do not have sheet names
         sheet_names = ["0"]
@@ -254,28 +264,46 @@ def load_cpt_spreadsheet_file(file_path: Path) -> pd.DataFrame:
     missing_cols_per_sheet = []
     # Iterate through each sheet
     for sheet_idx, sheet in enumerate(sheet_names):
+    ## for sheet_idx, sheet in enumerate(["CPT_DATA"]):
 
         # Load the entire sheet without specifying headers
         if file_path.suffix.lower() in [".csv", ".txt"]:
-
             sep = r"," if file_path.suffix == ".csv" else r"\s+"
-            print()
             file_encoding = loading_helper_functions.find_encoding(file_path)
-
             split_readlines_iterable = loading_helper_functions.get_csv_or_txt_split_readlines(file_path, file_encoding)
-            header_row_idx = loading_helper_functions.get_header_rows(split_readlines_iterable, range(len(split_readlines_iterable)-1))
-            print()
+            header_lines_in_csv_or_txt_file = loading_helper_functions.get_header_rows(split_readlines_iterable, np.arange(len(split_readlines_iterable)-1))
 
-            needed_col_indices = loading_helper_functions.search_line_for_all_needed_cells(split_readlines_iterable[header_row_idx])
+            # csv and txt files do not have multiple sheets so just raise an error immediately if no header rows were found
+            if len(header_lines_in_csv_or_txt_file) == 0:
+                raise ValueError(f"no_header_row - sheet ({sheet.replace("-", "_")}) has no header row")
+
+            if len(header_lines_in_csv_or_txt_file) > 1:
+                multi_row_header_array = np.zeros((len(header_lines_in_csv_or_txt_file), 4),dtype=float)
+                multi_row_header_array[:] = np.nan
+                for header_line_idx, header_line in enumerate(header_lines_in_csv_or_txt_file):
+                    multi_row_header_array[header_line_idx,:] = loading_helper_functions.search_line_for_all_needed_cells(split_readlines_iterable[header_line])
+                col_data_type_indices = np.nansum(multi_row_header_array, axis=0)
+            else:
+                col_data_type_indices = loading_helper_functions.search_line_for_all_needed_cells(split_readlines_iterable[header_lines_in_csv_or_txt_file[0]])
+
+            missing_cols = list(col_data_types[~np.isfinite(col_data_type_indices)])
+
+            if len(missing_cols) > 0:
+                raise ValueError(f"missing_columns - sheet ({sheet.replace('-', '_')}) is missing [{' & '.join(missing_cols)}]")
+
+            needed_col_indices_with_nans = loading_helper_functions.search_line_for_all_needed_cells(split_readlines_iterable[header_lines_in_csv_or_txt_file[0]])
+            needed_col_indices = [int(col_idx) for col_idx in needed_col_indices_with_nans if np.isfinite(col_idx)]
 
             df = pd.read_csv(file_path, header=None, encoding=file_encoding, sep=sep,
-                        skiprows=header_row_idx, usecols=needed_col_indices).map(convert_num_as_str_to_float)
+                        skiprows=header_lines_in_csv_or_txt_file[0], usecols=needed_col_indices).map(convert_num_as_str_to_float)
+
 
         else:
             df = pd.read_excel(file_path, sheet_name=sheet, header=None, engine=engine)
 
         ####################################################################################################################
         ####################################################################################################################
+
         # Now xls, csv and txt should all be in a dataframe so continue the same for all
         df.attrs["original_file_name"] = file_path.name
         df.attrs["source_sheet_in_original_file"] = sheet
@@ -287,70 +315,94 @@ def load_cpt_spreadsheet_file(file_path: Path) -> pd.DataFrame:
         df_for_counting_num_per_row = df_nan_to_str.map(lambda x:1.0 if isinstance(x, (int, float)) else 0)
 
         num_num_per_row = np.nansum(df_for_counting_num_per_row, axis=1)
-        num_data_rows_with_at_least_4_cols = np.sum(num_num_per_row >= 4)
+        #num_data_rows_with_at_least_4_cols = np.sum(num_num_per_row >= 4)
 
         if df.shape == (0,0):
-            if sheet_idx == len(sheet_names) - 1:
+            if (sheet_idx == len(sheet_names) - 1):
+                if len(missing_cols_per_sheet) > 0:
+                    final_missing_cols = find_missing_cols_for_best_sheet(missing_cols_per_sheet)
+                    raise ValueError(f"missing_columns - sheet ({sheet.replace('-', '_')}) is missing [{' & '.join(final_missing_cols)}]")
                 # no other sheets so raise error for this file
                 raise ValueError(f"empty_file - sheet ({sheet.replace("-", "_")}) has size (0,0)")
             else:
                 # There are more sheets to check so continue to next sheet
+                missing_cols_per_sheet.append(["depth", "cone_resistance", "sleeve_friction", "porewater_pressure"])
                 continue
 
-        if num_data_rows_with_at_least_4_cols < min_num_numerical_rows_with_at_least_4_cols:
-            # There are not enough rows with numerical data in all required columns
 
-            if sheet_idx == len(sheet_names) - 1:
+
+        # check for a known note label
+        if all((df.iloc[0] == known_note_labels["note_label_2a"]) & (df.iloc[1] == known_note_labels["note_label_2b"])):
+            raise ValueError(f"note_file_without_data - {known_note_labels["note_label_2a"]} {known_note_labels["note_label_2b"]}")
+
+        # can only find the header rows for xls or xlsx files after the data has been loaded with pandas so do that now
+
+        ## Initial check of the two rows that are most likely to contain the header
+        first_check_rows = np.argmax(num_str_per_row)+np.array([0,1,2,3])
+        header_row_indices = loading_helper_functions.get_header_rows(df, first_check_rows)
+
+        if len(header_row_indices) == 0:
+            ## If header was not found on most likely rows, try all rows
+            header_row_indices = loading_helper_functions.get_header_rows(df, np.arange(len(df)-1))
+        if len(header_row_indices) == 0:
+            if (sheet_idx == len(sheet_names) - 1):
+                if len(missing_cols_per_sheet) > 0:
+                    final_missing_cols = find_missing_cols_for_best_sheet(missing_cols_per_sheet)
+                    raise ValueError(f"missing_columns - sheet ({sheet.replace('-', '_')}) is missing [{' & '.join(final_missing_cols)}]")
                 # no other sheets so raise error for this file
-                final_missing_cols = find_missing_cols_for_best_sheet(missing_cols_per_sheet)
-                if len(final_missing_cols) > 0:
-                    raise ValueError(f"missing_columns - sheet ({sheet.replace("-", "_")}) is missing [{' & '.join(final_missing_cols)}]")
-                raise ValueError(f"lacking_data_rows - sheet ({sheet.replace("-", "_")}) has fewer than {min_num_numerical_rows_with_at_least_4_cols} data rows with at least four numerical columns")
-
+                raise ValueError(f"no_header_row - sheet ({sheet.replace("-", "_")}) has no header row")
             else:
                 # There are more sheets to check so continue to next sheet
+                missing_cols_per_sheet.append(["depth", "cone_resistance", "sleeve_friction", "porewater_pressure"])
                 continue
 
-        first_check_rows = np.argmax(num_str_per_row)+np.array([0,1])
-        col_name_rows = loading_helper_functions.get_header_rows(df, first_check_rows)
-
-        if len(col_name_rows) == 0:
-            col_name_rows = loading_helper_functions.get_header_rows(df, np.arange(0, 50))
-
-        ### If the file is a text file, skiprows is used so the header row is now the first row
-        ### with zero numerical cells per row
-        # else:
-        #     col_name_rows = np.where(num_num_per_row == 0)[0]
-
-        if len(col_name_rows) == 0:
-            raise ValueError(f"no_header_row - sheet ({sheet.replace("-", "_")}) has no header row")
-
         # if there are multiple header rows, combine them into the lowest row
-        if len(col_name_rows) > 1:
-            col_name_row = np.max(col_name_rows)
+        if len(header_row_indices) > 1:
+            header_row_index = np.max(header_row_indices)
             # copy the column names from the rows above the header row
             df2 = df.copy()
-            for row_idx in col_name_rows:#[0:col_name_row]:
+            for row_idx in header_row_indices:
                 for col_idx in range(df.shape[1]):
-                    if row_idx != col_name_row:
-                        df2.iloc[col_name_row, col_idx] = str(df.iloc[col_name_row,col_idx]) + " " + str(df.iloc[row_idx,col_idx])
+                    if row_idx != header_row_index:
+                        df2.iloc[header_row_index, col_idx] = str(df.iloc[header_row_index,col_idx]) + " " + str(df.iloc[row_idx,col_idx])
 
             df = df2.copy()
 
         # If there is only one header row, take it as the header row
         else:
-            col_name_row = col_name_rows[0]
+            header_row_index = header_row_indices[0]
+
 
         # set dataframe's headers/column names. Note that .values is used so that the row's index is not included in the header
-        df.columns = df.iloc[col_name_row].values
+        df.columns = df.iloc[header_row_index].values
         # Skip the rows that originally contained the column names as they are now stored as the dataframe header
-        df = df.iloc[col_name_row+1:]
+        df = df.iloc[header_row_index+1:]
         df = df.apply(pd.to_numeric, errors='coerce').astype(float)
 
+        # some cases have such as CPT_110939, CPT_110940, CPT_110941, CPT_110942
+        # have three rows of headers where the third row
+        # is a partial header that gives units for some of the columns
+        # so the unit row below what is taken as the header is coerced to nan
+        # so if there is a row of nan below the header, it is skipped
+
+        if all(~np.isfinite(df.iloc[0,:])):
+            df = df.iloc[1:]
+
+        if np.all(np.sum(np.isfinite(df), axis=0) == 0):
+            if (sheet_idx == len(sheet_names) - 1):
+                if len(missing_cols_per_sheet) > 0:
+                    final_missing_cols = find_missing_cols_for_best_sheet(missing_cols_per_sheet)
+                    raise ValueError(f"missing_columns - sheet ({sheet.replace('-', '_')}) is missing [{' & '.join(final_missing_cols)}]")
+                # no other sheets so raise error for this file
+                raise ValueError(f"empty_file - sheet ({sheet.replace('-', '_')}) has no data")
+            else:
+                # There are more sheets to check so continue to next sheet
+                continue
+
         if file_path.suffix.lower() in [".csv", ".txt"]:
-            df.attrs["header_row_index_in_original_file"] = float(header_row_idx) # this is the index of the header row which is the same as the preceeding number of rows to skip
+            df.attrs["header_row_index_in_original_file"] = float(header_row_indices[0]) # this is the index of the header row which is the same as the preceeding number of rows to skip
         else:
-            df.attrs["header_row_index_in_original_file"] = float(col_name_row)
+            df.attrs["header_row_index_in_original_file"] = float(header_row_index)
         # reset the index so that the first row is index 0
         df.reset_index(inplace=True, drop=True)
 
@@ -366,14 +418,11 @@ def load_cpt_spreadsheet_file(file_path: Path) -> pd.DataFrame:
         if (col1 is not None) and (col2 is not None) and (col3 is not None) and (col4 is not None):
 
             # Return the DataFrame with only the relevant columns
-            # df = df[[col1, col2, col3, col4]].rename(
-            #     columns={col1: "depth_m", col2: "qc_mpa", col3: "fs_mpa", col4: "u_mpa"})
             df = (df[[col1, col2, col3, col4]].rename(
-                columns={col1: "depth_m", col2: "qc_mpa", col3: "fs_mpa", col4: "u_mpa"})).apply(pd.to_numeric, errors='coerce').astype({
-                "depth_m": float,
-                "qc_mpa": float,
-                "fs_mpa": float,
-                "u_mpa": float})
+                columns={col1:"depth_m",
+                         col2:"cone_resistance_qc_mpa",
+                         col3: "sleeve_friction_fs_mpa",
+                         col4: "pore_pressure_u2_mpa"})).apply(pd.to_numeric, errors='coerce')
 
             # ensure that the depth column is defined as positive (some have depth as negative)
             df["depth_m"] = np.abs(df["depth_m"])
@@ -381,7 +430,6 @@ def load_cpt_spreadsheet_file(file_path: Path) -> pd.DataFrame:
             return df
 
         else:
-            print()
             missing_cols = []
             if col1 is None:
                 missing_cols.append("depth")

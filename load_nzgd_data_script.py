@@ -40,7 +40,7 @@ def summary_df_helper(summary_df, record_dir_name, file_was_loaded, loaded_file_
     return concat_df
 
 nzgd_index_df = pd.read_csv(Path("/home/arr65/data/nzgd/nzgd_index_files/csv_files/NZGD_Investigation_Report_25092024_1043.csv"))
-output_dir = Path("/home/arr65/data/nzgd/standard_format_batch6/cpt")
+output_dir = Path("/home/arr65/data/nzgd/standard_format_batch20/cpt")
 ### !!! GO HERE
 
 parquet_output_dir = output_dir / "data"
@@ -51,7 +51,10 @@ metadata_output_dir.mkdir(exist_ok=True, parents=True)
 
 downloaded_files = Path("/home/arr65/data/nzgd/downloaded_files/cpt")
 
-#previously_converted_filenames = list(np.loadtxt("/home/arr65/data/nzgd/standard_format_batch1/cpt/metadata/successfully_loaded.txt", dtype=str))
+#previous_loading_summary = pd.read_csv(Path("/home/arr65/data/nzgd/standard_format_batch10/cpt/metadata") / "loading_summary.csv")
+
+### !!! GO HERE !!!
+#previously_converted_filenames = list(previous_loading_summary[previous_loading_summary["file_was_loaded"]==True]["record_name"])
 previously_converted_filenames = []
 
 previously_converted_records = []
@@ -75,7 +78,10 @@ loading_summary_df = pd.DataFrame(columns=["record_name", "file_was_loaded", "lo
 ### !!! GO HERE
 record_counter = 0
 for record_dir in tqdm(records_to_convert):
-#for record_dir in [Path("/home/arr65/data/nzgd/downloaded_files/cpt/CPT_3866")]:
+#for record_dir in [Path("/home/arr65/data/nzgd/downloaded_files/cpt/CPT_110939")]:
+#for record_dir in [Path("/home/arr65/data/nzgd/downloaded_files/cpt/CPT_9326")]:
+#for record_dir in [Path("/home/arr65/data/nzgd/downloaded_files/cpt/CPT_60575")]:
+#for record_dir in [Path("/home/arr65/data/nzgd/downloaded_files/cpt/CPT_17546")]:
 #for record_dir in [Path("/home/arr65/data/nzgd/downloaded_files/cpt/CPT_2497")]:
 #for record_dir in [Path("/home/arr65/data/nzgd/downloaded_files/cpt/CPT_24230")]:
 #for record_dir in [Path("/home/arr65/data/nzgd/downloaded_files/cpt/CPT_72538")]:
@@ -186,7 +192,6 @@ for record_dir in tqdm(records_to_convert):
         try:
             xls_file_load_attempted = True
             record_df = loading_funcs_for_nzgd_data.load_cpt_spreadsheet_file(file_to_try)
-
 
             # record original name and location as attributes and columns
             record_df.attrs["original_file_name"] = file_to_try.name

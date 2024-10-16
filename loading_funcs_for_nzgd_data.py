@@ -20,55 +20,6 @@ from scipy.special import special
 import loading_helper_functions
 import toml
 
-def convert_num_as_str_to_float(val):
-    try:
-        return float(val)
-    except ValueError:
-        return val
-
-def can_convert_str_to_float(value: str) -> bool:
-
-    """
-    Check if a string can be converted to a float.
-
-    Parameters
-    ----------
-    value : str
-        The string to check.
-
-    Returns
-    -------
-    bool
-        True if the string can be converted to a float, False otherwise.
-    """
-
-    try:
-        float(value)
-        return True
-    except ValueError:
-        return False
-
-def str_cannot_become_float(value: str) -> bool:
-
-    """
-    Check if a string cannot be converted to a float.
-
-    Parameters
-    ----------
-    value : str
-        The string to check.
-
-    Returns
-    -------
-    bool
-        True if the string cannot be converted to a float, False otherwise.
-    """
-
-    try:
-        float(value)
-        return False
-    except ValueError:
-        return True
 
 
 def find_missing_cols_for_best_sheet(missing_cols_per_sheet: list[list]) -> list:
@@ -94,6 +45,9 @@ def find_missing_cols_for_best_sheet(missing_cols_per_sheet: list[list]) -> list
             final_num_missing_cols = len(missing_cols)
             final_missing_cols = missing_cols
     return final_missing_cols
+
+
+
 
 def find_col_name_from_substring(df:pd.DataFrame,
                                  substrings:list[str],
@@ -253,7 +207,7 @@ def load_cpt_spreadsheet_file(file_path: Path) -> pd.DataFrame:
 
     known_note_labels = toml.load("./resources/known_note_labels.toml")
 
-    col_data_types = np.array(["depth", "cone_resistance", "sleeve_friction", "porewater_pressure"])
+
 
     if file_path.suffix.lower() in [".xls", ".xlsx"]:
         sheet_names, engine = loading_helper_functions.get_xls_sheet_names(file_path)
@@ -264,42 +218,13 @@ def load_cpt_spreadsheet_file(file_path: Path) -> pd.DataFrame:
     missing_cols_per_sheet = []
     # Iterate through each sheet
     for sheet_idx, sheet in enumerate(sheet_names):
-    ## for sheet_idx, sheet in enumerate(["CPT_DATA"]):
+    #for sheet_idx, sheet in enumerate(["Test"]):
 
-        # Load the entire sheet without specifying headers
         if file_path.suffix.lower() in [".csv", ".txt"]:
-            sep = r"," if file_path.suffix == ".csv" else r"\s+"
-            file_encoding = loading_helper_functions.find_encoding(file_path)
-            split_readlines_iterable = loading_helper_functions.get_csv_or_txt_split_readlines(file_path, file_encoding)
-            header_lines_in_csv_or_txt_file = loading_helper_functions.get_header_rows(split_readlines_iterable, np.arange(len(split_readlines_iterable)-1))
-
-            # csv and txt files do not have multiple sheets so just raise an error immediately if no header rows were found
-            if len(header_lines_in_csv_or_txt_file) == 0:
-                raise ValueError(f"no_header_row - sheet ({sheet.replace("-", "_")}) has no header row")
-
-            if len(header_lines_in_csv_or_txt_file) > 1:
-                multi_row_header_array = np.zeros((len(header_lines_in_csv_or_txt_file), 4),dtype=float)
-                multi_row_header_array[:] = np.nan
-                for header_line_idx, header_line in enumerate(header_lines_in_csv_or_txt_file):
-                    multi_row_header_array[header_line_idx,:] = loading_helper_functions.search_line_for_all_needed_cells(split_readlines_iterable[header_line])
-                col_data_type_indices = np.nansum(multi_row_header_array, axis=0)
-            else:
-                col_data_type_indices = loading_helper_functions.search_line_for_all_needed_cells(split_readlines_iterable[header_lines_in_csv_or_txt_file[0]])
-
-            missing_cols = list(col_data_types[~np.isfinite(col_data_type_indices)])
-
-            if len(missing_cols) > 0:
-                raise ValueError(f"missing_columns - sheet ({sheet.replace('-', '_')}) is missing [{' & '.join(missing_cols)}]")
-
-            needed_col_indices_with_nans = loading_helper_functions.search_line_for_all_needed_cells(split_readlines_iterable[header_lines_in_csv_or_txt_file[0]])
-            needed_col_indices = [int(col_idx) for col_idx in needed_col_indices_with_nans if np.isfinite(col_idx)]
-
-            df = pd.read_csv(file_path, header=None, encoding=file_encoding, sep=sep,
-                        skiprows=header_lines_in_csv_or_txt_file[0], usecols=needed_col_indices).map(convert_num_as_str_to_float)
-
+            df = loading_helper_functions.load_csv_or_txt(file_path)
 
         else:
-            df = pd.read_excel(file_path, sheet_name=sheet, header=None, engine=engine)
+            df = pd.read_excel(file_path, sheet_name=sheet, header=None, engine=engine, parse_dates=False)
 
         ####################################################################################################################
         ####################################################################################################################
@@ -311,11 +236,10 @@ def load_cpt_spreadsheet_file(file_path: Path) -> pd.DataFrame:
         df_for_counting_str_per_row = df.map(lambda x: 1.0 if isinstance(x, (str)) else 0)
         num_str_per_row = np.nansum(df_for_counting_str_per_row, axis=1)
 
-        df_nan_to_str = df.fillna("nan")
-        df_for_counting_num_per_row = df_nan_to_str.map(lambda x:1.0 if isinstance(x, (int, float)) else 0)
-
-        num_num_per_row = np.nansum(df_for_counting_num_per_row, axis=1)
-        #num_data_rows_with_at_least_4_cols = np.sum(num_num_per_row >= 4)
+        # df_nan_to_str = df.fillna("nan")
+        # df_for_counting_num_per_row = df_nan_to_str.map(lambda x:1.0 if isinstance(x, (int, float)) else 0)
+        #
+        # num_num_per_row = np.nansum(df_for_counting_num_per_row, axis=1)
 
         if df.shape == (0,0):
             if (sheet_idx == len(sheet_names) - 1):
@@ -329,8 +253,6 @@ def load_cpt_spreadsheet_file(file_path: Path) -> pd.DataFrame:
                 missing_cols_per_sheet.append(["depth", "cone_resistance", "sleeve_friction", "porewater_pressure"])
                 continue
 
-
-
         # check for a known note label
         if all((df.iloc[0] == known_note_labels["note_label_2a"]) & (df.iloc[1] == known_note_labels["note_label_2b"])):
             raise ValueError(f"note_file_without_data - {known_note_labels["note_label_2a"]} {known_note_labels["note_label_2b"]}")
@@ -338,12 +260,17 @@ def load_cpt_spreadsheet_file(file_path: Path) -> pd.DataFrame:
         # can only find the header rows for xls or xlsx files after the data has been loaded with pandas so do that now
 
         ## Initial check of the two rows that are most likely to contain the header
-        first_check_rows = np.argmax(num_str_per_row)+np.array([0,1,2,3])
-        header_row_indices = loading_helper_functions.get_header_rows(df, first_check_rows)
+        #first_check_rows = np.argmax(num_str_per_row)+np.array([0,1,2,3])
+        #header_row_indices = loading_helper_functions.get_header_rows(df, first_check_rows)
+        #header_row_indices = loading_helper_functions.find_all_header_rows(df)
 
-        if len(header_row_indices) == 0:
-            ## If header was not found on most likely rows, try all rows
-            header_row_indices = loading_helper_functions.get_header_rows(df, np.arange(len(df)-1))
+        # Try to find a single header row from the column names
+        initial_header_row_index = loading_helper_functions.find_one_header_row_from_column_names(df)
+        if np.isfinite(initial_header_row_index):
+            header_row_indices = loading_helper_functions.find_all_header_rows(df)
+        else:
+            header_row_indices = []
+
         if len(header_row_indices) == 0:
             if (sheet_idx == len(sheet_names) - 1):
                 if len(missing_cols_per_sheet) > 0:
@@ -358,15 +285,7 @@ def load_cpt_spreadsheet_file(file_path: Path) -> pd.DataFrame:
 
         # if there are multiple header rows, combine them into the lowest row
         if len(header_row_indices) > 1:
-            header_row_index = np.max(header_row_indices)
-            # copy the column names from the rows above the header row
-            df2 = df.copy()
-            for row_idx in header_row_indices:
-                for col_idx in range(df.shape[1]):
-                    if row_idx != header_row_index:
-                        df2.iloc[header_row_index, col_idx] = str(df.iloc[header_row_index,col_idx]) + " " + str(df.iloc[row_idx,col_idx])
-
-            df = df2.copy()
+            df, header_row_index = loading_helper_functions.combine_multiple_header_rows(df, header_row_indices)
 
         # If there is only one header row, take it as the header row
         else:
@@ -385,8 +304,8 @@ def load_cpt_spreadsheet_file(file_path: Path) -> pd.DataFrame:
         # so the unit row below what is taken as the header is coerced to nan
         # so if there is a row of nan below the header, it is skipped
 
-        if all(~np.isfinite(df.iloc[0,:])):
-            df = df.iloc[1:]
+        # if all(~np.isfinite(df.iloc[0,:])):
+        #     df = df.iloc[1:]
 
         if np.all(np.sum(np.isfinite(df), axis=0) == 0):
             if (sheet_idx == len(sheet_names) - 1):

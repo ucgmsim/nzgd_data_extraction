@@ -1,8 +1,63 @@
+import enum
+
 import numpy as np
 import xlrd
 import pandas as pd
 import re
 import toml
+from typing import Union
+import copy
+
+
+def can_convert_str_to_float(value: str) -> bool:
+
+    """
+    Check if a string can be converted to a float.
+
+    Parameters
+    ----------
+    value : str
+        The string to check.
+
+    Returns
+    -------
+    bool
+        True if the string can be converted to a float, False otherwise.
+    """
+
+    try:
+        float(value)
+        return True
+    except ValueError:
+        return False
+
+def str_cannot_become_float(value: str) -> bool:
+
+    """
+    Check if a string cannot be converted to a float.
+
+    Parameters
+    ----------
+    value : str
+        The string to check.
+
+    Returns
+    -------
+    bool
+        True if the string cannot be converted to a float, False otherwise.
+    """
+
+    try:
+        float(value)
+        return False
+    except ValueError:
+        return True
+
+def convert_num_as_str_to_float(val):
+    try:
+        return float(val)
+    except ValueError:
+        return val
 
 def find_cell_in_line_containing_single_character(line, character):
     """Return the index of the first cell containing the given character in the given line."""
@@ -24,8 +79,6 @@ def find_cell_in_line_that_contains_string(line, string):
         if isinstance(cell, str):
             if string in cell.lower():
                 return i
-
-
 
 
 def search_line_for_cell(line, characters, substrings):
@@ -83,94 +136,122 @@ def search_line_for_all_needed_cells(
         return col1_search, col2_search, col3_search, col4_search
 
 
-# def get_header_rows(iterable, check_rows):
-#
-#     partial_header_length = 1
-#     header_rows = []
-#
-#     most_likely_partial_header_row = np.nan
-#     most_columns_found = 0
-#
-#     for check_row in check_rows:
-#
-#         if isinstance(iterable, pd.DataFrame):
-#             line1_check = search_line_for_all_needed_cells(iterable.iloc[check_row])
-#             line2_check = search_line_for_all_needed_cells(iterable.iloc[check_row+1])
-#         else:
-#             line1_check = search_line_for_all_needed_cells(iterable[check_row])
-#             line2_check = search_line_for_all_needed_cells(iterable[check_row+1])
-#
-#
-#
-#         if (np.sum(np.isfinite(line1_check)) >= 2) & (np.sum(np.isfinite(line1_check)) >= 1):
-#             header_rows.extend([check_row, check_row+1])
-#             return np.array(header_rows)
-#
-#
-#
-#
-#
-#
-#         if np.sum(np.isfinite(line1_check)) >=1:
-#             header_rows.append(check_row)
-#             if np.sum(np.isfinite(line2_check)) >= 1:
-#                 header_rows.append(check_row+1)
-#
-#             break
-#
-#         elif np.sum(np.isfinite(line2_check)) >= 1:
-#             header_rows.append(check_row+1)
-#
-#
-#     return np.array(header_rows)
 
-def get_header_rows(iterable, check_rows):
+def check_if_line_is_header(line: Union[pd.Series, list], min_num_) -> bool:
+
+    search_result = search_line_for_all_needed_cells(line)
+
+    return bool(search_result)
+
+def find_one_header_row_from_column_names(iterable):
+
+    check_rows = np.arange(len(iterable) - 1)
+
+    if isinstance(iterable, pd.DataFrame):
+        iterable = [iterable.iloc[i].to_list() for i in range(len(iterable))]
+
+
     # ensure that it will not try to check beyond the last row
     check_rows = check_rows[check_rows<len(iterable)-1]
 
     best_partial_header_row = np.nan
     num_cols_in_best_possible_row = 0
 
-    header_rows = []
-
     for check_row in check_rows:
 
-        if isinstance(iterable, pd.DataFrame):
-            line1_check = search_line_for_all_needed_cells(iterable.iloc[check_row])
-            line2_check = search_line_for_all_needed_cells(iterable.iloc[check_row + 1])
-        else:
-            line1_check = search_line_for_all_needed_cells(iterable[check_row])
-            line2_check = search_line_for_all_needed_cells(iterable[check_row + 1])
+        line_check = search_line_for_all_needed_cells(iterable[check_row])
 
-        if (np.sum(np.isfinite(line1_check)) >= 4):
-            header_rows.append(check_row)
-            if np.sum(np.isfinite(line2_check)) >= 1:
-                header_rows.append(check_row + 1)
-            return np.array(header_rows)
+        if (np.sum(np.isfinite(line_check)) >= 4):
+            # Found all required columns
+            return check_row
 
-        elif (np.sum(np.isfinite(line1_check)) >= 1):
-            num_cols_in_check_row = np.sum(np.isfinite(line1_check))
-
+        elif (np.sum(np.isfinite(line_check)) >= 1):
+            num_cols_in_check_row = np.sum(np.isfinite(line_check))
             if num_cols_in_check_row > num_cols_in_best_possible_row:
-
                 best_partial_header_row = check_row
                 num_cols_in_best_possible_row = num_cols_in_check_row
 
     if best_partial_header_row is not np.nan:
-        header_rows.append(best_partial_header_row)
-        # check following line for a single column name
-        if isinstance(iterable, pd.DataFrame):
-            line2_check = search_line_for_all_needed_cells(iterable.iloc[best_partial_header_row + 1])
-        else:
-            line2_check = search_line_for_all_needed_cells(iterable[best_partial_header_row + 1])
-        if np.sum(np.isfinite(line2_check)) >= 1:
-            header_rows.append(best_partial_header_row + 1)
-
-        return np.array(header_rows)
+        return best_partial_header_row
 
     else:
+        return np.nan
 
-        return np.array([])
+
+def convert_numerical_str_cells_to_float(iterable):
+
+    if isinstance(iterable, pd.DataFrame):
+        iterable = [iterable.iloc[i].to_list() for i in range(len(iterable))]
+
+    iterable_no_numerical_str = copy.copy(iterable)
+
+    for row_idx, line in enumerate(iterable_no_numerical_str):
+        for col_idx, cell in enumerate(line):
+            # some cells are read by pd.read_xls() as type datetime so need to convert them to str
+            cell = str(cell)
+            if can_convert_str_to_float(cell):
+                iterable_no_numerical_str[row_idx][col_idx] = float(cell)
+
+    return iterable_no_numerical_str
+
+
+class NumOrText(enum.StrEnum):
+    NUMERIC = enum.auto()
+    TEXT = enum.auto()
+
+
+
+def get_number_of_x_cells_per_line(iterable:Union[pd.Series, list], x: NumOrText):
+
+    if isinstance(iterable, pd.DataFrame):
+        iterable = [iterable.iloc[i].to_list() for i in range(len(iterable))]
+    iterable = convert_numerical_str_cells_to_float(iterable)
+
+    num_x_cells_per_line = np.zeros(len(iterable), dtype=int)
+
+    for row_idx, line in enumerate(iterable):
+
+        if x == NumOrText.TEXT:
+            num_x_cells_per_line[row_idx] = np.sum([isinstance(cell, str) for cell in line])
+        elif x == NumOrText.NUMERIC:
+            num_x_cells_per_line[row_idx] = np.sum([isinstance(cell, (int, float)) for cell in line])
+
+    return num_x_cells_per_line
+
+
+def find_all_header_rows(iterable):
+
+    if isinstance(iterable, pd.DataFrame):
+        iterable = [iterable.iloc[i].to_list() for i in range(len(iterable))]
+
+    check_rows = np.arange(len(iterable) - 1)
+
+    num_text_cells_per_line = get_number_of_x_cells_per_line(iterable, NumOrText.TEXT)
+    num_str_cells_per_line = get_number_of_x_cells_per_line(iterable, NumOrText.NUMERIC)
+    text_surplus = num_text_cells_per_line - num_str_cells_per_line
+    header_rows = [find_one_header_row_from_column_names(iterable)]
+
+    # see if there are any header rows above the initially identified header row
+    num_str_cells_in_header = num_str_cells_per_line[header_rows[0]]
+    current_row_idx = header_rows[0] - 1
+    while current_row_idx > 0:
+        if len(iterable[current_row_idx]) != num_str_cells_in_header:
+            break
+        else:
+            header_rows.append(current_row_idx)
+        current_row_idx -= 1
+
+    # check rows below
+    current_row_idx = header_rows[0]+1
+    while current_row_idx < len(iterable)-1:
+        if text_surplus[current_row_idx] > 0:
+            header_rows.append(current_row_idx)
+        else:
+            break
+        current_row_idx += 1
+
+    return np.array(sorted(header_rows))
+
 
 
 def get_xls_sheet_names(file_path):
@@ -216,8 +297,6 @@ def get_csv_or_txt_split_readlines(file_path, encoding):
 
         if lines[0] == known_note_labels["note_label_1"]:
             raise ValueError(f"note_file_without_data - {known_note_labels["note_label_1"].replace(",", "")}")
-
-
 
     sep = r"," if file_path.suffix == ".csv" else r"\s+"
 
@@ -285,27 +364,73 @@ def convert_to_m_and_mpa(df, col_names):
 
     return df
 
+def load_csv_or_txt(file_path, sheet=0, col_data_types=np.array(["depth",
+                                                                 "cone_resistance",
+                                                                 "sleeve_friction",
+                                                                 "porewater_pressure"])):
+    sep = r"," if file_path.suffix == ".csv" else r"\s+"
+    file_encoding = find_encoding(file_path)
+    split_readlines_iterable = get_csv_or_txt_split_readlines(file_path, file_encoding)
 
+    header_lines_in_csv_or_txt_file = find_all_header_rows(split_readlines_iterable)
 
+    # csv and txt files do not have multiple sheets so just raise an error immediately if no header rows were found
+    if len(header_lines_in_csv_or_txt_file) == 0:
+        raise ValueError(f"no_header_row - sheet ({sheet.replace("-", "_")}) has no header row")
 
+    if len(header_lines_in_csv_or_txt_file) > 1:
+        multi_row_header_array = np.zeros((len(header_lines_in_csv_or_txt_file), 4), dtype=float)
+        multi_row_header_array[:] = np.nan
+        for header_line_idx, header_line in enumerate(header_lines_in_csv_or_txt_file):
+            multi_row_header_array[header_line_idx, :] = search_line_for_all_needed_cells(
+                split_readlines_iterable[header_line])
+        col_data_type_indices = np.nansum(multi_row_header_array, axis=0)
+    else:
+        col_data_type_indices = search_line_for_all_needed_cells(
+            split_readlines_iterable[header_lines_in_csv_or_txt_file[0]])
+    missing_cols = list(col_data_types[~np.isfinite(col_data_type_indices)])
 
+    if len(missing_cols) > 0:
+        raise ValueError(
+            f"missing_columns - sheet ({sheet.replace('-', '_')}) is missing [{' & '.join(missing_cols)}]")
 
+    needed_col_indices_with_nans = search_line_for_all_needed_cells(
+        split_readlines_iterable[header_lines_in_csv_or_txt_file[0]])
+    needed_col_indices = [int(col_idx) for col_idx in needed_col_indices_with_nans if np.isfinite(col_idx)]
 
+    df = pd.read_csv(file_path, header=None, encoding=file_encoding, sep=sep,
+                     skiprows=header_lines_in_csv_or_txt_file[0], usecols=needed_col_indices).map(
+        convert_num_as_str_to_float)
 
+    return df
 
+def combine_multiple_header_rows(df, header_row_indices):
 
+    # take the header_row_index as the maximum of the header_row_indices
+    # which is the lowest row in the spreadsheet
+    header_row_index = np.max(header_row_indices)
 
+    # copy the column names from the rows above the lowest header row
+    df2 = df.copy()
+    for row_idx in header_row_indices:
+        for col_idx in range(df.shape[1]):
+            if row_idx != header_row_index:
+                df2.iloc[header_row_index, col_idx] = str(df.iloc[header_row_index, col_idx]) + " " + str(
+                    df.iloc[row_idx, col_idx])
 
+    return df2, header_row_index
 
-
-
-
-
-
-
-
-
-
-
-
+# def change_exception_for_last_sheet(sheet_idx, sheet, sheet_names, missing_cols_per_sheet, not_last_sheet_exception, last_sheet_exception):
+#
+#     if (sheet_idx == len(sheet_names) - 1):
+#         if len(missing_cols_per_sheet) > 0:
+#             final_missing_cols = find_missing_cols_for_best_sheet(missing_cols_per_sheet)
+#             raise ValueError(
+#                 f"missing_columns - sheet ({sheet.replace('-', '_')}) is missing [{' & '.join(final_missing_cols)}]")
+#         # no other sheets so raise error for this file
+#         raise ValueError(f"empty_file - sheet ({sheet.replace('-', '_')}) has no data")
+#     else:
+#         # There are more sheets to check so continue to next sheet
+#         continue
+#
 

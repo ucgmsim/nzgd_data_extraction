@@ -40,7 +40,7 @@ def summary_df_helper(summary_df, record_dir_name, file_was_loaded, loaded_file_
     return concat_df
 
 nzgd_index_df = pd.read_csv(Path("/home/arr65/data/nzgd/nzgd_index_files/csv_files/NZGD_Investigation_Report_25092024_1043.csv"))
-output_dir = Path("/home/arr65/data/nzgd/standard_format_batch20/cpt")
+output_dir = Path("/home/arr65/data/nzgd/standard_format_batch30/cpt")
 ### !!! GO HERE
 
 parquet_output_dir = output_dir / "data"
@@ -78,6 +78,7 @@ loading_summary_df = pd.DataFrame(columns=["record_name", "file_was_loaded", "lo
 ### !!! GO HERE
 record_counter = 0
 for record_dir in tqdm(records_to_convert):
+#for record_dir in [Path("/home/arr65/data/nzgd/downloaded_files/cpt/CPT_2497")]:
 #for record_dir in [Path("/home/arr65/data/nzgd/downloaded_files/cpt/CPT_110939")]:
 #for record_dir in [Path("/home/arr65/data/nzgd/downloaded_files/cpt/CPT_9326")]:
 #for record_dir in [Path("/home/arr65/data/nzgd/downloaded_files/cpt/CPT_60575")]:

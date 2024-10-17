@@ -7,6 +7,10 @@ import re
 import toml
 from typing import Union
 import copy
+import zipfile
+
+
+
 
 
 def can_convert_str_to_float(value: str) -> bool:
@@ -103,7 +107,7 @@ def search_line_for_all_needed_cells(
         line,
         output_all_candidates=False,
         characters1=["m","w","h"],
-        substrings1=["depth", "length", "top"],
+        substrings1=["depth", "length", "top", "h "],
         characters2=["q","mpa"],
         substrings2 = ["qc", "q_c", "cone", "resistance", "res", "tip"],
         characters3=['mpa'],
@@ -207,6 +211,8 @@ def get_number_of_x_cells_per_line(iterable:Union[pd.Series, list], x: NumOrText
         iterable = [iterable.iloc[i].to_list() for i in range(len(iterable))]
     iterable = convert_numerical_str_cells_to_float(iterable)
 
+    print()
+
     num_x_cells_per_line = np.zeros(len(iterable), dtype=int)
 
     for row_idx, line in enumerate(iterable):
@@ -224,15 +230,16 @@ def find_all_header_rows(iterable):
     if isinstance(iterable, pd.DataFrame):
         iterable = [iterable.iloc[i].to_list() for i in range(len(iterable))]
 
-    check_rows = np.arange(len(iterable) - 1)
-
     num_text_cells_per_line = get_number_of_x_cells_per_line(iterable, NumOrText.TEXT)
-    num_str_cells_per_line = get_number_of_x_cells_per_line(iterable, NumOrText.NUMERIC)
-    text_surplus = num_text_cells_per_line - num_str_cells_per_line
+    num_numeric_cells_per_line = get_number_of_x_cells_per_line(iterable, NumOrText.NUMERIC)
+    text_surplus = num_text_cells_per_line - num_numeric_cells_per_line
+
     header_rows = [find_one_header_row_from_column_names(iterable)]
+    if (len(header_rows) == 1) & (np.isnan(header_rows[0])):
+        return np.array([])
 
     # see if there are any header rows above the initially identified header row
-    num_str_cells_in_header = num_str_cells_per_line[header_rows[0]]
+    num_str_cells_in_header = num_numeric_cells_per_line[header_rows[0]]
     current_row_idx = header_rows[0] - 1
     while current_row_idx > 0:
         if len(iterable[current_row_idx]) != num_str_cells_in_header:
@@ -272,7 +279,11 @@ def get_xls_sheet_names(file_path):
 
         engine = other_engine
 
-        sheet_names = pd.ExcelFile(file_path, engine=engine).sheet_names
+    except(zipfile.BadZipFile):
+        raise ValueError(f"bad_zip_file - file {file_path.name} is not a valid xls or xlsx file")
+
+    except(xlrd.compdoc.CompDocError):
+        raise ValueError(f"corrupt_file - file {file_path.name} has MSAT extension corruption")
 
     return sheet_names, engine
 
@@ -290,15 +301,13 @@ def find_encoding(file_path, encodings = ['utf-8', 'latin1', 'iso-8859-1', 'cp12
 
 def get_csv_or_txt_split_readlines(file_path, encoding):
 
-    known_note_labels = toml.load("resources/known_note_labels.toml")
-
     with open(file_path, 'r', encoding=encoding) as file:
         lines = file.readlines()
 
-        if lines[0] == known_note_labels["note_label_1"]:
-            raise ValueError(f"note_file_without_data - {known_note_labels["note_label_1"].replace(",", "")}")
+        if len(lines) == 1:
+            raise ValueError(f"only_one_line - sheet (0) has only one line with first cell of {lines[0]}")
 
-    sep = r"," if file_path.suffix == ".csv" else r"\s+"
+    sep = r"," if file_path.suffix.lower() == ".csv" else r"\s+"
 
     split_lines = [re.split(sep, line) for line in lines]
 
@@ -364,14 +373,13 @@ def convert_to_m_and_mpa(df, col_names):
 
     return df
 
-def load_csv_or_txt(file_path, sheet=0, col_data_types=np.array(["depth",
+def load_csv_or_txt(file_path, sheet="0", col_data_types=np.array(["depth",
                                                                  "cone_resistance",
                                                                  "sleeve_friction",
                                                                  "porewater_pressure"])):
-    sep = r"," if file_path.suffix == ".csv" else r"\s+"
+    sep = r"," if file_path.suffix.lower() == ".csv" else r"\s+"
     file_encoding = find_encoding(file_path)
     split_readlines_iterable = get_csv_or_txt_split_readlines(file_path, file_encoding)
-
     header_lines_in_csv_or_txt_file = find_all_header_rows(split_readlines_iterable)
 
     # csv and txt files do not have multiple sheets so just raise an error immediately if no header rows were found
@@ -420,17 +428,15 @@ def combine_multiple_header_rows(df, header_row_indices):
 
     return df2, header_row_index
 
-# def change_exception_for_last_sheet(sheet_idx, sheet, sheet_names, missing_cols_per_sheet, not_last_sheet_exception, last_sheet_exception):
-#
-#     if (sheet_idx == len(sheet_names) - 1):
-#         if len(missing_cols_per_sheet) > 0:
-#             final_missing_cols = find_missing_cols_for_best_sheet(missing_cols_per_sheet)
-#             raise ValueError(
-#                 f"missing_columns - sheet ({sheet.replace('-', '_')}) is missing [{' & '.join(final_missing_cols)}]")
-#         # no other sheets so raise error for this file
-#         raise ValueError(f"empty_file - sheet ({sheet.replace('-', '_')}) has no data")
-#     else:
-#         # There are more sheets to check so continue to next sheet
-#         continue
-#
+def change_exception_for_last_sheet(error_category, description, sheet_idx, sheet, sheet_names, final_missing_cols):
+
+    if ((sheet_idx == len(sheet_names) - 1) & len(final_missing_cols) > 0):
+        raise ValueError(
+            f"missing_columns - sheet ({sheet.replace('-', '_')}) is missing [{' & '.join(final_missing_cols)}]")
+    elif ((sheet_idx == len(sheet_names) - 1) & len(final_missing_cols) == 0):
+        raise ValueError(f"{error_category} - sheet ({sheet.replace("-", "_")}) {description}")
+
+
+
+
 

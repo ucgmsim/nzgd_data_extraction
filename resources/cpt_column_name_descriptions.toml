@@ -1,0 +1,4 @@
+Depth = "depth in m"
+qc = "cone resistance (qc) in MPa"
+fs = "sleeve friction (fs) in MPa"
+u = "pore pressure (u2) in MPa"

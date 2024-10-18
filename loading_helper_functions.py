@@ -378,10 +378,10 @@ def convert_to_m_and_mpa(df, col_names):
 
     return df
 
-def load_csv_or_txt(file_path, sheet="0", col_data_types=np.array(["depth",
-                                                                 "cone_resistance",
-                                                                 "sleeve_friction",
-                                                                 "pore_pressure"])):
+def load_csv_or_txt(file_path, sheet="0", col_data_types=np.array(["Depth",
+                                                                 "qc",
+                                                                 "fs",
+                                                                 "u"])):
     sep = r"," if file_path.suffix.lower() == ".csv" else r"\s+"
     file_encoding = find_encoding(file_path)
     split_readlines_iterable = get_csv_or_txt_split_readlines(file_path, file_encoding)

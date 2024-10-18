@@ -10,7 +10,8 @@ import copy
 import zipfile
 
 
-
+class FileConversionError(Exception):
+    pass
 
 
 def can_convert_str_to_float(value: str) -> bool:
@@ -66,8 +67,6 @@ def convert_num_as_str_to_float(val):
 def find_cell_in_line_containing_single_character(line, character):
     """Return the index of the first cell containing the given character in the given line."""
 
-    candidate_cells = []
-
     for i, cell in enumerate(line):
 
         if isinstance(cell, str):
@@ -113,7 +112,7 @@ def search_line_for_all_needed_cells(
         characters3=['mpa'],
         substrings3=["fs", "sleeve", "friction","local"],
         characters4=["u","mpa"],
-        substrings4=["u2", "pore","water","dynamic"]):
+        substrings4=["u2", "u ", "pore","water","dynamic"]):
 
 
     col1_search = search_line_for_cell(line, characters1, substrings1)
@@ -211,8 +210,6 @@ def get_number_of_x_cells_per_line(iterable:Union[pd.Series, list], x: NumOrText
         iterable = [iterable.iloc[i].to_list() for i in range(len(iterable))]
     iterable = convert_numerical_str_cells_to_float(iterable)
 
-    print()
-
     num_x_cells_per_line = np.zeros(len(iterable), dtype=int)
 
     for row_idx, line in enumerate(iterable):
@@ -265,27 +262,32 @@ def get_xls_sheet_names(file_path):
 
     if file_path.suffix.lower() == ".xls":
         engine = "xlrd"
-    elif file_path.suffix.lower() == ".xlsx":
+    else:
         engine = "openpyxl"
 
     # Some .xls files are actually xlsx files and need to be opened with openpyxl
     try:
         sheet_names = pd.ExcelFile(file_path, engine=engine).sheet_names
-    except(xlrd.biffh.XLRDError):
+        return sheet_names, engine
+
+    except xlrd.biffh.XLRDError:
         if engine == "xlrd":
             other_engine = "openpyxl"
-        if engine == "openpyxl":
+        else:
             other_engine = "xlrd"
 
         engine = other_engine
+        sheet_names = pd.ExcelFile(file_path, engine=engine).sheet_names
 
-    except(zipfile.BadZipFile):
-        raise ValueError(f"bad_zip_file - file {file_path.name} is not a valid xls or xlsx file")
+        return sheet_names, engine
 
-    except(xlrd.compdoc.CompDocError):
-        raise ValueError(f"corrupt_file - file {file_path.name} has MSAT extension corruption")
+    except zipfile.BadZipFile:
+        raise FileConversionError(f"bad_zip_file - file {file_path.name} is not a valid xls or xlsx file")
 
-    return sheet_names, engine
+    except xlrd.compdoc.CompDocError:
+        raise FileConversionError(f"corrupt_file - file {file_path.name} has MSAT extension corruption")
+
+
 
 def find_encoding(file_path, encodings = ['utf-8', 'latin1', 'iso-8859-1', 'cp1252']):
 
@@ -305,7 +307,7 @@ def get_csv_or_txt_split_readlines(file_path, encoding):
         lines = file.readlines()
 
         if len(lines) == 1:
-            raise ValueError(f"only_one_line - sheet (0) has only one line with first cell of {lines[0]}")
+            raise FileConversionError(f"only_one_line - sheet (0) has only one line with first cell of {lines[0]}")
 
     sep = r"," if file_path.suffix.lower() == ".csv" else r"\s+"
 
@@ -316,17 +318,15 @@ def get_csv_or_txt_split_readlines(file_path, encoding):
 
     return split_lines
 
-def check_for_clean_cols(df):
+def get_column_names(df):
 
-    target_col_index_to_name = {0:"depth",1:"cone_resistance",2:"sleeve_friction",
-                                3:"porewater_pressure"}
+    target_col_index_to_name = {0:"Depth",1:"qc",2:"fs",
+                                3:"u"}
 
     all_target_col_candidate_indices = search_line_for_all_needed_cells(df.columns,
                                                                                      output_all_candidates=True)
     final_col_names = []
     for target_col_index, target_col_candidate_indices in enumerate(all_target_col_candidate_indices):
-        #candidate_finite_indices = target_col_candidate_indices[np.isfinite(target_col_candidate_indices)]
-
         if len(target_col_candidate_indices) == 0:
             final_col_names.append(None)
 
@@ -339,6 +339,11 @@ def check_for_clean_cols(df):
             target_col_candidate_names = [df.columns[int(idx)] for idx in target_col_candidate_indices]
 
             candidate_col_name = target_col_candidate_names[0]
+
+            # see if the selected column name is used more than once in the original file
+            if len(df[candidate_col_name].shape) > 1:
+                raise FileConversionError(f"repeated_col_names_in_source - sheet has multiple columns with the name {candidate_col_name}")
+
             num_finite_values_in_first_candidate_col = np.sum(np.isfinite(df[candidate_col_name]))
 
             for target_col_candidate_name in target_col_candidate_names:
@@ -376,7 +381,7 @@ def convert_to_m_and_mpa(df, col_names):
 def load_csv_or_txt(file_path, sheet="0", col_data_types=np.array(["depth",
                                                                  "cone_resistance",
                                                                  "sleeve_friction",
-                                                                 "porewater_pressure"])):
+                                                                 "pore_pressure"])):
     sep = r"," if file_path.suffix.lower() == ".csv" else r"\s+"
     file_encoding = find_encoding(file_path)
     split_readlines_iterable = get_csv_or_txt_split_readlines(file_path, file_encoding)
@@ -384,7 +389,7 @@ def load_csv_or_txt(file_path, sheet="0", col_data_types=np.array(["depth",
 
     # csv and txt files do not have multiple sheets so just raise an error immediately if no header rows were found
     if len(header_lines_in_csv_or_txt_file) == 0:
-        raise ValueError(f"no_header_row - sheet ({sheet.replace("-", "_")}) has no header row")
+        raise FileConversionError(f"no_header_row - sheet ({sheet.replace("-", "_")}) has no header row")
 
     if len(header_lines_in_csv_or_txt_file) > 1:
         multi_row_header_array = np.zeros((len(header_lines_in_csv_or_txt_file), 4), dtype=float)
@@ -399,7 +404,7 @@ def load_csv_or_txt(file_path, sheet="0", col_data_types=np.array(["depth",
     missing_cols = list(col_data_types[~np.isfinite(col_data_type_indices)])
 
     if len(missing_cols) > 0:
-        raise ValueError(
+        raise FileConversionError(
             f"missing_columns - sheet ({sheet.replace('-', '_')}) is missing [{' & '.join(missing_cols)}]")
 
     needed_col_indices_with_nans = search_line_for_all_needed_cells(
@@ -431,10 +436,10 @@ def combine_multiple_header_rows(df, header_row_indices):
 def change_exception_for_last_sheet(error_category, description, sheet_idx, sheet, sheet_names, final_missing_cols):
 
     if ((sheet_idx == len(sheet_names) - 1) & len(final_missing_cols) > 0):
-        raise ValueError(
+        raise FileConversionError(
             f"missing_columns - sheet ({sheet.replace('-', '_')}) is missing [{' & '.join(final_missing_cols)}]")
     elif ((sheet_idx == len(sheet_names) - 1) & len(final_missing_cols) == 0):
-        raise ValueError(f"{error_category} - sheet ({sheet.replace("-", "_")}) {description}")
+        raise FileConversionError(f"{error_category} - sheet ({sheet.replace("-", "_")}) {description}")
 
 
 

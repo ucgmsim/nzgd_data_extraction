@@ -10,6 +10,7 @@ from tqdm import tqdm
 import natsort
 import pandas as pd
 import functools
+import loading_helper_functions
 
 def summary_df_helper(summary_df, record_dir_name, file_was_loaded, loaded_file_type,
                       loaded_file_name, pdf_file_list, cpt_file_list, ags_file_list, xls_file_list,
@@ -40,7 +41,7 @@ def summary_df_helper(summary_df, record_dir_name, file_was_loaded, loaded_file_
     return concat_df
 
 nzgd_index_df = pd.read_csv(Path("/home/arr65/data/nzgd/nzgd_index_files/csv_files/NZGD_Investigation_Report_25092024_1043.csv"))
-output_dir = Path("/home/arr65/data/nzgd/standard_format_batch50/cpt")
+output_dir = Path("/home/arr65/data/nzgd/standard_format_batch60/cpt")
 ### !!! GO HERE
 
 parquet_output_dir = output_dir / "data"
@@ -78,11 +79,16 @@ loading_summary_df = pd.DataFrame(columns=["record_name", "file_was_loaded", "lo
 ### !!! GO HERE
 record_counter = 0
 for record_dir in tqdm(records_to_convert):
+#for record_dir in [Path("/home/arr65/data/nzgd/downloaded_files/cpt/CPT_184534")]:
 
-#for record_dir in [Path("/home/arr65/data/nzgd/downloaded_files/cpt/CPT_212092")]:
+
+
+#for record_dir in [Path("/home/arr65/data/nzgd/downloaded_files/cpt/CPT_96686")]:
+
+#for record_dir in [Path("/home/arr65/data/nzgd/downloaded_files/cpt/CPT_117329")]:
 #for record_dir in [Path("/home/arr65/data/nzgd/downloaded_files/cpt/CPT_125853")]:
 
-#for record_dir in [Path("/home/arr65/data/nzgd/downloaded_files/cpt/CPT_2497")]:
+#for record_dir in [Path("/home/arr65/data/nzgd/downloaded_files/cpt/CPT_23319")]:
 #for record_dir in [Path("/home/arr65/data/nzgd/downloaded_files/cpt/CPT_110939")]:
 #for record_dir in [Path("/home/arr65/data/nzgd/downloaded_files/cpt/CPT_9326")]:
 #for record_dir in [Path("/home/arr65/data/nzgd/downloaded_files/cpt/CPT_60575")]:
@@ -148,6 +154,7 @@ for record_dir in tqdm(records_to_convert):
                 # record original name and location as attributes and columns
                 record_df.attrs["original_file_name"] = file_to_try.name
                 record_df.attrs["nzgd_meta_data"] = nzgd_meta_data_record
+                record_df.insert(0, "multiple_measurements", 0)
                 record_df.insert(0,"record_name",record_dir.name)
                 record_df.insert(1, "latitude", nzgd_meta_data_record["Latitude"])
                 record_df.insert(2, "longitude", nzgd_meta_data_record["Longitude"])
@@ -196,7 +203,17 @@ for record_dir in tqdm(records_to_convert):
     for file_to_try_index, file_to_try in enumerate(files_to_try):
         try:
             xls_file_load_attempted = True
-            record_df = loading_funcs_for_nzgd_data.load_cpt_spreadsheet_file(file_to_try)
+
+            record_df_list = loading_funcs_for_nzgd_data.load_cpt_spreadsheet_file(file_to_try)
+            record_df_copy_for_attrs = record_df_list[0].copy()
+
+            record_df = pd.DataFrame()
+            for record_df_idx in range(len(record_df_list)):
+                record_df_list[record_df_idx].insert(0, "multiple_measurements", record_df_idx)
+                if record_df_idx == 0:
+                    record_df = record_df_list[record_df_idx]
+                else:
+                    record_df = pd.concat([record_df, record_df_list[record_df_idx]], ignore_index=True)
 
             # record original name and location as attributes and columns
             record_df.attrs["original_file_name"] = file_to_try.name
@@ -210,14 +227,14 @@ for record_dir in tqdm(records_to_convert):
             record_df.to_parquet(parquet_output_dir / f"{record_dir.name}.parquet")
             has_loaded_a_file_for_this_record = True
             spreadsheet_format_description_per_record = pd.DataFrame([{"record_name":record_dir.name,
-                                                               "header_row_index":record_df.attrs["header_row_index_in_original_file"],
-                                                               "depth_col_name_in_original_file": record_df.attrs[
-                                                               "adopted_depth_column_name_in_original_file"],
-                                                               "adopted_cone_resistance_column_name_in_original_file": record_df.attrs["adopted_cone_resistance_column_name_in_original_file"],
-                                                               "adopted_sleeve_friction_column_name_in_original_file":record_df.attrs["adopted_sleeve_friction_column_name_in_original_file"],
-                                                               "adopted_porewater_pressure_column_name_in_original_file":
-                                                                   record_df.attrs[
-                                                                "adopted_porewater_pressure_column_name_in_original_file"],
+                                                               "header_row_index":record_df_copy_for_attrs.attrs["header_row_index_in_original_file"],
+                                                               "depth_col_name_in_original_file": record_df_copy_for_attrs.attrs[
+                                                               "adopted_Depth_column_name_in_original_file"],
+                                                               "adopted_qc_column_name_in_original_file": record_df_copy_for_attrs.attrs["adopted_qc_column_name_in_original_file"],
+                                                               "adopted_fs_column_name_in_original_file":record_df_copy_for_attrs.attrs["adopted_fs_column_name_in_original_file"],
+                                                               "adopted_u_column_name_in_original_file":
+                                                                   record_df_copy_for_attrs.attrs[
+                                                                "adopted_u_column_name_in_original_file"],
                                                               "file_name":file_to_try.name}])
 
             spreadsheet_format_description = pd.concat([spreadsheet_format_description,
@@ -229,7 +246,7 @@ for record_dir in tqdm(records_to_convert):
 
             break
 
-        except(ValueError, xlrd.compdoc.CompDocError, Exception) as e:
+        except(loading_helper_functions.FileConversionError, ValueError, xlrd.compdoc.CompDocError, Exception) as e:
 
             loading_summary_df = partial_summary_df_helper(loading_summary_df, file_was_loaded=False,
                                                            loaded_file_type="N/A",

@@ -14,7 +14,9 @@ import numpy as np
 
 
 
-failed_df = pd.read_csv("/home/arr65/data/nzgd/standard_format_batch1/cpt/metadata/all_failed_loads_no_ags.csv")
+failed_df = pd.read_csv("/home/arr65/data/nzgd/standard_format_batch50/cpt/metadata/all_failed_loads.csv")
+
+print()
 
 failed_df = failed_df.iloc[225:]
 

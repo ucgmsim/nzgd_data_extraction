@@ -14,6 +14,7 @@ import xlrd
 import loading_helper_functions
 import toml
 
+from loading_helper_functions import FileConversionError
 
 
 def find_missing_cols_for_best_sheet(missing_cols_per_sheet: list[list]) -> list:
@@ -34,10 +35,10 @@ def find_missing_cols_for_best_sheet(missing_cols_per_sheet: list[list]) -> list
 
     final_num_missing_cols = 5
     final_missing_cols = []
-    for missing_cols in missing_cols_per_sheet:
-        if len(missing_cols) < final_num_missing_cols:
-            final_num_missing_cols = len(missing_cols)
-            final_missing_cols = missing_cols
+    for missing_cols_per_sheet in missing_cols_per_sheet:
+        if len(missing_cols_per_sheet) < final_num_missing_cols:
+            final_num_missing_cols = len(missing_cols_per_sheet)
+            final_missing_cols = missing_cols_per_sheet
     return final_missing_cols
 
 
@@ -96,11 +97,11 @@ def find_col_name_from_substring(df:pd.DataFrame,
         df.attrs[f"adopted_{target_column_name}_column_name_in_original_file"] = col
         remaining_cols_to_search.remove(col)
 
-        if target_column_name != "depth":
+        if target_column_name != "Depth":
             # if the column is in kPa, convert to MPa
             if "kpa" in col.lower():
                 df.loc[:, col] /= 1000
-        if target_column_name == "depth":
+        if target_column_name == "Depth":
             # if the depth column is in cm, convert to m
             if "cm" in col:
                 df.loc[:, col] /= 100
@@ -131,6 +132,9 @@ def load_ags(file_path: Union[Path, str]) -> pd.DataFrame:
         The CPT data from the AGS file.
     """
 
+    with open('resources/cpt_column_name_descriptions.toml', 'r') as toml_file:
+        column_descriptions = toml.load(toml_file)
+
     try:
         tables, headings = AGS4.AGS4_to_dataframe(file_path)
     except(UnboundLocalError):
@@ -142,10 +146,10 @@ def load_ags(file_path: Union[Path, str]) -> pd.DataFrame:
 
     try:
         loaded_data_df = pd.DataFrame({
-            "depth_m": tables["SCPT"]["SCPT_DPTH"],
-            "cone_resistance_qc_mpa": tables["SCPT"]["SCPT_RES"],
-            "sleeve_friction_fs_mpa": tables["SCPT"]["SCPT_FRES"],
-            "pore_pressure_u2_mpa": tables["SCPT"]["SCPT_PWP2"]  ## Assuming dynamic pore pressure (u2) in MPa ???
+            list(column_descriptions)[0]: tables["SCPT"]["SCPT_DPTH"],
+            list(column_descriptions)[1]: tables["SCPT"]["SCPT_RES"],
+            list(column_descriptions)[2]: tables["SCPT"]["SCPT_FRES"],
+            list(column_descriptions)[3]: tables["SCPT"]["SCPT_PWP2"]  ## Assuming dynamic pore pressure (u2) in MPa ???
         })
     except(KeyError):
         raise ValueError("ags_missing_columns - AGS file is missing at least one of the required columns")
@@ -181,24 +185,26 @@ def load_cpt_spreadsheet_file(file_path: Path) -> pd.DataFrame:
     known_special_cases = toml.load("resources/known_special_cases.toml")
     record_id = f"{file_path.name.split("_")[0]}_{file_path.name.split("_")[1]}"
     if record_id in known_special_cases.keys():
-        raise ValueError(known_special_cases[record_id])
+        raise FileConversionError(known_special_cases[record_id])
 
     if file_path.suffix.lower() in [".xls", ".xlsx"]:
         sheet_names, engine = loading_helper_functions.get_xls_sheet_names(file_path)
-        print()
+
+        if len(sheet_names) == 0:
+            raise FileConversionError(f"corrupt_file - cannot detect sheets in file {file_path.name}")
+
     else:
         # A dummy sheet name as .txt and .csv files do not have sheet names
         sheet_names = ["0"]
 
-    missing_cols_per_sheet = []
+
     # Iterate through each sheet
 
+    missing_cols_per_sheet = []
+    error_text = []
     dataframes_to_return = []
 
     for sheet_idx, sheet in enumerate(sheet_names):
-    #for sheet_idx, sheet in enumerate(["Test"]):
-        final_missing_cols = find_missing_cols_for_best_sheet(missing_cols_per_sheet)
-        partial_change_exception_for_last_sheet = functools.partial(loading_helper_functions.change_exception_for_last_sheet, sheet_idx=sheet_idx, sheet=sheet, sheet_names=sheet_names, final_missing_cols=final_missing_cols)
 
         if file_path.suffix.lower() in [".csv", ".txt"]:
             df = loading_helper_functions.load_csv_or_txt(file_path)
@@ -210,16 +216,16 @@ def load_cpt_spreadsheet_file(file_path: Path) -> pd.DataFrame:
 
         # Now xls, csv and txt should all be in a dataframe so continue the same for all
         df.attrs["original_file_name"] = file_path.name
-        df.attrs["source_sheet_in_original_file"] = sheet
+        df.attrs["sheet_in_original_file"] = sheet
         df.attrs["column_name_descriptions"] = column_descriptions
 
         df_for_counting_str_per_row = df.map(lambda x: 1.0 if isinstance(x, (str)) else 0)
-        num_str_per_row = np.nansum(df_for_counting_str_per_row, axis=1)
 
         df_nan_to_str = df.fillna("nan")
         df_for_counting_num_of_num = df_nan_to_str.map(lambda x:1.0 if isinstance(x, (int, float)) else 0)
 
-        ## num_num_per_row = np.nansum(df_for_counting_num_of_num, axis=1)
+        numeric_surplus_per_col = np.nansum(df_for_counting_num_of_num, axis=0) - np.nansum(df_for_counting_str_per_row, axis=0)
+        numeric_surplus_per_row = np.nansum(df_for_counting_num_of_num, axis=1) - np.nansum(df_for_counting_str_per_row, axis=1)
 
         header_row_indices = []
         if np.isfinite(loading_helper_functions.find_one_header_row_from_column_names(df)):
@@ -227,26 +233,31 @@ def load_cpt_spreadsheet_file(file_path: Path) -> pd.DataFrame:
 
         ## Check the dataframe for various issues
         if df.shape == (0,0):
-            partial_change_exception_for_last_sheet("empty_file", "has size (0,0)")
-            missing_cols_per_sheet.append(list(column_descriptions))
+            error_text.append(f"empty_file - sheet ({sheet.replace('-', '_')}) has size (0,0)")
             continue
 
         if df.shape[0] == 1:
-            partial_change_exception_for_last_sheet("only_one_line", f"has only one line with first cell of {df.iloc[0][0]}")
-            missing_cols_per_sheet.append(list(column_descriptions))
+            error_text.append(f"only_one_line - sheet ({sheet.replace('-', '_')}) has only one line with first cell of {df.iloc[0][0]}")
             continue
 
         if np.sum(df_for_counting_num_of_num.values) == 0:
-            partial_change_exception_for_last_sheet("no_numeric_data", "has no numeric data")
-            missing_cols_per_sheet.append(list(column_descriptions))
+            error_text.append(f"no_numeric_data - sheet ({sheet.replace('-', '_')}) has no numeric data")
+            continue
+
+        if all(numeric_surplus_per_col < 2):
+            error_text.append(
+                f"no_data_columns - all columns in sheet ({sheet.replace('-', '_')}) have more text cells than numeric cells")
+            continue
+
+        if all(numeric_surplus_per_row < 2):
+            error_text.append(
+                f"no_data_rows - all rows in sheet ({sheet.replace('-', '_')}) have more text cells than numeric cells")
             continue
 
         if len(header_row_indices) == 0:
-            partial_change_exception_for_last_sheet("no_header_row", "has no header row")
-            missing_cols_per_sheet.append(list(column_descriptions))
+            error_text.append(f"no_header_row - sheet ({sheet.replace('-', '_')}) has no header row")
             continue
 
-        ### Check that this works with only one header row
         df, header_row_index = loading_helper_functions.combine_multiple_header_rows(df, header_row_indices)
         # set dataframe's headers/column names. Note that .values is used so that the row's index is not included in the header
         df.columns = df.iloc[header_row_index].values
@@ -257,12 +268,11 @@ def load_cpt_spreadsheet_file(file_path: Path) -> pd.DataFrame:
         header_row_index = header_row_indices[0] if file_path.suffix.lower() in [".csv", ".txt"] else header_row_index
         df.attrs["header_row_index_in_original_file"] = float(header_row_index)
         df.reset_index(inplace=True, drop=True)
-
-        df, final_col_names = loading_helper_functions.check_for_clean_cols(df)
+        df, final_col_names = loading_helper_functions.get_column_names(df)
         df = loading_helper_functions.convert_to_m_and_mpa(df, final_col_names)
 
-
-        if all(i is not None for i in final_col_names):
+        final_col_names_without_none = [col for col in final_col_names if col is not None]
+        if all(i is not None for i in final_col_names) & (len(np.unique(final_col_names_without_none)) == len(final_col_names_without_none)):
 
             # Return the DataFrame with only the relevant columns
             df = (df[[final_col_names[0], final_col_names[1], final_col_names[2], final_col_names[3]]].rename(
@@ -273,18 +283,24 @@ def load_cpt_spreadsheet_file(file_path: Path) -> pd.DataFrame:
 
             # ensure that the depth column is defined as positive (some have depth as negative)
             df[list(column_descriptions)[0]] = np.abs(df[list(column_descriptions)[0]])
-
             dataframes_to_return.append(df)
 
         else:
-            missing_cols = [list(column_descriptions)[idx] for idx, col in enumerate(final_col_names) if col is None]
 
-            missing_cols_per_sheet.append(missing_cols)
-            if sheet_idx < len(sheet_names) - 1:
-                # There are more sheets to check so continue onto the next sheet
+            if len(np.unique(final_col_names_without_none)) < len(final_col_names_without_none):
+                error_text.append(f"non_unique_cols - in sheet ({sheet.replace('-', '_')}) some column names were selected more than once")
                 continue
 
             else:
-                # There are no more sheets to check so return the missing columns
-                final_missing_cols = find_missing_cols_for_best_sheet(missing_cols_per_sheet)
-                raise ValueError(f"missing_columns - sheet ({sheet.replace("-", "_")}) is missing [{' & '.join(final_missing_cols)}]")
+                missing_cols_per_sheet.append([list(column_descriptions)[idx] for idx, col in enumerate(final_col_names) if col is None])
+
+    ##################################################
+    if len(dataframes_to_return) > 0:
+        return dataframes_to_return
+
+    final_missing_cols = find_missing_cols_for_best_sheet(missing_cols_per_sheet)
+    if len(final_missing_cols) > 0:
+        raise ValueError(f"missing_columns - sheet ({sheet.replace('-', '_')}) is missing [{' & '.join(final_missing_cols)}]")
+
+    else:
+        raise ValueError(error_text[0])

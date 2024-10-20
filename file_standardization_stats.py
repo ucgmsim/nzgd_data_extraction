@@ -30,7 +30,50 @@ one_failed_load_per_cpt_record = all_files_that_failed_to_load.drop_duplicates(s
 
 one_failed_load_per_failed_cpt_record = one_failed_load_per_cpt_record[one_failed_load_per_cpt_record["record_name"].isin(summary_of_failed_loads["record_name"])]
 
+one_failed_load_per_failed_cpt_record_no_ags = one_failed_load_per_failed_cpt_record[one_failed_load_per_failed_cpt_record["file_type"] != ".ags"]
+one_failed_load_per_failed_cpt_record_no_ags = one_failed_load_per_failed_cpt_record_no_ags[one_failed_load_per_failed_cpt_record_no_ags["category"] == "missing_columns"]
+
+
+# one_failed_load_per_failed_cpt_record.to_csv(output_path / "metadata/one_failed_load_per_failed_cpt_record.csv", index=False)
+
 # count the number of unique categories in the column "category" of one_failed_load_per_failed_cpt_record
-num_unique_categories = one_failed_load_per_failed_cpt_record["category"].nunique()
+#num_unique_categories = one_failed_load_per_failed_cpt_record["category"].nunique()
+
+## select rows where "u" is in the column "description" of one_failed_load_per_failed_cpt_record
+u_idx = one_failed_load_per_failed_cpt_record_no_ags["details"].str.contains("u")
+
+pore_pressure_idx = one_failed_load_per_failed_cpt_record_no_ags["details"].str.contains("pore pressure")
+
+non_numeric_index = one_failed_load_per_failed_cpt_record_no_ags["details"].str.contains("numeric")
+opus_note = one_failed_load_per_failed_cpt_record_no_ags["details"].str.contains("has only one line with first cell of Historical CPT data has been uploaded by Opus under engagement through the MBIE")
+multiple_columns = one_failed_load_per_failed_cpt_record_no_ags["details"].str.contains("columns")
+column_idx = one_failed_load_per_failed_cpt_record_no_ags["details"].str.contains("column")
+corruption_idx = one_failed_load_per_failed_cpt_record_no_ags["details"].str.contains("corruption")
+no_raw_data_supplied_idx = one_failed_load_per_failed_cpt_record_no_ags["details"].str.contains("No raw data supplied")
+
+
+
+u_idx2 = u_idx.copy()
+
+
+u_idx2[non_numeric_index] = False
+u_idx2[opus_note] = False
+u_idx2[multiple_columns] = False
+u_idx2[column_idx] = False
+u_idx2[corruption_idx] = False
+u_idx2[no_raw_data_supplied_idx] = False
+
+missing_u_or_porepressure = one_failed_load_per_failed_cpt_record_no_ags[u_idx2 | pore_pressure_idx]
+
+
+
+
+missing_u_or_porepressure.to_csv(output_path / "metadata/missing_u_or_porepressure.csv", index=False)
+
+
+
+
+print()
+
 
 print()

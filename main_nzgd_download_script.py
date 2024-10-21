@@ -18,16 +18,29 @@ config = cfg.Config()
 
 import nzgd_download_helper_functions
 
-start_time = time.time()
-
 class DownloadMode(enum.StrEnum):
 
     files = "files"
     meta_data = "meta_data"
 
+start_time = time.time()
 
-download_mode = DownloadMode.meta_data
+Path(config.get_value("high_level_download_dir")).mkdir(parents=True, exist_ok=True)
+Path(config.get_value("downloaded_record_note_per_record")).mkdir(parents=True, exist_ok=True)
+Path(config.get_value("name_to_files_dir_per_record")).mkdir(parents=True, exist_ok=True)
+Path(config.get_value("name_to_link_str_dir_per_record")).mkdir(parents=True, exist_ok=True)
+Path(config.get_value("name_to_metadata_dir_per_record")).mkdir(parents=True, exist_ok=True)
 
+download_mode = DownloadMode.files
+
+previous_download_dir = Path("/home/arr65/data/nzgd/downloads_and_metadata/25092024/downloaded_files")
+type_subdirs = list(previous_download_dir.glob("*"))
+
+downloaded_records_path = []
+for subdir in type_subdirs:
+    downloaded_records_path.extend(list(subdir.glob("*")))
+
+downloaded_records = [record.name for record in downloaded_records_path]
 
 # downloaded_records = os.listdir("/home/arr65/data/nzgd/downloaded_files/download_run_3") + \
 #                      os.listdir("/home/arr65/data/nzgd/downloaded_files/download_run_4") + \
@@ -35,24 +48,23 @@ download_mode = DownloadMode.meta_data
 #                      os.listdir("/home/arr65/data/nzgd/downloaded_files/download_run_6") + \
 #                      os.listdir("/home/arr65/data/nzgd/downloaded_files/download_run_7")
 
-downloaded_records = []
-
 url_df = pd.read_csv(config.get_value("data_lookup_index"))
 
-# url_df = url_df[
-#     (url_df["Type"] == "CPT")
-#     | (url_df["Type"] == "SCPT")
-#     | (url_df["Type"] == "Borehole")
-#     | (url_df["Type"] == "VsVp")
-# ][["ID", "URL"]]
 
-### Only the velocity profiles
 url_df = url_df[
-    (url_df["Type"] == "VsVp")
+    (url_df["Type"] == "CPT")
+    | (url_df["Type"] == "SCPT")
+    | (url_df["Type"] == "Borehole")
+    | (url_df["Type"] == "VsVp")
 ][["ID", "URL"]]
 
+### Only the velocity profiles
+# url_df = url_df[
+#     (url_df["Type"] == "VsVp")
+# ][["ID", "URL"]]
+
 # Remove records that have already been downloaded
-url_df = url_df[~url_df["ID"].isin(downloaded_records)]
+#url_df = url_df[~url_df["ID"].isin(downloaded_records)]
 
 # Load environment variables from .env_nzgd file
 load_dotenv(".env_nzgd")
@@ -82,6 +94,7 @@ if os.path.exists(config.get_value("downloaded_record_note_per_record")):
 else:
     last_processed_index = 0
 
+print("starting downloads")
 if download_mode == DownloadMode.files:
 
     with Pool(processes=config.get_value("number_of_processes")) as pool:

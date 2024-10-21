@@ -148,7 +148,7 @@ def process_df_row(url_df_row_index, url_df_row):
         element.click()
 
         time.sleep(load_wait_time_s)  # Wait for the download to complete
-
+    print()
     np.savetxt(Path(config.get_value("downloaded_record_note_per_record")) / f"{url_df_row_index}.txt", np.array([url_df_row_index]))
     with open(Path(config.get_value("name_to_files_dir_per_record")) / f"{url_df_row_index}.toml", "w") as toml_file:
         toml.dump(file_names_dict, toml_file)

@@ -2,69 +2,88 @@ import numpy as np
 import pandas as pd
 from pathlib import Path
 
+index_df = pd.read_csv("/home/arr65/data/nzgd/nzgd_index_files/csv_files/NZGD_Investigation_Report_25092024_1043.csv")
 
-output_path = Path("/home/arr65/data/nzgd/standard_format_batch2/cpt")
+# get all unique values and the count of each value in the column "Type" of index_df
+unique_values = index_df["Type"].value_counts()
+
+print()
+
+index_df
+
+print()
+#output_path = Path("/home/arr65/Downloads")
 
 
 summary_df = pd.read_csv(output_path / "metadata/loading_summary.csv")
-failed_df = pd.read_csv(output_path / "metadata/all_failed_loads.csv")
+print()
+only_has_pdf = summary_df[summary_df["only_has_pdf"] == True]
+print()
 
-failed_df_no_ags = failed_df[failed_df["category"] != "bad_ags"]
-# failed_df_no_ags.to_csv(output_path / "metadata/failed_df_no_ags.csv")
+all_files_that_failed_to_load = pd.read_csv(output_path / "metadata/all_failed_loads.csv")
+print()
+# select rows from not_loaded_records where the column "only_has_pdf" is True
+summary_of_failed_loads = summary_df[summary_df["file_was_loaded"] == False]
+summary_of_successful_loads = summary_df[summary_df["file_was_loaded"] == True]
 
-failed_record_names = failed_df["record_name"]
+num_cpts_with_no_records = summary_of_failed_loads.shape[0]
+num_only_pdf = summary_of_failed_loads["only_has_pdf"].sum()
 
+spreadsheet_format_description_df = pd.read_csv(output_path / "metadata/spreadsheet_format_description.csv")
+spreadsheet_format_description_df.drop(columns=["record_name","file_name"], inplace=True)
 
-failed_record_names_duplicates = failed_record_names[failed_record_names.duplicated()]
-
-multiple_load_failures = failed_df[failed_df["record_name"].isin(failed_record_names_duplicates)]
-
-multiple_load_failures_no_ags = multiple_load_failures[multiple_load_failures["category"] != "bad_ags"]
-
-multiple_load_failures_no_ags_names = multiple_load_failures_no_ags["record_name"]
-
-multiple_load_failures_no_ags_duplicate_names = multiple_load_failures_no_ags_names[multiple_load_failures_no_ags_names.duplicated()]
-
-# multiple_load_failures.to_csv(output_path / "metadata/multiple_load_failures.csv")
-
+# get number of unique rows in spreadsheet_format_description_df
+spreadsheet_format_description_df_unique = spreadsheet_format_description_df.drop_duplicates()
 
 
-len(failed_record_names)
+one_failed_load_per_cpt_record = all_files_that_failed_to_load.drop_duplicates(subset="record_name", keep="last")
+
+one_failed_load_per_failed_cpt_record = one_failed_load_per_cpt_record[one_failed_load_per_cpt_record["record_name"].isin(summary_of_failed_loads["record_name"])]
+
+one_failed_load_per_failed_cpt_record_no_ags = one_failed_load_per_failed_cpt_record[one_failed_load_per_failed_cpt_record["file_type"] != ".ags"]
+one_failed_load_per_failed_cpt_record_no_ags = one_failed_load_per_failed_cpt_record_no_ags[one_failed_load_per_failed_cpt_record_no_ags["category"] == "missing_columns"]
 
 
+# one_failed_load_per_failed_cpt_record.to_csv(output_path / "metadata/one_failed_load_per_failed_cpt_record.csv", index=False)
 
+# count the number of unique categories in the column "category" of one_failed_load_per_failed_cpt_record
+#num_unique_categories = one_failed_load_per_failed_cpt_record["category"].nunique()
 
-#left_joined = failed_df.join(summary_df, on="record_name", how="left", rsuffix="_summary")
+## select rows where "u" is in the column "description" of one_failed_load_per_failed_cpt_record
+u_idx = one_failed_load_per_failed_cpt_record_no_ags["details"].str.contains("u")
 
-records_with_only_pdf_idx = ((summary_df["num_pdf_files"] > 0) & (summary_df["num_cpt_files"] == 0) &
-                (summary_df["num_ags_files"] == 0) & (summary_df["num_xls_files"] == 0) &
-                (summary_df["num_xlsx_files"] == 0) & (summary_df["num_csv_files"] == 0) &
-                (summary_df["num_txt_files"] == 0) & (summary_df["num_other_files"] == 0))
+pore_pressure_idx = one_failed_load_per_failed_cpt_record_no_ags["details"].str.contains("pore pressure")
 
-only_pdf_and_cpt = ((summary_df["num_pdf_files"] > 0) & (summary_df["num_cpt_files"] > 0) &
-                (summary_df["num_ags_files"] == 0) & (summary_df["num_xls_files"] == 0) &
-                (summary_df["num_xlsx_files"] == 0) & (summary_df["num_csv_files"] == 0) &
-                (summary_df["num_txt_files"] == 0) & (summary_df["num_other_files"] == 0))
-
-
-## insert  records_with_only_pdf_idx into summary_df
-summary_df.insert(2, "has_only_pdf", records_with_only_pdf_idx)
-
-summary_df_only_failed = summary_df[summary_df["file_was_loaded"] == False]
-
-summary_df_with_spreadsheet_file_loads = summary_df_only_failed[summary_df_only_failed["has_only_pdf"] == False]
-# summary_df_with_spreadsheet_file_loads.to_csv(output_path / "metadata/summary_df_with_spreadsheet_file_loads.csv")
-
-
-# joined_df = pd.merge(failed_df, summary_df, on="record_name", how="outer")
-# joined_df.to_csv("/home/arr65/data/nzgd/standard_format_batch1/cpt/metadata/outer_joined.csv")
-
-failed_files_outer_merge_df = pd.merge(summary_df_with_spreadsheet_file_loads, failed_df, on="record_name", how="outer")
-# failed_files_outer_merge_df.to_csv("metadata/failed_files_outer_merge_df.csv")
+non_numeric_index = one_failed_load_per_failed_cpt_record_no_ags["details"].str.contains("numeric")
+opus_note = one_failed_load_per_failed_cpt_record_no_ags["details"].str.contains("has only one line with first cell of Historical CPT data has been uploaded by Opus under engagement through the MBIE")
+multiple_columns = one_failed_load_per_failed_cpt_record_no_ags["details"].str.contains("columns")
+column_idx = one_failed_load_per_failed_cpt_record_no_ags["details"].str.contains("column")
+corruption_idx = one_failed_load_per_failed_cpt_record_no_ags["details"].str.contains("corruption")
+no_raw_data_supplied_idx = one_failed_load_per_failed_cpt_record_no_ags["details"].str.contains("No raw data supplied")
 
 
 
+u_idx2 = u_idx.copy()
 
-num_only_pdf = records_with_only_pdf_idx.sum()
+
+u_idx2[non_numeric_index] = False
+u_idx2[opus_note] = False
+u_idx2[multiple_columns] = False
+u_idx2[column_idx] = False
+u_idx2[corruption_idx] = False
+u_idx2[no_raw_data_supplied_idx] = False
+
+missing_u_or_porepressure = one_failed_load_per_failed_cpt_record_no_ags[u_idx2 | pore_pressure_idx]
+
+
+
+
+missing_u_or_porepressure.to_csv(output_path / "metadata/missing_u_or_porepressure.csv", index=False)
+
+
+
+
+print()
+
 
 print()

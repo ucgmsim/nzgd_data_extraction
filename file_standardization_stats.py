@@ -2,7 +2,17 @@ import numpy as np
 import pandas as pd
 from pathlib import Path
 
-output_path = Path("/home/arr65/Downloads")
+index_df = pd.read_csv("/home/arr65/data/nzgd/nzgd_index_files/csv_files/NZGD_Investigation_Report_25092024_1043.csv")
+
+# get all unique values and the count of each value in the column "Type" of index_df
+unique_values = index_df["Type"].value_counts()
+
+print()
+
+index_df
+
+print()
+#output_path = Path("/home/arr65/Downloads")
 
 
 summary_df = pd.read_csv(output_path / "metadata/loading_summary.csv")

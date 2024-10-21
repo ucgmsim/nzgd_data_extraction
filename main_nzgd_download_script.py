@@ -64,7 +64,7 @@ url_df = url_df[
 # ][["ID", "URL"]]
 
 # Remove records that have already been downloaded
-#url_df = url_df[~url_df["ID"].isin(downloaded_records)]
+url_df = url_df[~url_df["ID"].isin(downloaded_records)]
 
 # Load environment variables from .env_nzgd file
 load_dotenv(".env_nzgd")

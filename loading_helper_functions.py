@@ -96,9 +96,12 @@ def search_line_for_cell(line, characters, substrings):
         if substring_cell not in candidates_idx:
             candidates_idx.append(substring_cell)
 
+        print()
+
 
     ## remove None
     candidates_idx = [candidate for candidate in candidates_idx if candidate is not None]
+    print()
 
     return candidates_idx
 
@@ -115,9 +118,9 @@ def search_line_for_all_needed_cells(
         substrings4=["u2", "u ", "pore","water","dynamic"]):
 
 
-    col1_search = search_line_for_cell(line, characters1, substrings1)
-    col2_search = search_line_for_cell(line, characters2, substrings2)
-    col3_search = search_line_for_cell(line, characters3, substrings3)
+    # col1_search = search_line_for_cell(line, characters1, substrings1)
+    # col2_search = search_line_for_cell(line, characters2, substrings2)
+    # col3_search = search_line_for_cell(line, characters3, substrings3)
     col4_search = search_line_for_cell(line, characters4, substrings4)
 
     if not output_all_candidates:
@@ -136,6 +139,7 @@ def search_line_for_all_needed_cells(
         return col_idx
 
     else:
+        print()
         return col1_search, col2_search, col3_search, col4_search
 
 
@@ -148,14 +152,21 @@ def check_if_line_is_header(line: Union[pd.Series, list], min_num_) -> bool:
 
 def find_one_header_row_from_column_names(iterable):
 
-    check_rows = np.arange(len(iterable) - 1)
+    # make an array of row indices to check and roll the array such the first searched row 
+    # is the one with the higest values of text cells
 
     if isinstance(iterable, pd.DataFrame):
         iterable = [iterable.iloc[i].to_list() for i in range(len(iterable))]
 
+    num_text_cells_per_line = get_number_of_x_cells_per_line(iterable, NumOrText.TEXT)
+    num_numerical_cells_per_line = get_number_of_x_cells_per_line(iterable, NumOrText.NUMERIC)
 
-    # ensure that it will not try to check beyond the last row
-    check_rows = check_rows[check_rows<len(iterable)-1]
+    text_surplus_per_line = num_text_cells_per_line - num_numerical_cells_per_line
+
+    # roll the array such that the first row to be checked is the one with the highest number of text cells
+    # as it is most likely to contain the column names. This will reduce the chance of accidentally choosing the
+    # wrong row because it coincidentally contained the key words
+    check_rows = np.roll(np.arange(0, len(iterable)-1), -np.argmax(text_surplus_per_line))
 
     best_partial_header_row = np.nan
     num_cols_in_best_possible_row = 0
@@ -214,6 +225,8 @@ def get_number_of_x_cells_per_line(iterable:Union[pd.Series, list], x: NumOrText
 
     for row_idx, line in enumerate(iterable):
 
+        line = [x for x in line if "nan" not in str(x).lower()]
+
         if x == NumOrText.TEXT:
             num_x_cells_per_line[row_idx] = np.sum([isinstance(cell, str) for cell in line])
         elif x == NumOrText.NUMERIC:
@@ -229,7 +242,7 @@ def find_all_header_rows(iterable):
 
     num_text_cells_per_line = get_number_of_x_cells_per_line(iterable, NumOrText.TEXT)
     num_numeric_cells_per_line = get_number_of_x_cells_per_line(iterable, NumOrText.NUMERIC)
-    text_surplus = num_text_cells_per_line - num_numeric_cells_per_line
+    text_surplus_per_line = num_text_cells_per_line - num_numeric_cells_per_line
 
     header_rows = [find_one_header_row_from_column_names(iterable)]
     if (len(header_rows) == 1) & (np.isnan(header_rows[0])):
@@ -248,7 +261,7 @@ def find_all_header_rows(iterable):
     # check rows below
     current_row_idx = header_rows[0]+1
     while current_row_idx < len(iterable)-1:
-        if text_surplus[current_row_idx] > 0:
+        if text_surplus_per_line[current_row_idx] > 0:
             header_rows.append(current_row_idx)
         else:
             break
@@ -320,43 +333,45 @@ def get_csv_or_txt_split_readlines(file_path, encoding):
 
 def get_column_names(df):
 
-    target_col_index_to_name = {0:"Depth",1:"qc",2:"fs",
+    col_index_to_name = {0:"Depth",1:"qc",2:"fs",
                                 3:"u"}
 
-    all_target_col_candidate_indices = search_line_for_all_needed_cells(df.columns,
-                                                                                     output_all_candidates=True)
+    all_possible_col_indices = search_line_for_all_needed_cells(df.columns,
+                                                                output_all_candidates=True)
     final_col_names = []
-    for target_col_index, target_col_candidate_indices in enumerate(all_target_col_candidate_indices):
-        if len(target_col_candidate_indices) == 0:
+    for possible_col_idx, possible_col_indices in enumerate(all_possible_col_indices):
+        if len(possible_col_indices) == 0:
             final_col_names.append(None)
 
             if "missing_columns" not in df.attrs:
-                df.attrs["missing_columns"] = [target_col_index_to_name[target_col_index]]
+                df.attrs["missing_columns"] = [col_index_to_name[possible_col_idx]]
             else:
-                df.attrs["missing_columns"].append(target_col_index_to_name[target_col_index])
+                df.attrs["missing_columns"].append(col_index_to_name[possible_col_idx])
 
         else:
-            target_col_candidate_names = [df.columns[int(idx)] for idx in target_col_candidate_indices]
-
-            candidate_col_name = target_col_candidate_names[0]
+            possible_col_names = [df.columns[int(idx)] for idx in possible_col_indices]
+            candidate_col_name = possible_col_names[0]
 
             # see if the selected column name is used more than once in the original file
             if len(df[candidate_col_name].shape) > 1:
                 raise FileConversionError(f"repeated_col_names_in_source - sheet has multiple columns with the name {candidate_col_name}")
 
-            num_finite_values_in_first_candidate_col = np.sum(np.isfinite(df[candidate_col_name]))
+            num_finite_per_col = np.array([np.sum(np.isfinite(df[col_name])) for col_name in possible_col_names])
+            valid_possible_col_names = np.array(possible_col_names)[num_finite_per_col > 0]
 
-            for target_col_candidate_name in target_col_candidate_names:
-                candidate_name = target_col_candidate_name
-                if "clean" in target_col_candidate_name.lower():
-                    if np.sum(np.isfinite(df[target_col_candidate_name])) <= num_finite_values_in_first_candidate_col:
-                        candidate_name = target_col_candidate_name
-                        break
-            final_col_names.append(candidate_name)
+            # check for a "clean" column
+            if len(valid_possible_col_names) == 0:
+                print()
+            col_name = valid_possible_col_names[0]
+            for possible_col_name in valid_possible_col_names:
+                if "clean" in possible_col_name.lower():
+                    col_name = possible_col_name
+                    break
+            final_col_names.append(col_name)
 
             df.attrs[
-                f"candidate_{target_col_index_to_name[target_col_index]}_column_names_in_original_file"] = target_col_candidate_names
-            df.attrs[f"adopted_{target_col_index_to_name[target_col_index]}_column_name_in_original_file"] = candidate_name
+                f"candidate_{col_index_to_name[possible_col_idx]}_column_names_in_original_file"] = valid_possible_col_names
+            df.attrs[f"adopted_{col_index_to_name[possible_col_idx]}_column_name_in_original_file"] = col_name
 
     return df, final_col_names
 
@@ -382,6 +397,7 @@ def load_csv_or_txt(file_path, sheet="0", col_data_types=np.array(["Depth",
                                                                  "qc",
                                                                  "fs",
                                                                  "u"])):
+
     sep = r"," if file_path.suffix.lower() == ".csv" else r"\s+"
     file_encoding = find_encoding(file_path)
     split_readlines_iterable = get_csv_or_txt_split_readlines(file_path, file_encoding)

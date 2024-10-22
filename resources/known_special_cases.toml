@@ -1,2 +1,2 @@
-CPT_59414 = "corrupted_file - all data in first column"
-CPT_73271 = "corrupted_file - data columns are not recognized"
+CPT_59414 = "corrupt_file - all data in first column"
+CPT_73271 = "corrupt_file - data columns are not recognized"

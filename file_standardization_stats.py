@@ -9,16 +9,14 @@ unique_values = index_df["Type"].value_counts()
 
 print()
 
-index_df
-
 print()
-#output_path = Path("/home/arr65/Downloads")
-
+output_path = Path("/home/arr65/data/nzgd/analysis_ready_data/cpt")
 
 summary_df = pd.read_csv(output_path / "metadata/loading_summary.csv")
 print()
 only_has_pdf = summary_df[summary_df["only_has_pdf"] == True]
 print()
+
 
 all_files_that_failed_to_load = pd.read_csv(output_path / "metadata/all_failed_loads.csv")
 print()
@@ -30,11 +28,13 @@ num_cpts_with_no_records = summary_of_failed_loads.shape[0]
 num_only_pdf = summary_of_failed_loads["only_has_pdf"].sum()
 
 spreadsheet_format_description_df = pd.read_csv(output_path / "metadata/spreadsheet_format_description.csv")
-spreadsheet_format_description_df.drop(columns=["record_name","file_name"], inplace=True)
+spreadsheet_format_description_df.drop(columns=["header_row_index","record_name","file_name"], inplace=True)
 
 # get number of unique rows in spreadsheet_format_description_df
 spreadsheet_format_description_df_unique = spreadsheet_format_description_df.drop_duplicates()
+spreadsheet_format_description_df_unique.to_csv(output_path / "metadata/spreadsheet_format_description_unique.csv", index=False)
 
+print()
 
 one_failed_load_per_cpt_record = all_files_that_failed_to_load.drop_duplicates(subset="record_name", keep="last")
 

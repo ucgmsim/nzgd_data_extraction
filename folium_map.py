@@ -4,19 +4,30 @@ from folium.plugins import MarkerCluster
 import pandas as pd
 import toml
 from pathlib import Path
+from tqdm import tqdm
 
+import time
+
+start_time = time.time()
 
 record_id_df = pd.read_csv("/home/arr65/data/nzgd/nzgd_index_files/csv_files/NZGD_Investigation_Report_23102024_1042.csv")
 
 directory = Path("/home/arr65/data/nzgd/downloads_and_metadata/raw_from_nzgd")
+
+relative_to_dir = Path("/home/arr65/data/nzgd/downloads_and_metadata/")
+
 # Recursively get all files
 all_files = [file for file in directory.rglob('*') if file.is_file()]
 
-print()
-
+record_id_to_files = {}
+for file in all_files:
+    if file.parent.name in record_id_to_files:
+        record_id_to_files[file.parent.name].append(file.relative_to(relative_to_dir))
+    else:
+        record_id_to_files[file.parent.name] = [file.relative_to(relative_to_dir)]
 
 #record_id_df = record_id_df[record_id_df["Type"] == "VsVp"]
-record_id_df = record_id_df[record_id_df["Type"] == "CPT"]
+#record_id_df = record_id_df[record_id_df["Type"] == "CPT"]
 
 #categorized_record_ids = toml.load("/home/arr65/data/nzgd/stats_plots/categorized_record_ids.toml")
 
@@ -52,22 +63,41 @@ marker_cluster = MarkerCluster().add_to(m)
 
 # add marker one by one on the map
 #for i in range(0,len(record_id_df)):
-for i in range(0,2):
+#for i in range(0,2):
 
-   popup_html = "test test test test test <a href='raw_from_nzgd/borehole/Canterbury/Christchurch_City/Christchurch/Addington/BH_1761/Borehole_1761_RAW01.pdf'> string here</a>"
-   #record_id_df.iloc[i]['ID']
+# record_id_df = record_id_df.iloc[:100]
 
-   folium.Marker(
-      location=[record_id_df.iloc[i]['Latitude'], record_id_df.iloc[i]['Longitude']],
-      popup=popup_html,
-   ).add_to(marker_cluster)
+for row_index, row in tqdm(record_id_df.iterrows(), total=record_id_df.shape[0]):
+
+    if row["ID"] not in record_id_to_files:
+        continue
+
+    files = record_id_to_files[row["ID"]]
+
+    popup_html = f"<h1>{row['ID']}</h1><br>Raw NZGD files:<br>"
+    for file in files:
+        popup_html += f"<a href='{file}'>{file.name}</a><br>"
+
+    #popup_html = "test test test test test <a href='raw_from_nzgd/borehole/Canterbury/Christchurch_City/Christchurch/Addington/BH_1761/Borehole_1761_RAW01.pdf'> string here</a>"
+
+    folium.Marker(
+        location=[row['Latitude'], row['Longitude']],
+        popup=popup_html,
+    ).add_to(marker_cluster)
 
 
 # for index, row in df.iterrows():
 #     folium.Marker(location=[row['Latitude'], row['Longitude']]).add_to(marker_cluster)
 
 
-m.save('/home/arr65/data/nzgd/downloads_and_metadata/test_map.html')
+m.save('/home/arr65/data/nzgd/downloads_and_metadata/map_with_all_nzgd_links.html')
+
+
+end_time = time.time()
+
+time_taken = end_time - start_time
+
+print(f"Time taken: {time_taken/3600} hours")
 
 # Make an empty map
 

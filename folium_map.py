@@ -67,6 +67,17 @@ marker_cluster = MarkerCluster().add_to(m)
 
 # record_id_df = record_id_df.iloc[:100]
 
+# late_update_text = '''
+#      <div style="position: fixed;
+#                  top: 10px; left: 10px; width: 100%; height: auto;
+#                  z-index: 9999;
+#                  font-size: 24px; color: black; background-color: rgba(255, 255, 255, 0.7);
+#                  padding: 10px; border-radius: 5px; font-weight: bold;">
+#         Last updated 23 October 2024
+#      </div>
+#      '''
+# m.get_root().html.add_child(folium.Element(late_update_text))
+
 for row_index, row in tqdm(record_id_df.iterrows(), total=record_id_df.shape[0]):
 
     if row["ID"] not in record_id_to_files:
@@ -78,16 +89,10 @@ for row_index, row in tqdm(record_id_df.iterrows(), total=record_id_df.shape[0])
     for file in files:
         popup_html += f"<a href='{file}'>{file.name}</a><br>"
 
-    #popup_html = "test test test test test <a href='raw_from_nzgd/borehole/Canterbury/Christchurch_City/Christchurch/Addington/BH_1761/Borehole_1761_RAW01.pdf'> string here</a>"
-
     folium.Marker(
         location=[row['Latitude'], row['Longitude']],
         popup=popup_html,
     ).add_to(marker_cluster)
-
-
-# for index, row in df.iterrows():
-#     folium.Marker(location=[row['Latitude'], row['Longitude']]).add_to(marker_cluster)
 
 
 m.save('/home/arr65/data/nzgd/downloads_and_metadata/map_with_all_nzgd_links.html')

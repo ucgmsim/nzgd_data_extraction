@@ -13,9 +13,8 @@ def find_regions(
     nzgd_index_path: Union[str, Path],
     district_shapefile_path: Union[str, Path],
     suburbs_shapefile_path: Union[str, Path],
-    output_dir: Optional[Union[str, Path]],
+    region_classifcation_output_dir: Optional[Union[str, Path]],
 ) -> pd.DataFrame:
-
     """
     Finds the region for each point in the NZGD index and outputs the results to a CSV file.
 
@@ -27,7 +26,7 @@ def find_regions(
         Path to the district shapefile.
     suburbs_shapefile_path : Union[str, Path]
         Path to the suburbs shapefile.
-    output_dir : Optional[Union[str, Path]]
+    region_classifcation_output_dir : Optional[Union[str, Path]]
         Directory to save the output CSV file. If None, the file is not saved.
 
     Returns
@@ -42,11 +41,11 @@ def find_regions(
         district_shapefile_path = Path(district_shapefile_path)
     if isinstance(suburbs_shapefile_path, str):
         suburbs_shapefile_path = Path(suburbs_shapefile_path)
-    if isinstance(output_dir, str):
-        output_dir = Path(output_dir)
-    output_dir.mkdir(exist_ok=True, parents=True)
+    if isinstance(region_classifcation_output_dir, str):
+        region_classifcation_output_dir = Path(region_classifcation_output_dir)
+    region_classifcation_output_dir.mkdir(exist_ok=True, parents=True)
 
-    region_file = output_dir / f"regions_{nzgd_index_path.stem}.csv"
+    region_file = region_classifcation_output_dir / f"regions_{nzgd_index_path.stem}.csv"
     if region_file.exists():
         print("Region file already exists. Loading existing file.")
         return pd.read_csv(region_file)
@@ -76,19 +75,19 @@ def find_regions(
             [found_suburbs_df, suburb_result_df], ignore_index=True
         )
 
-    if output_dir:
-        found_suburbs_df.to_csv(output_dir / f"regions_{nzgd_index_path.stem}.csv")
+    if region_classifcation_output_dir:
+        found_suburbs_df.to_csv(region_classifcation_output_dir / f"regions_{nzgd_index_path.stem}.csv")
 
     return found_suburbs_df
 
 
-def get_list_of_downloaded_records(download_root_dir):
+def get_recursive_list_of_nzgd_files(root_dir):
     """
     Get a list of the downloaded records from the download root directory.
 
     Parameters
     ----------
-    download_root_dir : Union[str, Path]
+    root_dir : Union[str, Path]
         The root directory where the downloaded records are stored.
 
     Returns
@@ -97,65 +96,106 @@ def get_list_of_downloaded_records(download_root_dir):
         A list of the downloaded records.
     """
 
-    if isinstance(download_root_dir, str):
-        download_root_dir = Path(download_root_dir)
-
-    type_dirs = [record_dir for record_dir in download_root_dir.iterdir() if record_dir.is_dir()]
+    if isinstance(root_dir, str):
+        root_dir = Path(root_dir)
+    type_dirs = [record_dir for record_dir in root_dir.iterdir() if record_dir.is_dir()]
 
     downloaded_records = []
     for type_dir in type_dirs:
-        downloaded_records.extend([record_dir for record_dir in type_dir.iterdir() if record_dir.is_dir()])
+        downloaded_records.extend(
+            [record_dir for record_dir in type_dir.iterdir() if record_dir.is_dir()]
+        )
 
     return downloaded_records
 
-def organise_records_into_regions(root_dir:Union[str, Path], unorganised_downloads_root:Union[str, Path], region_df:pd.DataFrame, dry_run=False) -> None:
 
+def organise_records_into_regions(
+    analysis_ready_data: bool,
+    dry_run: bool,
+    unorganised_root_dir_to_copy_from: Union[str, Path],
+    organised_root_dir_to_copy_to: Union[str, Path],
+    region_df: pd.DataFrame,
+) -> None:
     """
     Creates the directory structure to organise the NZGD data into regions.
 
     Parameters
     ----------
-    root_dir : Union[str, Path]
+    copy_to_organised_root_dir : Union[str, Path]
         Root of the directory structure.
     region_df : pd.DataFrame
         Contains the region of each record in the NZGD index
         (can be obtained from the find_regions function).
     """
 
-    record_type_to_path = {"CPT": "cpt", "SCPT": "scpt", "BH": "borehole", "VsVp": "vsvp"}
+    record_type_to_path = {
+        "CPT": "cpt",
+        "SCPT": "scpt",
+        "BH": "borehole",
+        "VsVp": "vsvp",
+    }
 
-    if isinstance(root_dir, str):
-        root_dir = Path(root_dir)
-    if isinstance(unorganised_downloads_root, str):
-        unorganised_downloads_root = Path(unorganised_downloads_root)
+    if isinstance(organised_root_dir_to_copy_to, str):
+        organised_root_dir_to_copy_to = Path(organised_root_dir_to_copy_to)
+    if isinstance(unorganised_root_dir_to_copy_from, str):
+        unorganised_root_dir_to_copy_from = Path(unorganised_root_dir_to_copy_from)
 
-    chars_to_replace = r'[ ,/]'
+    chars_to_replace = r"[ ,/]"
 
-    downloaded_record_paths = get_list_of_downloaded_records(unorganised_downloads_root)
-    downloaded_record_ids = [record_dir.name for record_dir in downloaded_record_paths]
+    if analysis_ready_data:
+        paths_to_records_to_copy = list(
+            unorganised_root_dir_to_copy_from.glob("*.parquet")
+        )
+        record_ids_to_copy = [
+            record_dir.stem for record_dir in paths_to_records_to_copy
+        ]
 
+    else:
+        paths_to_records_to_copy = get_recursive_list_of_nzgd_files(
+            unorganised_root_dir_to_copy_from
+        )
+        record_ids_to_copy = [
+            record_dir.name for record_dir in paths_to_records_to_copy
+        ]
 
-    downloaded_record_dict = dict(zip(downloaded_record_ids, downloaded_record_paths))
-
+    downloaded_record_dict = dict(zip(record_ids_to_copy, paths_to_records_to_copy))
     for index, row in tqdm(region_df.iterrows(), total=region_df.shape[0]):
-
-        if row["record_id"] not in downloaded_record_ids:
+        if row["record_id"] not in record_ids_to_copy:
             continue
 
         record_type = row["record_id"].split("_")[0]
 
-        district_txt = re.sub(chars_to_replace, '_', row["district"])
-        territor_1_txt = re.sub(chars_to_replace, '_', row["territor_1"])
-        major_na_2_txt = re.sub(chars_to_replace, '_', row["major_na_2"])
-        name_ascii_txt = re.sub(chars_to_replace, '_', row["name_ascii"])
+        district_txt = re.sub(chars_to_replace, "_", row["district"])
+        territor_1_txt = re.sub(chars_to_replace, "_", row["territor_1"])
+        major_na_2_txt = re.sub(chars_to_replace, "_", row["major_na_2"])
+        name_ascii_txt = re.sub(chars_to_replace, "_", row["name_ascii"])
 
-        destination_path = Path(root_dir) / record_type_to_path[record_type] / district_txt / territor_1_txt / major_na_2_txt / name_ascii_txt
+        destination_path = (
+            Path(organised_root_dir_to_copy_to)
+            / record_type_to_path[record_type]
+            / district_txt
+            / territor_1_txt
+            / major_na_2_txt
+            / name_ascii_txt
+        )
 
         destination_path.mkdir(parents=True, exist_ok=True)
 
-        if not dry_run:
-            shutil.copytree(downloaded_record_dict[row["record_id"]], destination_path / downloaded_record_dict[row["record_id"]].name)
+        if dry_run:
+            print(
+                f"will copy {downloaded_record_dict[row["record_id"]]} to {destination_path / downloaded_record_dict[row["record_id"]].name}"
+            )
+
+        else:
+            if analysis_ready_data:
+                shutil.copy(
+                    downloaded_record_dict[row["record_id"]],
+                    destination_path / downloaded_record_dict[row["record_id"]].name,
+                )
+            else:
+                shutil.copytree(
+                    downloaded_record_dict[row["record_id"]],
+                    destination_path / downloaded_record_dict[row["record_id"]].name,
+                )
 
     return None
-
-

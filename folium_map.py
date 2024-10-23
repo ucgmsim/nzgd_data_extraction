@@ -3,9 +3,17 @@ import folium
 from folium.plugins import MarkerCluster
 import pandas as pd
 import toml
+from pathlib import Path
 
 
-record_id_df = pd.read_csv("/home/arr65/data/nzgd/nzgd_index_files/csv_files/NZGD_Investigation_Report_25092024_1043.csv")
+record_id_df = pd.read_csv("/home/arr65/data/nzgd/nzgd_index_files/csv_files/NZGD_Investigation_Report_23102024_1042.csv")
+
+directory = Path("/home/arr65/data/nzgd/downloads_and_metadata/raw_from_nzgd")
+# Recursively get all files
+all_files = [file for file in directory.rglob('*') if file.is_file()]
+
+print()
+
 
 #record_id_df = record_id_df[record_id_df["Type"] == "VsVp"]
 record_id_df = record_id_df[record_id_df["Type"] == "CPT"]

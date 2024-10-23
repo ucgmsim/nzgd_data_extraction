@@ -362,8 +362,6 @@ def get_column_names(df):
             valid_possible_col_names = np.array(possible_col_names)[num_finite_per_col > 0]
 
             # check for a "clean" column
-            if len(valid_possible_col_names) == 0:
-                print()
             col_name = valid_possible_col_names[0]
             for possible_col_name in valid_possible_col_names:
                 if "clean" in possible_col_name.lower():

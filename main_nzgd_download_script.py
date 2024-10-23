@@ -33,12 +33,13 @@ Path(config.get_value("name_to_metadata_dir_per_record")).mkdir(parents=True, ex
 
 download_mode = DownloadMode.files
 
-previous_download_dir = Path("/home/arr65/data/nzgd/downloads_and_metadata/25092024/downloaded_files")
+previous_download_dir = Path("/home/arr65/data/nzgd/downloads_and_metadata/raw_from_nzgd")
 type_subdirs = list(previous_download_dir.glob("*"))
 
 downloaded_records_path = []
 for subdir in type_subdirs:
-    downloaded_records_path.extend(list(subdir.glob("*")))
+    if subdir.is_dir():
+        downloaded_records_path.extend(list(subdir.glob("*")))
 
 downloaded_records = [record.name for record in downloaded_records_path]
 
@@ -49,7 +50,6 @@ downloaded_records = [record.name for record in downloaded_records_path]
 #                      os.listdir("/home/arr65/data/nzgd/downloaded_files/download_run_7")
 
 url_df = pd.read_csv(config.get_value("data_lookup_index"))
-
 
 url_df = url_df[
     (url_df["Type"] == "CPT")
@@ -65,6 +65,8 @@ url_df = url_df[
 
 # Remove records that have already been downloaded
 url_df = url_df[~url_df["ID"].isin(downloaded_records)]
+
+print()
 
 # Load environment variables from .env_nzgd file
 load_dotenv(".env_nzgd")

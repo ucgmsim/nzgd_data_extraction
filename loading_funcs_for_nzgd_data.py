@@ -197,15 +197,13 @@ def load_cpt_spreadsheet_file(file_path: Path) -> pd.DataFrame:
         # A dummy sheet name as .txt and .csv files do not have sheet names
         sheet_names = ["0"]
 
-
     # Iterate through each sheet
 
     missing_cols_per_sheet = []
     error_text = []
     dataframes_to_return = []
 
-    #for sheet_idx, sheet in enumerate(sheet_names):
-    for sheet_idx, sheet in enumerate(["CPT_DATA"]):
+    for sheet_idx, sheet in enumerate(sheet_names):
 
         if file_path.suffix.lower() in [".csv", ".txt"]:
             df = loading_helper_functions.load_csv_or_txt(file_path)
@@ -269,11 +267,11 @@ def load_cpt_spreadsheet_file(file_path: Path) -> pd.DataFrame:
         header_row_index = header_row_indices[0] if file_path.suffix.lower() in [".csv", ".txt"] else header_row_index
         df.attrs["header_row_index_in_original_file"] = float(header_row_index)
         df.reset_index(inplace=True, drop=True)
+        print()
         df, final_col_names = loading_helper_functions.get_column_names(df)
         df = loading_helper_functions.convert_to_m_and_mpa(df, final_col_names)
 
         final_col_names_without_none = [col for col in final_col_names if col is not None]
-        print()
         if all(i is not None for i in final_col_names) & (len(np.unique(final_col_names_without_none)) == len(final_col_names_without_none)):
 
             # Return the DataFrame with only the relevant columns

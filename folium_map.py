@@ -1,12 +1,14 @@
 # import the library
 import folium
+from folium.plugins import MarkerCluster
 import pandas as pd
 import toml
 
 
 record_id_df = pd.read_csv("/home/arr65/data/nzgd/nzgd_index_files/csv_files/NZGD_Investigation_Report_25092024_1043.csv")
 
-record_id_df = record_id_df[record_id_df["Type"] == "VsVp"]
+#record_id_df = record_id_df[record_id_df["Type"] == "VsVp"]
+record_id_df = record_id_df[record_id_df["Type"] == "CPT"]
 
 #categorized_record_ids = toml.load("/home/arr65/data/nzgd/stats_plots/categorized_record_ids.toml")
 
@@ -19,6 +21,8 @@ print()
 # Make an empty map
 m = folium.Map(location=[-41.2728,173.2994], tiles="OpenStreetMap", zoom_start=6)
 
+# Create a MarkerCluster object
+marker_cluster = MarkerCluster().add_to(m)
 
 
 # Make a data frame with dots to show on the map
@@ -32,13 +36,30 @@ m = folium.Map(location=[-41.2728,173.2994], tiles="OpenStreetMap", zoom_start=6
 
 
 # add marker one by one on the map
-for i in range(0,len(record_id_df)):
+# for i in range(0,len(record_id_df)):
+#    folium.Marker(
+#       location=[record_id_df.iloc[i]['Latitude'], record_id_df.iloc[i]['Longitude']],
+#       popup=record_id_df.iloc[i]['ID'],
+#    ).add_to(m)
+
+# add marker one by one on the map
+#for i in range(0,len(record_id_df)):
+for i in range(0,2):
+
+   popup_html = "test test test test test <a href='raw_from_nzgd/borehole/Canterbury/Christchurch_City/Christchurch/Addington/BH_1761/Borehole_1761_RAW01.pdf'> string here</a>"
+   #record_id_df.iloc[i]['ID']
+
    folium.Marker(
       location=[record_id_df.iloc[i]['Latitude'], record_id_df.iloc[i]['Longitude']],
-      popup=record_id_df.iloc[i]['ID'],
-   ).add_to(m)
+      popup=popup_html,
+   ).add_to(marker_cluster)
 
-m.save('/home/arr65/data/nzgd/stats_plots/CHC_vsvp_v0.html')
+
+# for index, row in df.iterrows():
+#     folium.Marker(location=[row['Latitude'], row['Longitude']]).add_to(marker_cluster)
+
+
+m.save('/home/arr65/data/nzgd/downloads_and_metadata/test_map.html')
 
 # Make an empty map
 

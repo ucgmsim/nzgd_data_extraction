@@ -83,6 +83,15 @@ def find_cell_in_line_that_contains_string(line, string):
             if string in cell.lower():
                 return i
 
+def find_cells_in_line_that_contains_string(line, string):
+    """Return the index of the first cell containing the given string in the given line."""
+    indices_to_return = []
+    for i, cell in enumerate(line):
+        if isinstance(cell, str):
+            if string in cell.lower():
+                indices_to_return.append(i)
+    return indices_to_return
+
 
 def search_line_for_cell(line, characters, substrings):
 
@@ -92,16 +101,11 @@ def search_line_for_cell(line, characters, substrings):
          candidates_idx.append(find_cell_in_line_containing_single_character(line, character))
 
     for substring in substrings:
-        substring_cell = find_cell_in_line_that_contains_string(line, substring)
-        if substring_cell not in candidates_idx:
-            candidates_idx.append(substring_cell)
+        substring_cells = find_cells_in_line_that_contains_string(line, substring)
+        candidates_idx.extend(substring_cells)
 
-        print()
-
-
-    ## remove None
-    candidates_idx = [candidate for candidate in candidates_idx if candidate is not None]
-    print()
+    ## remove None and duplicates
+    candidates_idx = sorted(list(set([candidate for candidate in candidates_idx if candidate is not None])))
 
     return candidates_idx
 
@@ -118,9 +122,9 @@ def search_line_for_all_needed_cells(
         substrings4=["u2", "u ", "pore","water","dynamic"]):
 
 
-    # col1_search = search_line_for_cell(line, characters1, substrings1)
-    # col2_search = search_line_for_cell(line, characters2, substrings2)
-    # col3_search = search_line_for_cell(line, characters3, substrings3)
+    col1_search = search_line_for_cell(line, characters1, substrings1)
+    col2_search = search_line_for_cell(line, characters2, substrings2)
+    col3_search = search_line_for_cell(line, characters3, substrings3)
     col4_search = search_line_for_cell(line, characters4, substrings4)
 
     if not output_all_candidates:
@@ -139,9 +143,7 @@ def search_line_for_all_needed_cells(
         return col_idx
 
     else:
-        print()
         return col1_search, col2_search, col3_search, col4_search
-
 
 
 def check_if_line_is_header(line: Union[pd.Series, list], min_num_) -> bool:
@@ -369,8 +371,7 @@ def get_column_names(df):
                     break
             final_col_names.append(col_name)
 
-            df.attrs[
-                f"candidate_{col_index_to_name[possible_col_idx]}_column_names_in_original_file"] = valid_possible_col_names
+            df.attrs[f"candidate_{col_index_to_name[possible_col_idx]}_column_names_in_original_file"] = list(valid_possible_col_names)
             df.attrs[f"adopted_{col_index_to_name[possible_col_idx]}_column_name_in_original_file"] = col_name
 
     return df, final_col_names

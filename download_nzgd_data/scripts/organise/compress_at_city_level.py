@@ -3,7 +3,7 @@ This script compresses the NZGD directory structure at the city level.
 """
 
 from pathlib import Path
-from download_nzgd_data.organise import lib
+from download_nzgd_data.lib import organise
 import multiprocessing
 import shutil
 
@@ -27,6 +27,6 @@ limited_paths = [Path(*path.parts[:dir_structure_depth]) for path in all_files]
 
 unique_paths = sorted(list(set(limited_paths)))
 with multiprocessing.Pool(processes=7) as pool:
-    pool.map(lib.replace_folder_with_tar_xz, unique_paths)
+    pool.map(organise.replace_folder_with_tar_xz, unique_paths)
 
 

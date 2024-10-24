@@ -1,8 +1,13 @@
+"""
+Functions for getting information required by the map on the Hypocentre NZGD HTTP server.
+"""
+
 from pathlib import Path
 from collections import defaultdict, namedtuple
 from tqdm import tqdm
 import pandas as pd
 
+MetaData = namedtuple("MetaData", ["max_depth", "min_depth"])
 
 def get_files_with_relative_paths(
     processed_files: bool, file_root_directory: Path, relative_to: Path
@@ -42,7 +47,7 @@ def get_files_with_relative_paths(
     return record_id_to_files
 
 
-def get_processed_metadata(file_root_directory: Path) -> dict[str, list]:
+def get_processed_metadata(file_root_directory: Path) -> dict[str, MetaData]:
     """
     Get metadata for processed files in a directory and its subdirectories.
 
@@ -57,7 +62,6 @@ def get_processed_metadata(file_root_directory: Path) -> dict[str, list]:
         A dictionary with record IDs as keys and MetaData named tuples as values.
     """
 
-    MetaData = namedtuple("MetaData", ["max_depth", "min_depth"])
     record_id_to_metadata = {}
 
     # Recursively get all files

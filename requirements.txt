@@ -11,4 +11,5 @@ xkrd
 python-calamine
 pyxlsb
 geopandas
+shapely
 folium

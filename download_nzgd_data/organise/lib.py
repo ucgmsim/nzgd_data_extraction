@@ -1,7 +1,12 @@
-from pathlib import Path
-from typing import Optional, Union
+"""
+Functions for organising the downloaded and processed NZGD data into folders based on geographical regions.
+"""
+
 import re
 import shutil
+import tarfile
+from pathlib import Path
+from typing import Optional
 
 import geopandas as gpd
 import pandas as pd
@@ -10,23 +15,23 @@ from tqdm import tqdm
 
 
 def find_regions(
-    nzgd_index_path: Union[str, Path],
-    district_shapefile_path: Union[str, Path],
-    suburbs_shapefile_path: Union[str, Path],
-    region_classifcation_output_dir: Optional[Union[str, Path]],
+    nzgd_index_path: Path,
+    district_shapefile_path: Path,
+    suburbs_shapefile_path: Path,
+    region_classification_output_dir: Path,
 ) -> pd.DataFrame:
     """
     Finds the region for each point in the NZGD index and outputs the results to a CSV file.
 
     Parameters
     ----------
-    nzgd_index_path : Union[str, Path]
+    nzgd_index_path : Path
         Path to the NZGD index CSV file.
-    district_shapefile_path : Union[str, Path]
+    district_shapefile_path : Path
         Path to the district shapefile.
-    suburbs_shapefile_path : Union[str, Path]
+    suburbs_shapefile_path : Path
         Path to the suburbs shapefile.
-    region_classifcation_output_dir : Optional[Union[str, Path]]
+    region_classification_output_dir : Optional[Union[str, Path]]
         Directory to save the output CSV file. If None, the file is not saved.
 
     Returns
@@ -35,17 +40,11 @@ def find_regions(
         A DataFrame containing the regions found for each point in the NZGD index.
     """
 
-    if isinstance(nzgd_index_path, str):
-        nzgd_index_path = Path(nzgd_index_path)
-    if isinstance(district_shapefile_path, str):
-        district_shapefile_path = Path(district_shapefile_path)
-    if isinstance(suburbs_shapefile_path, str):
-        suburbs_shapefile_path = Path(suburbs_shapefile_path)
-    if isinstance(region_classifcation_output_dir, str):
-        region_classifcation_output_dir = Path(region_classifcation_output_dir)
-    region_classifcation_output_dir.mkdir(exist_ok=True, parents=True)
+    region_classification_output_dir.mkdir(exist_ok=True, parents=True)
 
-    region_file = region_classifcation_output_dir / f"regions_{nzgd_index_path.stem}.csv"
+    region_file = (
+        region_classification_output_dir / f"regions_{nzgd_index_path.stem}.csv"
+    )
     if region_file.exists():
         print("Region file already exists. Loading existing file.")
         return pd.read_csv(region_file)
@@ -75,8 +74,10 @@ def find_regions(
             [found_suburbs_df, suburb_result_df], ignore_index=True
         )
 
-    if region_classifcation_output_dir:
-        found_suburbs_df.to_csv(region_classifcation_output_dir / f"regions_{nzgd_index_path.stem}.csv")
+    if region_classification_output_dir:
+        found_suburbs_df.to_csv(
+            region_classification_output_dir / f"regions_{nzgd_index_path.stem}.csv"
+        )
 
     return found_suburbs_df
 
@@ -87,13 +88,13 @@ def get_recursive_list_of_nzgd_files(root_dir):
 
     Parameters
     ----------
-    root_dir : Union[str, Path]
-        The root directory where the downloaded records are stored.
+    root_dir : Path
+        The root directory of the records.
 
     Returns
     -------
     list
-        A list of the downloaded records.
+        A list of the files under the root directory.
     """
 
     if isinstance(root_dir, str):
@@ -110,22 +111,27 @@ def get_recursive_list_of_nzgd_files(root_dir):
 
 
 def organise_records_into_regions(
-    analysis_ready_data: bool,
+    processed_data: bool,
     dry_run: bool,
-    unorganised_root_dir_to_copy_from: Union[str, Path],
-    organised_root_dir_to_copy_to: Union[str, Path],
+    unorganised_root_dir_to_copy_from: Path,
+    organised_root_dir_to_copy_to: Path,
     region_df: pd.DataFrame,
 ) -> None:
     """
-    Creates the directory structure to organise the NZGD data into regions.
+    Organise records into regions based on the provided region DataFrame from Land Information New Zealand (LINZ).
 
     Parameters
     ----------
-    copy_to_organised_root_dir : Union[str, Path]
-        Root of the directory structure.
+    processed_data : bool
+        Flag indicating if the data has been processed.
+    dry_run : bool
+        If True, only print the actions without performing them.
+    unorganised_root_dir_to_copy_from : Path
+        The root directory containing unorganised records.
+    organised_root_dir_to_copy_to : Path
+        The root directory where organised records will be copied.
     region_df : pd.DataFrame
-        Contains the region of each record in the NZGD index
-        (can be obtained from the find_regions function).
+        DataFrame containing region information for each record.
     """
 
     record_type_to_path = {
@@ -135,14 +141,11 @@ def organise_records_into_regions(
         "VsVp": "vsvp",
     }
 
-    if isinstance(organised_root_dir_to_copy_to, str):
-        organised_root_dir_to_copy_to = Path(organised_root_dir_to_copy_to)
-    if isinstance(unorganised_root_dir_to_copy_from, str):
-        unorganised_root_dir_to_copy_from = Path(unorganised_root_dir_to_copy_from)
-
+    # Regular expression to replace " " (space), "," (comma), and "/" (forward slash) characters
     chars_to_replace = r"[ ,/]"
 
-    if analysis_ready_data:
+    # Get the list of records to copy based on the processed_data flag
+    if processed_data:
         paths_to_records_to_copy = list(
             unorganised_root_dir_to_copy_from.glob("*.parquet")
         )
@@ -158,18 +161,24 @@ def organise_records_into_regions(
             record_dir.name for record_dir in paths_to_records_to_copy
         ]
 
+    # Create a dictionary mapping record IDs to their paths
     downloaded_record_dict = dict(zip(record_ids_to_copy, paths_to_records_to_copy))
+
+    # Iterate over each row in the region DataFrame
     for index, row in tqdm(region_df.iterrows(), total=region_df.shape[0]):
         if row["record_id"] not in record_ids_to_copy:
             continue
 
+        # Extract the record type from the record ID
         record_type = row["record_id"].split("_")[0]
 
+        # Replace certain characters in the region names
         district_txt = re.sub(chars_to_replace, "_", row["district"])
         territor_1_txt = re.sub(chars_to_replace, "_", row["territor_1"])
         major_na_2_txt = re.sub(chars_to_replace, "_", row["major_na_2"])
         name_ascii_txt = re.sub(chars_to_replace, "_", row["name_ascii"])
 
+        # Construct the destination path for the record
         destination_path = (
             Path(organised_root_dir_to_copy_to)
             / record_type_to_path[record_type]
@@ -179,15 +188,18 @@ def organise_records_into_regions(
             / name_ascii_txt
         )
 
+        # Create the destination directory if it does not exist
         destination_path.mkdir(parents=True, exist_ok=True)
 
         if dry_run:
+            # Print the action that would be performed in dry run mode
             print(
                 f"will copy {downloaded_record_dict[row["record_id"]]} to {destination_path / downloaded_record_dict[row["record_id"]].name}"
             )
 
         else:
-            if analysis_ready_data:
+            # Copy the record to the destination path
+            if processed_data:
                 shutil.copy(
                     downloaded_record_dict[row["record_id"]],
                     destination_path / downloaded_record_dict[row["record_id"]].name,
@@ -197,5 +209,29 @@ def organise_records_into_regions(
                     downloaded_record_dict[row["record_id"]],
                     destination_path / downloaded_record_dict[row["record_id"]].name,
                 )
+
+    return None
+
+
+def replace_folder_with_tar_xz(folder_path: Path) -> None:
+    """
+    Compress a folder into a .tar.xz archive and delete the original folder.
+
+    Parameters
+    ----------
+    folder_path : Path
+        The path to the folder to be compressed.
+    """
+
+    print(f"Compressing folder: {folder_path}")
+    # Define the output .tar.xz path
+    output_tar_xz = folder_path.with_suffix(".tar.xz")
+
+    # Compress the folder
+    with tarfile.open(output_tar_xz, "w:xz") as tar:
+        tar.add(folder_path, arcname=folder_path.name)
+
+    # Delete the original folder after compression
+    shutil.rmtree(folder_path)
 
     return None

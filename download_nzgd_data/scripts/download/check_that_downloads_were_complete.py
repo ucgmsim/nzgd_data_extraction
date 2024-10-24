@@ -6,7 +6,6 @@ downloaded file names against the list of available files for each record.
 
 from pathlib import Path
 
-import toml
 from tqdm import tqdm
 
 import combine_download_notes_dicts
@@ -17,9 +16,9 @@ high_level_download_dir = Path("/home/arr65/data/nzgd/downloads_and_metadata/211
 ################################################################################################################
 ### If the dictionaries need to be assembled from individual files
 
-name_to_files_dict = combine_download_notes_dicts.combine_dicts((high_level_download_dir/"downloads_metadata"/"name_to_files_dicts_per_record").glob("*.toml"))
+name_to_files_dict = combine_download_notes_dicts.combine_dicts((high_level_download_dir / "downloads_metadata" / "name_to_files_dicts_per_record").glob("*.toml"))
 
-name_to_link_strs_dict = combine_download_notes_dicts.combine_dicts((high_level_download_dir/"downloads_metadata"/"name_to_files_dicts_per_record").glob("*.toml"))
+name_to_link_strs_dict = combine_download_notes_dicts.combine_dicts((high_level_download_dir / "downloads_metadata" / "name_to_files_dicts_per_record").glob("*.toml"))
 
 # with open(
 #     combined_dict_dir / f"combined_name_to_files_dict_batch{batch_num}.toml", "w"

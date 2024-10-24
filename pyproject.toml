@@ -3,11 +3,11 @@ requires = ["setuptools", "setuptools-scm"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "PACKAGE NAME HERE"
+name = "download_nzgd_data"
 authors = [
     {name = "QuakeCoRE" },
 ]
-description = "PACKAGE DESCRIPTION HERE"
+description = "For downloading and processing data from the New Zealand Geotechnical Database (NZGD)"
 readme = "README.md"
 requires-python = ">=3.9"
 dynamic = ["version", "dependencies"]

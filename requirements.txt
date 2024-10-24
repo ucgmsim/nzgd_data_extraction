@@ -11,3 +11,5 @@ pytables
 xkrd
 python-calamine
 pyxlsb
+geopandas
+folium

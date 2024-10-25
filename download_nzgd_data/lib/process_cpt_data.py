@@ -1,7 +1,6 @@
 """
 Functions for loading data from the New Zealand Geotechnical Database (NZGD).
 """
-import functools
 
 from python_ags4 import AGS4
 from typing import Union
@@ -9,12 +8,10 @@ from pathlib import Path
 import pandas as pd
 import numpy as np
 import pandas
-import xlrd
 
-import loading_helper_functions
+import download_nzgd_data.lib.processing_helpers as processing_helpers
+
 import toml
-
-from loading_helper_functions import FileConversionError
 
 
 def find_missing_cols_for_best_sheet(missing_cols_per_sheet: list[list]) -> list:
@@ -132,12 +129,12 @@ def load_ags(file_path: Union[Path, str]) -> pd.DataFrame:
         The CPT data from the AGS file.
     """
 
-    with open('resources/cpt_column_name_descriptions.toml', 'r') as toml_file:
+    with open(Path(__file__).parent.parent / "resources" / "cpt_column_name_descriptions.toml", "r") as toml_file:
         column_descriptions = toml.load(toml_file)
 
     try:
         tables, headings = AGS4.AGS4_to_dataframe(file_path)
-    except(UnboundLocalError):
+    except UnboundLocalError:
         # Found the meaning of this UnboundLocalError by uploading one of these files to the AGS file conversion tool on https://agsapi.bgs.ac.uk
         raise ValueError("ags_duplicate_headers - AGS file contains duplicate headers")
 
@@ -179,19 +176,19 @@ def load_cpt_spreadsheet_file(file_path: Path) -> pd.DataFrame:
         If the required columns are not found in any sheet of the Excel file.
     """
 
-    with open('resources/cpt_column_name_descriptions.toml', 'r') as toml_file:
+    with open(Path(__file__).parent.parent / "resources" / "cpt_column_name_descriptions.toml", "r") as toml_file:
         column_descriptions = toml.load(toml_file)
 
-    known_special_cases = toml.load("resources/known_special_cases.toml")
+    known_special_cases = toml.load(Path(__file__).parent.parent / "resources" / "cpt_column_name_descriptions.toml")
     record_id = f"{file_path.name.split("_")[0]}_{file_path.name.split("_")[1]}"
     if record_id in known_special_cases.keys():
-        raise FileConversionError(known_special_cases[record_id])
+        raise processing_helpers.FileConversionError(known_special_cases[record_id])
 
     if file_path.suffix.lower() in [".xls", ".xlsx"]:
-        sheet_names, engine = loading_helper_functions.get_xls_sheet_names(file_path)
+        sheet_names, engine = processing_helpers.get_xls_sheet_names(file_path)
 
         if len(sheet_names) == 0:
-            raise FileConversionError(f"corrupt_file - cannot detect sheets in file {file_path.name}")
+            raise processing_helpers.FileConversionError(f"corrupt_file - cannot detect sheets in file {file_path.name}")
 
     else:
         # A dummy sheet name as .txt and .csv files do not have sheet names
@@ -206,7 +203,7 @@ def load_cpt_spreadsheet_file(file_path: Path) -> pd.DataFrame:
     for sheet_idx, sheet in enumerate(sheet_names):
 
         if file_path.suffix.lower() in [".csv", ".txt"]:
-            df = loading_helper_functions.load_csv_or_txt(file_path)
+            df = processing_helpers.load_csv_or_txt(file_path)
         else:
             df = pd.read_excel(file_path, sheet_name=sheet, header=None, engine=engine, parse_dates=False)
 
@@ -224,11 +221,14 @@ def load_cpt_spreadsheet_file(file_path: Path) -> pd.DataFrame:
         df_for_counting_num_of_num = df_nan_to_str.map(lambda x:1.0 if isinstance(x, (int, float)) else 0)
 
         numeric_surplus_per_col = np.nansum(df_for_counting_num_of_num, axis=0) - np.nansum(df_for_counting_str_per_row, axis=0)
+
+        # Drop any columns that have more text than numeric data
+        df = df.iloc[:, numeric_surplus_per_col >= 0]
         numeric_surplus_per_row = np.nansum(df_for_counting_num_of_num, axis=1) - np.nansum(df_for_counting_str_per_row, axis=1)
 
         header_row_indices = []
-        if np.isfinite(loading_helper_functions.find_one_header_row_from_column_names(df)):
-            header_row_indices = loading_helper_functions.find_all_header_rows(df)
+        if np.isfinite(processing_helpers.find_one_header_row_from_column_names(df)):
+            header_row_indices = processing_helpers.find_all_header_rows(df)
 
         ## Check the dataframe for various issues
         if df.shape == (0,0):
@@ -257,7 +257,9 @@ def load_cpt_spreadsheet_file(file_path: Path) -> pd.DataFrame:
             error_text.append(f"no_header_row - sheet ({sheet.replace('-', '_')}) has no header row")
             continue
 
-        df, header_row_index = loading_helper_functions.combine_multiple_header_rows(df, header_row_indices)
+
+
+        df, header_row_index = processing_helpers.combine_multiple_header_rows(df, header_row_indices)
         # set dataframe's headers/column names. Note that .values is used so that the row's index is not included in the header
         df.columns = df.iloc[header_row_index].values
         # Skip the rows that originally contained the column names as they are now stored as the dataframe header
@@ -268,8 +270,8 @@ def load_cpt_spreadsheet_file(file_path: Path) -> pd.DataFrame:
         df.attrs["header_row_index_in_original_file"] = float(header_row_index)
         df.reset_index(inplace=True, drop=True)
         print()
-        df, final_col_names = loading_helper_functions.get_column_names(df)
-        df = loading_helper_functions.convert_to_m_and_mpa(df, final_col_names)
+        df, final_col_names = processing_helpers.get_column_names(df)
+        df = processing_helpers.convert_to_m_and_mpa(df, final_col_names)
 
         final_col_names_without_none = [col for col in final_col_names if col is not None]
         if all(i is not None for i in final_col_names) & (len(np.unique(final_col_names_without_none)) == len(final_col_names_without_none)):

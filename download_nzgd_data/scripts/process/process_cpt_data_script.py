@@ -1,16 +1,15 @@
 """
 Script to load NZGD data and convert to a standard format
 """
-import numpy as np
+
 from pathlib import Path
-import toml
-import loading_funcs_for_nzgd_data
-import xlrd
-from tqdm import tqdm
 import natsort
 import pandas as pd
 import functools
-import loading_helper_functions
+from tqdm import tqdm
+import xlrd
+
+from download_nzgd_data.lib import process_cpt_data, processing_helpers
 
 def summary_df_helper(summary_df, record_dir_name, file_was_loaded, loaded_file_type,
                       loaded_file_name, pdf_file_list, cpt_file_list, ags_file_list, xls_file_list,
@@ -41,7 +40,7 @@ def summary_df_helper(summary_df, record_dir_name, file_was_loaded, loaded_file_
     return concat_df
 
 nzgd_index_df = pd.read_csv(Path("/home/arr65/data/nzgd/nzgd_index_files/csv_files/NZGD_Investigation_Report_23102024_1042.csv"))
-output_dir = Path("/home/arr65/data/nzgd/downloads_and_metadata/analysis_ready_data/cpt")
+output_dir = Path("/home/arr65/data/nzgd/processed_data/cpt")
 
 ### !!! GO HERE
 parquet_output_dir = output_dir / "data"
@@ -79,6 +78,7 @@ loading_summary_df = pd.DataFrame(columns=["record_name", "file_was_loaded", "lo
 ### !!! GO HERE
 record_counter = 0
 for record_dir in tqdm(records_to_convert):
+#for record_dir in [Path("/home/arr65/data/nzgd/downloads_and_metadata/unorganised_raw_from_nzgd/cpt/CPT_88346")]:
 #for record_dir in [Path("/home/arr65/data/nzgd/downloads_and_metadata/unorganised_raw_from_nzgd/cpt/CPT_40709")]:
 
 
@@ -149,7 +149,7 @@ for record_dir in tqdm(records_to_convert):
         for file_to_try in files_to_try:
             try:
                 ags_file_load_attempted = True
-                record_df = loading_funcs_for_nzgd_data.load_ags(file_to_try)
+                record_df = process_cpt_data.load_ags(file_to_try)
 
                 # record original name and location as attributes and columns
                 record_df.attrs["original_file_name"] = file_to_try.name
@@ -206,7 +206,7 @@ for record_dir in tqdm(records_to_convert):
     for file_to_try_index, file_to_try in enumerate(files_to_try):
         try:
             xls_file_load_attempted = True
-            record_df_list = loading_funcs_for_nzgd_data.load_cpt_spreadsheet_file(file_to_try)
+            record_df_list = process_cpt_data.load_cpt_spreadsheet_file(file_to_try)
             record_df_copy_for_attrs = record_df_list[0].copy()
 
             record_df = pd.DataFrame()
@@ -250,7 +250,7 @@ for record_dir in tqdm(records_to_convert):
 
             break
 
-        except(loading_helper_functions.FileConversionError, ValueError, xlrd.compdoc.CompDocError, Exception) as e:
+        except(processing_helpers.FileConversionError, ValueError, xlrd.compdoc.CompDocError, Exception) as e:
 
             loading_summary_df = partial_summary_df_helper(loading_summary_df, file_was_loaded=False,
                                                            loaded_file_type="N/A",
@@ -269,7 +269,6 @@ for record_dir in tqdm(records_to_convert):
 
             if file_to_try_index == len(files_to_try) - 1:
                 # it's the last file to try
-                #meta_xls_failed_to_load.append(f"{record_dir.name}, {file_to_try.name}, {e}")
                 xls_load_failed = True
             else:
                 # there are other files to try so continue to the next file

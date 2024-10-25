@@ -51,7 +51,8 @@ browse_link_text = f"""
                     font-size: 24px; color: black; background-color: rgba(255, 255, 255, 0.7);
                     padding: 10px; border-radius: 5px; font-weight: bold;">
             <a href="processed/">Browse all processed data by region</a> <br> 
-            <a href="raw_from_nzgd/">Browse all raw data by region</a>            
+            <a href="raw_from_nzgd/">Browse all raw data by region</a> <br>
+            <a href="https://www.dropbox.com/scl/fo/9y9x4bpwsbd7fwnzmsm00/AM0ZTcQ0x_D2T4GZRjU81hE?rlkey=bbm5067njdlppwtazcgu1xk3b&st=c0a5n99f&dl=0">Browse files in Dropbox (recommended for large downloads)</a>
         </div>
         """
 

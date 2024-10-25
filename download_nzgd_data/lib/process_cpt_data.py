@@ -260,6 +260,7 @@ def load_cpt_spreadsheet_file(file_path: Path) -> pd.DataFrame:
 
 
         df, header_row_index = processing_helpers.combine_multiple_header_rows(df, header_row_indices)
+        print()
         # set dataframe's headers/column names. Note that .values is used so that the row's index is not included in the header
         df.columns = df.iloc[header_row_index].values
         # Skip the rows that originally contained the column names as they are now stored as the dataframe header
@@ -269,7 +270,6 @@ def load_cpt_spreadsheet_file(file_path: Path) -> pd.DataFrame:
         header_row_index = header_row_indices[0] if file_path.suffix.lower() in [".csv", ".txt"] else header_row_index
         df.attrs["header_row_index_in_original_file"] = float(header_row_index)
         df.reset_index(inplace=True, drop=True)
-        print()
         df, final_col_names = processing_helpers.get_column_names(df)
         df = processing_helpers.convert_to_m_and_mpa(df, final_col_names)
 

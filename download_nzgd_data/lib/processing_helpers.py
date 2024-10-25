@@ -382,12 +382,12 @@ def convert_to_m_and_mpa(df, col_names):
 
             if col_index == 0:
                 # checking the depth column
-                if "cm" in col_name:
+                if "cm" in col_name.lower():
                     df.loc[:, col_name] /= 100
 
             else:
                 # checking the other columns
-                if "kpa" in col_name:
+                if "kpa" in col_name.lower():
                     df.loc[:, col_name] /= 1000
 
     return df

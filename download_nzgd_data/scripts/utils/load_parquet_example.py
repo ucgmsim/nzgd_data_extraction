@@ -1,7 +1,10 @@
 import pandas as pd
 import glob
 
-file_list = glob.glob("/home/arr65/data/nzgd/downloads_and_metadata/analysis_ready_data/cpt/data/*.parquet")
+#file_list = glob.glob("/home/arr65/data/nzgd/downloads_and_metadata/analysis_ready_data/cpt/data/*.parquet")
+file_list = glob.glob("/home/arr65/data/nzgd/processed_data999/cpt/data/*.parquet")
+
+
 
 ### Each parquet file contains the following columns:
 #'record_name',

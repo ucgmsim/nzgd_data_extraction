@@ -227,6 +227,9 @@ def replace_folder_with_tar_xz(folder_path: Path) -> None:
     # Define the output .tar.xz path
     output_tar_xz = folder_path.with_suffix(".tar.xz")
 
+    # TODO: rewrite this to just write the following command in the terminal as the -T0 does multiprocessing on all cores
+    # TODO: tar -cf - [dir] | xz -T0 > [output_file_name]
+
     # Compress the folder
     with tarfile.open(output_tar_xz, "w:xz") as tar:
         tar.add(folder_path, arcname=folder_path.name)

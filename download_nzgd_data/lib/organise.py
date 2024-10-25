@@ -229,6 +229,8 @@ def replace_folder_with_tar_xz(folder_path: Path) -> None:
 
     # TODO: rewrite this to just write the following command in the terminal as the -T0 does multiprocessing on all cores
     # TODO: tar -cf - [dir] | xz -T0 > [output_file_name]
+    ## Needed becaues it gets stuck on Christchurch due it being 42GB (more than half of the data) and was
+    ## just chugging through it with one processor. By using this command, all processors will work on the same file
 
     # Compress the folder
     with tarfile.open(output_tar_xz, "w:xz") as tar:

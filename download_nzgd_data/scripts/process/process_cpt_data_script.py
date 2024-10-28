@@ -40,7 +40,10 @@ def summary_df_helper(summary_df, record_dir_name, file_was_loaded, loaded_file_
     return concat_df
 
 nzgd_index_df = pd.read_csv(Path("/home/arr65/data/nzgd/nzgd_index_files/csv_files/NZGD_Investigation_Report_23102024_1042.csv"))
-output_dir = Path("/home/arr65/data/nzgd/processed_data999/cpt")
+output_dir = Path("/home/arr65/data/nzgd/processed_data/cpt")
+
+if output_dir.exists():
+    raise ValueError("Output directory already exists.")
 
 ### !!! GO HERE
 parquet_output_dir = output_dir / "data"
@@ -75,10 +78,11 @@ loading_summary_df = pd.DataFrame(columns=["record_name", "file_was_loaded", "lo
                                            "only_has_pdf","num_pdf_files", "num_cpt_files", "num_ags_files",
                                            "num_xls_files", "num_xlsx_files", "num_csv_files", "num_txt_files",
                                            "num_other_files"])
+
 ### !!! GO HERE
 record_counter = 0
-#for record_dir in tqdm(records_to_convert):
-for record_dir in [Path("/home/arr65/data/nzgd/downloads_and_metadata/unorganised_raw_from_nzgd/cpt/CPT_223176")]:
+for record_dir in tqdm(records_to_convert):
+#for record_dir in [Path("/home/arr65/data/nzgd/downloads_and_metadata/unorganised_raw_from_nzgd/cpt/CPT_223176")]:
 
 #for record_dir in [Path("/home/arr65/data/nzgd/downloads_and_metadata/unorganised_raw_from_nzgd/cpt/CPT_88346")]:
 #for record_dir in [Path("/home/arr65/data/nzgd/downloads_and_metadata/unorganised_raw_from_nzgd/cpt/CPT_40709")]:
@@ -204,76 +208,76 @@ for record_dir in [Path("/home/arr65/data/nzgd/downloads_and_metadata/unorganise
                    list(record_dir.glob("*.TXT"))
 
     for file_to_try_index, file_to_try in enumerate(files_to_try):
-        # try:
-        xls_file_load_attempted = True
-        record_df_list = process_cpt_data.load_cpt_spreadsheet_file(file_to_try)
-        record_df_copy_for_attrs = record_df_list[0].copy()
+        try:
+            xls_file_load_attempted = True
+            record_df_list = process_cpt_data.load_cpt_spreadsheet_file(file_to_try)
+            record_df_copy_for_attrs = record_df_list[0].copy()
 
-        record_df = pd.DataFrame()
-        for record_df_idx in range(len(record_df_list)):
-            record_df_list[record_df_idx].insert(0, "multiple_measurements", record_df_idx)
-            if record_df_idx == 0:
-                record_df = record_df_list[record_df_idx]
+            record_df = pd.DataFrame()
+            for record_df_idx in range(len(record_df_list)):
+                record_df_list[record_df_idx].insert(0, "multiple_measurements", record_df_idx)
+                if record_df_idx == 0:
+                    record_df = record_df_list[record_df_idx]
+                else:
+                    record_df = pd.concat([record_df, record_df_list[record_df_idx]], ignore_index=True)
+
+            record_df.attrs["max_depth"] = record_df["Depth"].max()
+            record_df.attrs["min_depth"] = record_df["Depth"].min()
+            # record original name and location as attributes and columns
+            record_df.attrs["original_file_name"] = file_to_try.name
+            record_df.attrs["nzgd_meta_data"] = nzgd_meta_data_record
+            record_df.insert(0, "record_name", record_dir.name)
+            record_df.insert(1, "latitude", nzgd_meta_data_record["Latitude"])
+            record_df.insert(2, "longitude", nzgd_meta_data_record["Longitude"])
+
+            record_df.reset_index(inplace=True, drop=True)
+
+            record_df.to_parquet(parquet_output_dir / f"{record_dir.name}.parquet")
+            has_loaded_a_file_for_this_record = True
+            spreadsheet_format_description_per_record = pd.DataFrame([{"record_name":record_dir.name,
+                                                               "header_row_index":record_df_copy_for_attrs.attrs["header_row_index_in_original_file"],
+                                                               "depth_col_name_in_original_file": record_df_copy_for_attrs.attrs[
+                                                               "adopted_Depth_column_name_in_original_file"],
+                                                               "adopted_qc_column_name_in_original_file": record_df_copy_for_attrs.attrs["adopted_qc_column_name_in_original_file"],
+                                                               "adopted_fs_column_name_in_original_file":record_df_copy_for_attrs.attrs["adopted_fs_column_name_in_original_file"],
+                                                               "adopted_u_column_name_in_original_file":
+                                                                   record_df_copy_for_attrs.attrs[
+                                                                "adopted_u_column_name_in_original_file"],
+                                                              "file_name":file_to_try.name}])
+
+            spreadsheet_format_description = pd.concat([spreadsheet_format_description,
+                                                        spreadsheet_format_description_per_record],ignore_index=True)
+
+            loading_summary_df = partial_summary_df_helper(loading_summary_df, file_was_loaded=True,
+                                                           loaded_file_type=file_to_try.suffix.lower(),
+                                                           loaded_file_name=record_dir.name)
+
+            break
+
+        except(processing_helpers.FileConversionError, ValueError, xlrd.compdoc.CompDocError, Exception) as e:
+
+            loading_summary_df = partial_summary_df_helper(loading_summary_df, file_was_loaded=False,
+                                                           loaded_file_type="N/A",
+                                                           loaded_file_name="N/A")
+            error_as_string = str(e)
+
+            if "-" not in error_as_string:
+                error_as_string = "unknown_category - " + error_as_string
+
+            all_failed_loads_df = pd.concat([all_failed_loads_df,
+                    pd.DataFrame({"record_name": [record_dir.name],
+                                 "file_type": [file_to_try.suffix.lower()],
+                                 "file_name": [file_to_try.name],
+                                 "category": [error_as_string.split("-")[0].strip()],
+                                 "details": [error_as_string.split("-")[1].strip()]})], ignore_index=True)
+
+            if file_to_try_index == len(files_to_try) - 1:
+                # it's the last file to try
+                xls_load_failed = True
             else:
-                record_df = pd.concat([record_df, record_df_list[record_df_idx]], ignore_index=True)
+                # there are other files to try so continue to the next file
+                continue
 
-        record_df.attrs["max_depth"] = record_df["Depth"].max()
-        record_df.attrs["min_depth"] = record_df["Depth"].min()
-        # record original name and location as attributes and columns
-        record_df.attrs["original_file_name"] = file_to_try.name
-        record_df.attrs["nzgd_meta_data"] = nzgd_meta_data_record
-        record_df.insert(0, "record_name", record_dir.name)
-        record_df.insert(1, "latitude", nzgd_meta_data_record["Latitude"])
-        record_df.insert(2, "longitude", nzgd_meta_data_record["Longitude"])
-
-        record_df.reset_index(inplace=True, drop=True)
-
-        record_df.to_parquet(parquet_output_dir / f"{record_dir.name}.parquet")
-        has_loaded_a_file_for_this_record = True
-        spreadsheet_format_description_per_record = pd.DataFrame([{"record_name":record_dir.name,
-                                                           "header_row_index":record_df_copy_for_attrs.attrs["header_row_index_in_original_file"],
-                                                           "depth_col_name_in_original_file": record_df_copy_for_attrs.attrs[
-                                                           "adopted_Depth_column_name_in_original_file"],
-                                                           "adopted_qc_column_name_in_original_file": record_df_copy_for_attrs.attrs["adopted_qc_column_name_in_original_file"],
-                                                           "adopted_fs_column_name_in_original_file":record_df_copy_for_attrs.attrs["adopted_fs_column_name_in_original_file"],
-                                                           "adopted_u_column_name_in_original_file":
-                                                               record_df_copy_for_attrs.attrs[
-                                                            "adopted_u_column_name_in_original_file"],
-                                                          "file_name":file_to_try.name}])
-
-        spreadsheet_format_description = pd.concat([spreadsheet_format_description,
-                                                    spreadsheet_format_description_per_record],ignore_index=True)
-
-        loading_summary_df = partial_summary_df_helper(loading_summary_df, file_was_loaded=True,
-                                                       loaded_file_type=file_to_try.suffix.lower(),
-                                                       loaded_file_name=record_dir.name)
-
-        break
-
-#         except(processing_helpers.FileConversionError, ValueError, xlrd.compdoc.CompDocError, Exception) as e:
-#
-#             loading_summary_df = partial_summary_df_helper(loading_summary_df, file_was_loaded=False,
-#                                                            loaded_file_type="N/A",
-#                                                            loaded_file_name="N/A")
-#             error_as_string = str(e)
-#
-#             if "-" not in error_as_string:
-#                 error_as_string = "unknown_category - " + error_as_string
-#
-#             all_failed_loads_df = pd.concat([all_failed_loads_df,
-#                     pd.DataFrame({"record_name": [record_dir.name],
-#                                  "file_type": [file_to_try.suffix.lower()],
-#                                  "file_name": [file_to_try.name],
-#                                  "category": [error_as_string.split("-")[0].strip()],
-#                                  "details": [error_as_string.split("-")[1].strip()]})], ignore_index=True)
-#
-#             if file_to_try_index == len(files_to_try) - 1:
-#                 # it's the last file to try
-#                 xls_load_failed = True
-#             else:
-#                 # there are other files to try so continue to the next file
-#                 continue
-#
 spreadsheet_format_description.to_csv(metadata_output_dir / "spreadsheet_format_description.csv", index=False)
 all_failed_loads_df.to_csv(metadata_output_dir / "all_failed_loads.csv", index=False)
 loading_summary_df.to_csv(metadata_output_dir / "loading_summary.csv", index=False)

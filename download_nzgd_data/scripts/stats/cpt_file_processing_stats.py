@@ -10,7 +10,7 @@ unique_values = index_df["Type"].value_counts()
 print()
 
 print()
-output_path = Path("/home/arr65/data/nzgd/analysis_ready_data/cpt")
+output_path = Path("/home/arr65/data/nzgd/processed_data/cpt")
 
 summary_df = pd.read_csv(output_path / "metadata/loading_summary.csv")
 print()

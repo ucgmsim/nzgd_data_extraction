@@ -5,9 +5,9 @@ structure based on geographical regions.
 
 from pathlib import Path
 
-from download_nzgd_data.lib import organise as organise_data_into_regions_funcs
+from download_nzgd_data.lib import organise
 
-region_df = organise_data_into_regions_funcs.find_regions(
+region_df = organise.find_regions(
     nzgd_index_path=Path(
         "/home/arr65/data/nzgd/nzgd_index_files/csv_files/NZGD_Investigation_Report_23102024_1042.csv"
     ),
@@ -21,25 +21,27 @@ region_df = organise_data_into_regions_funcs.find_regions(
         "/home/arr65/data/nzgd/region_classification"
     ),
 )
-region_df.fillna("unclassified", inplace=True)
+
 
 ### Organise the raw data from the NZGD into regions
-# organise_data_into_regions_funcs.organise_records_into_regions(
-#     analysis_ready_data=False,
-#     dry_run=False,
-#     unorganised_root_dir_to_copy_from=Path("/home/arr65/data/nzgd/downloads_and_metadata/unorganised_raw_from_nzgd"),
-#     organised_root_dir_to_copy_to=Path("/home/arr65/data/nzgd/hypocentre_mirror/nzgd/raw_from_nzgd"),
-#     region_df=region_df)
+organise.organise_records_into_regions(
+    processed_data=False,
+    dry_run=False,
+    unorganised_root_dir_to_copy_from=Path("/home/arr65/data/nzgd/downloads_and_metadata/unorganised_raw_from_nzgd"),
+    organised_root_dir_to_copy_to=Path("/home/arr65/data/nzgd/hypocentre_mirror/nzgd/raw_from_nzgd"),
+    region_df=region_df)
 
 ### Organise the processed analysis-ready data from the NZGD into regions
-organise_data_into_regions_funcs.organise_records_into_regions(
+organise.organise_records_into_regions(
     processed_data=True,
     dry_run=False,
     unorganised_root_dir_to_copy_from=Path(
-        "/home/arr65/data/nzgd/analysis_ready_data/cpt/data"
+        "/home/arr65/data/nzgd/processed_data/cpt/data"
     ),
     organised_root_dir_to_copy_to=Path(
-        "/home/arr65/data/nzgd/hypocentre_mirror/nzgd/analysis_ready"
+        "/home/arr65/data/nzgd/hypocentre_mirror/nzgd/processed"
     ),
     region_df=region_df,
 )
+
+

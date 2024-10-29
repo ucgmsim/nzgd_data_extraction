@@ -4,14 +4,39 @@ Functions for organising the downloaded and processed NZGD data into folders bas
 
 import re
 import shutil
-import tarfile
+
 from pathlib import Path
 from typing import Optional
+import subprocess
+import functools
+import multiprocessing
 
 import geopandas as gpd
 import pandas as pd
 from shapely.geometry import Point
 from tqdm import tqdm
+import time
+
+
+#from p_tqdm import p_map
+
+
+def find_region(df_row:pd.Series, district_gdf:pd.DataFrame, suburbs_gdf:pd.DataFrame) -> pd.DataFrame:
+
+    point = gpd.GeoDataFrame(
+        [{"geometry": Point(df_row["Longitude"], df_row["Latitude"])}], crs="EPSG:4326"
+    )
+
+    # Perform a spatial join to find the region
+    district_result_df = gpd.sjoin(
+        point, district_gdf, how="left", predicate="within"
+    )
+    suburb_result_df = gpd.sjoin(point, suburbs_gdf, how="left", predicate="within")
+
+    suburb_result_df.insert(0, "record_id", df_row["ID"])
+    suburb_result_df.insert(1, "district", district_result_df.name)
+
+    return suburb_result_df
 
 
 def find_regions(
@@ -40,6 +65,8 @@ def find_regions(
         A DataFrame containing the regions found for each point in the NZGD index.
     """
 
+    start_time = time.time()
+
     region_classification_output_dir.mkdir(exist_ok=True, parents=True)
 
     region_file = (
@@ -50,34 +77,27 @@ def find_regions(
         return pd.read_csv(region_file)
 
     nzgd_index_df = pd.read_csv(nzgd_index_path)
+    nzgd_index_df = nzgd_index_df[(nzgd_index_df["Type"] == "CPT") | (nzgd_index_df["Type"] == "SCPT") | (nzgd_index_df["Type"] == "Borehole") | (nzgd_index_df["Type"] == "VsVp")]
+
     district_gdf = gpd.read_file(district_shapefile_path)
     suburbs_gdf = gpd.read_file(suburbs_shapefile_path)
 
-    found_suburbs_df = gpd.GeoDataFrame()
+    find_regions_partial = functools.partial(find_region, district_gdf=district_gdf, suburbs_gdf=suburbs_gdf)
+    df_rows_as_list = [row for index, row in nzgd_index_df.iterrows()]
 
-    for index, row in tqdm(nzgd_index_df.iterrows(), total=nzgd_index_df.shape[0]):
+    with multiprocessing.Pool(processes=6) as pool:
+        found_suburbs_df = pd.concat(pool.map(find_regions_partial, df_rows_as_list), ignore_index=True)
 
-        point = gpd.GeoDataFrame(
-            [{"geometry": Point(row["Longitude"], row["Latitude"])}], crs="EPSG:4326"
-        )
-
-        # Perform a spatial join to find the region
-        district_result_df = gpd.sjoin(
-            point, district_gdf, how="left", predicate="within"
-        )
-        suburb_result_df = gpd.sjoin(point, suburbs_gdf, how="left", predicate="within")
-
-        suburb_result_df.insert(0, "record_id", row["ID"])
-        suburb_result_df.insert(1, "district", district_result_df.name)
-
-        found_suburbs_df = pd.concat(
-            [found_suburbs_df, suburb_result_df], ignore_index=True
-        )
-
+    ## Blank fields get values of np.nan so they are replaced with "unclassified"
+    found_suburbs_df.fillna("unclassified", inplace=True)
     if region_classification_output_dir:
         found_suburbs_df.to_csv(
             region_classification_output_dir / f"regions_{nzgd_index_path.stem}.csv"
         )
+
+    end_time = time.time()
+
+    print(f"Time taken to find regions: {(end_time - start_time)/60} minutes")
 
     return found_suburbs_df
 
@@ -141,8 +161,8 @@ def organise_records_into_regions(
         "VsVp": "vsvp",
     }
 
-    # Regular expression to replace " " (space), "," (comma), and "/" (forward slash) characters
-    chars_to_replace = r"[ ,/]"
+    # Regular expression to replace " " (space), ' (apostrophe), "," (comma), and "/" (forward slash) characters
+    chars_to_replace = r"[ ',/]"
 
     # Get the list of records to copy based on the processed_data flag
     if processed_data:
@@ -224,19 +244,19 @@ def replace_folder_with_tar_xz(folder_path: Path) -> None:
     """
 
     print(f"Compressing folder: {folder_path}")
-    # Define the output .tar.xz path
-    output_tar_xz = folder_path.with_suffix(".tar.xz")
+    ## Example of folder_path:
+    ## /home/arr65/data/nzgd/dropbox_mirror/nzgd/processed/cpt/Canterbury/Christchurch_City
+    working_dir = folder_path.parent
+    relative_path = folder_path.relative_to(working_dir)
+    output_tar_xz_file_name = relative_path.with_suffix(".tar.xz")
 
-    # TODO: rewrite this to just write the following command in the terminal as the -T0 does multiprocessing on all cores
-    # TODO: tar -cf - [dir] | xz -T0 > [output_file_name]
-    ## Needed becaues it gets stuck on Christchurch due it being 42GB (more than half of the data) and was
-    ## just chugging through it with one processor. By using this command, all processors will work on the same file
-
-    # Compress the folder
-    with tarfile.open(output_tar_xz, "w:xz") as tar:
-        tar.add(folder_path, arcname=folder_path.name)
+    ## The - is used with tar send its output to stdout. The | then passes it to xz.
+    ## The xz argument -T0 uses all available processors to compress the file (can be changed to -T1, -T2, etc. for
+    ## one, two processors, etc.)
+    terminal_command = f"tar -cf - ./{relative_path} | xz -T0 > ./{output_tar_xz_file_name}"
+    subprocess.run(terminal_command, cwd=folder_path.parent, shell=True)
 
     # Delete the original folder after compression
-    shutil.rmtree(folder_path)
+    #shutil.rmtree(folder_path)
 
     return None

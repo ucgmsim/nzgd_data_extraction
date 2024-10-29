@@ -112,7 +112,7 @@ def search_line_for_cell(line, characters, substrings):
 def search_line_for_all_needed_cells(
         line,
         output_all_candidates=False,
-        characters1=["m","w","h"],
+        characters1=["m","w","h","r"],
         substrings1=["depth", "length", "top", "h "],
         characters2=["q","mpa"],
         substrings2 = ["qc", "q_c", "cone", "resistance", "res", "tip"],

@@ -11,33 +11,7 @@ import xlrd
 
 from download_nzgd_data.lib import process_cpt_data, processing_helpers
 
-def summary_df_helper(summary_df, record_dir_name, file_was_loaded, loaded_file_type,
-                      loaded_file_name, pdf_file_list, cpt_file_list, ags_file_list, xls_file_list,
-                      xlsx_file_list, csv_file_list, txt_file_list, unknown_list):
-    if ((len(pdf_file_list) > 0) & (len(cpt_file_list) == 0) &
-            (len(ags_file_list) == 0) & (len(xls_file_list) == 0) &
-            (len(xlsx_file_list) == 0) & (len(csv_file_list) == 0) &
-            (len(txt_file_list) == 0) & (len(unknown_list) == 0)):
-        has_only_pdf = True
-    else:
-        has_only_pdf = False
 
-    concat_df = pd.concat([summary_df,
-                           pd.DataFrame({"record_name": [record_dir_name],
-                                         "file_was_loaded": [file_was_loaded],
-                                         "loaded_file_type": [loaded_file_type],
-                                         "loaded_file_name": [loaded_file_name],
-                                         "only_has_pdf" : [has_only_pdf],
-                                         "num_pdf_files": [len(pdf_file_list)],
-                                         "num_cpt_files": [len(cpt_file_list)],
-                                         "num_ags_files": [len(ags_file_list)],
-                                         "num_xls_files": [len(xls_file_list)],
-                                         "num_xlsx_files": [len(xlsx_file_list)],
-                                         "num_csv_files": [len(csv_file_list)],
-                                         "num_txt_files": [len(txt_file_list)],
-                                         "num_other_files": [len(unknown_list)]})],
-                          ignore_index=True)
-    return concat_df
 
 nzgd_index_df = pd.read_csv(Path("/home/arr65/data/nzgd/nzgd_index_files/csv_files/NZGD_Investigation_Report_23102024_1042.csv"))
 output_dir = Path("/home/arr65/data/nzgd/processed_data/cpt")
@@ -114,7 +88,7 @@ for record_dir in tqdm(records_to_convert):
         ags_file_list + xls_file_list + xlsx_file_list + csv_file_list + txt_file_list + cpt_file_list + pdf_file_list)
     unknown_list = list(set(list(record_dir.glob("*"))) - known_file_set)
 
-    partial_summary_df_helper = functools.partial(summary_df_helper, record_dir_name=record_dir.name,
+    partial_summary_df_helper = functools.partial(processing_helpers.make_summary_df, record_dir_name=record_dir.name,
                                                   pdf_file_list=pdf_file_list, cpt_file_list=cpt_file_list, ags_file_list=ags_file_list,
                                                   xls_file_list=xls_file_list, xlsx_file_list=xlsx_file_list, csv_file_list=csv_file_list,
                                                   txt_file_list=txt_file_list, unknown_list=unknown_list)

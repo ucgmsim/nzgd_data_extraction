@@ -456,6 +456,33 @@ def change_exception_for_last_sheet(error_category, description, sheet_idx, shee
     elif ((sheet_idx == len(sheet_names) - 1) & len(final_missing_cols) == 0):
         raise FileConversionError(f"{error_category} - sheet ({sheet.replace("-", "_")}) {description}")
 
+def make_summary_df(summary_df, record_dir_name, file_was_loaded, loaded_file_type,
+                      loaded_file_name, pdf_file_list, cpt_file_list, ags_file_list, xls_file_list,
+                      xlsx_file_list, csv_file_list, txt_file_list, unknown_list):
+    if ((len(pdf_file_list) > 0) & (len(cpt_file_list) == 0) &
+            (len(ags_file_list) == 0) & (len(xls_file_list) == 0) &
+            (len(xlsx_file_list) == 0) & (len(csv_file_list) == 0) &
+            (len(txt_file_list) == 0) & (len(unknown_list) == 0)):
+        has_only_pdf = True
+    else:
+        has_only_pdf = False
+
+    concat_df = pd.concat([summary_df,
+                           pd.DataFrame({"record_name": [record_dir_name],
+                                         "file_was_loaded": [file_was_loaded],
+                                         "loaded_file_type": [loaded_file_type],
+                                         "loaded_file_name": [loaded_file_name],
+                                         "only_has_pdf" : [has_only_pdf],
+                                         "num_pdf_files": [len(pdf_file_list)],
+                                         "num_cpt_files": [len(cpt_file_list)],
+                                         "num_ags_files": [len(ags_file_list)],
+                                         "num_xls_files": [len(xls_file_list)],
+                                         "num_xlsx_files": [len(xlsx_file_list)],
+                                         "num_csv_files": [len(csv_file_list)],
+                                         "num_txt_files": [len(txt_file_list)],
+                                         "num_other_files": [len(unknown_list)]})],
+                          ignore_index=True)
+    return concat_df
 
 
 

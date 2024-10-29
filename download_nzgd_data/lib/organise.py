@@ -2,37 +2,54 @@
 Functions for organising the downloaded and processed NZGD data into folders based on geographical regions.
 """
 
-import re
-import shutil
-
-from pathlib import Path
-from typing import Optional
-import subprocess
 import functools
 import multiprocessing
+import re
+import shutil
+import subprocess
+import time
+from pathlib import Path
+from typing import Optional
 
 import geopandas as gpd
 import pandas as pd
 from shapely.geometry import Point
 from tqdm import tqdm
-import time
 
 
-#from p_tqdm import p_map
+def find_region(
+    df_row: pd.Series, district_gdf: pd.DataFrame, suburbs_gdf: pd.DataFrame
+) -> pd.DataFrame:
+    """
+    Finds the region for a given point based on its geographical coordinates.
 
+    Parameters
+    ----------
+    df_row : pd.Series
+        A row from the DataFrame containing the point's coordinates (Longitude, Latitude) and ID.
+    district_gdf : pd.DataFrame
+        GeoDataFrame containing the district boundaries.
+    suburbs_gdf : pd.DataFrame
+        GeoDataFrame containing the suburb boundaries.
 
-def find_region(df_row:pd.Series, district_gdf:pd.DataFrame, suburbs_gdf:pd.DataFrame) -> pd.DataFrame:
+    Returns
+    -------
+    pd.DataFrame
+        A DataFrame containing the region information for the given point, including the record ID and district name.
+    """
 
+    # Create a GeoDataFrame for the point using its longitude and latitude
     point = gpd.GeoDataFrame(
         [{"geometry": Point(df_row["Longitude"], df_row["Latitude"])}], crs="EPSG:4326"
     )
 
-    # Perform a spatial join to find the region
-    district_result_df = gpd.sjoin(
-        point, district_gdf, how="left", predicate="within"
-    )
+    # Perform a spatial join to find the district containing the point
+    district_result_df = gpd.sjoin(point, district_gdf, how="left", predicate="within")
+
+    # Perform a spatial join to find the suburb containing the point
     suburb_result_df = gpd.sjoin(point, suburbs_gdf, how="left", predicate="within")
 
+    # Insert the record ID and district name into the result DataFrame
     suburb_result_df.insert(0, "record_id", df_row["ID"])
     suburb_result_df.insert(1, "district", district_result_df.name)
 
@@ -77,16 +94,25 @@ def find_regions(
         return pd.read_csv(region_file)
 
     nzgd_index_df = pd.read_csv(nzgd_index_path)
-    nzgd_index_df = nzgd_index_df[(nzgd_index_df["Type"] == "CPT") | (nzgd_index_df["Type"] == "SCPT") | (nzgd_index_df["Type"] == "Borehole") | (nzgd_index_df["Type"] == "VsVp")]
+    nzgd_index_df = nzgd_index_df[
+        (nzgd_index_df["Type"] == "CPT")
+        | (nzgd_index_df["Type"] == "SCPT")
+        | (nzgd_index_df["Type"] == "Borehole")
+        | (nzgd_index_df["Type"] == "VsVp")
+    ]
 
     district_gdf = gpd.read_file(district_shapefile_path)
     suburbs_gdf = gpd.read_file(suburbs_shapefile_path)
 
-    find_regions_partial = functools.partial(find_region, district_gdf=district_gdf, suburbs_gdf=suburbs_gdf)
+    find_regions_partial = functools.partial(
+        find_region, district_gdf=district_gdf, suburbs_gdf=suburbs_gdf
+    )
     df_rows_as_list = [row for index, row in nzgd_index_df.iterrows()]
 
     with multiprocessing.Pool(processes=6) as pool:
-        found_suburbs_df = pd.concat(pool.map(find_regions_partial, df_rows_as_list), ignore_index=True)
+        found_suburbs_df = pd.concat(
+            pool.map(find_regions_partial, df_rows_as_list), ignore_index=True
+        )
 
     ## Blank fields get values of np.nan so they are replaced with "unclassified"
     found_suburbs_df.fillna("unclassified", inplace=True)
@@ -253,10 +279,12 @@ def replace_folder_with_tar_xz(folder_path: Path) -> None:
     ## The - is used with tar send its output to stdout. The | then passes it to xz.
     ## The xz argument -T0 uses all available processors to compress the file (can be changed to -T1, -T2, etc. for
     ## one, two processors, etc.)
-    terminal_command = f"tar -cf - ./{relative_path} | xz -T0 > ./{output_tar_xz_file_name}"
+    terminal_command = (
+        f"tar -cf - ./{relative_path} | xz -T0 > ./{output_tar_xz_file_name}"
+    )
     subprocess.run(terminal_command, cwd=folder_path.parent, shell=True)
 
     # Delete the original folder after compression
-    #shutil.rmtree(folder_path)
+    shutil.rmtree(folder_path)
 
     return None

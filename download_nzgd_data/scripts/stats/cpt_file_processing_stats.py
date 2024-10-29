@@ -13,6 +13,14 @@ print()
 output_path = Path("/home/arr65/data/nzgd/processed_data/cpt")
 
 summary_df = pd.read_csv(output_path / "metadata/loading_summary.csv")
+
+summary_of_spreadsheet_loads = summary_df[((summary_df["loaded_file_type"]==".xls") |
+                                            (summary_df["loaded_file_type"]==".xlsx") |
+                                            (summary_df["loaded_file_type"]==".csv") |
+                                            (summary_df["loaded_file_type"]==".txt"))]
+
+summary_of_spreadsheet_loads.to_csv(output_path / "metadata/cpt_loaded_from_spreadsheet_in_NZGD_Investigation_Report_23102024_1042.csv", index=False)
+
 print()
 only_has_pdf = summary_df[summary_df["only_has_pdf"] == True]
 print()

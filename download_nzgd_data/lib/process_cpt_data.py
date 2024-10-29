@@ -257,10 +257,7 @@ def load_cpt_spreadsheet_file(file_path: Path) -> pd.DataFrame:
             error_text.append(f"no_header_row - sheet ({sheet.replace('-', '_')}) has no header row")
             continue
 
-
-
         df, header_row_index = processing_helpers.combine_multiple_header_rows(df, header_row_indices)
-        print()
         # set dataframe's headers/column names. Note that .values is used so that the row's index is not included in the header
         df.columns = df.iloc[header_row_index].values
         # Skip the rows that originally contained the column names as they are now stored as the dataframe header

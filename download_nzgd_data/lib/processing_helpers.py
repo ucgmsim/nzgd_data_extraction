@@ -8,6 +8,8 @@ import toml
 from typing import Union
 import copy
 import zipfile
+from pathlib import Path
+
 
 
 class FileConversionError(Exception):
@@ -335,8 +337,9 @@ def get_csv_or_txt_split_readlines(file_path, encoding):
 
 def get_column_names(df):
 
-    col_index_to_name = {0:"Depth",1:"qc",2:"fs",
-                                3:"u"}
+    known_false_positive_col_names = toml.load(Path(__file__).parent.parent / "resources" / "known_false_positive_column_names.toml")
+
+    col_index_to_name = {0:"Depth",1:"qc",2:"fs", 3:"u"}
 
     all_possible_col_indices = search_line_for_all_needed_cells(df.columns,
                                                                 output_all_candidates=True)
@@ -371,6 +374,12 @@ def get_column_names(df):
 
             df.attrs[f"candidate_{col_index_to_name[possible_col_idx]}_column_names_in_original_file"] = list(valid_possible_col_names)
             df.attrs[f"adopted_{col_index_to_name[possible_col_idx]}_column_name_in_original_file"] = col_name
+
+    ## Check if any of the identified column names are known false positives
+    for col_name in final_col_names:
+        if col_name in known_false_positive_col_names:
+            raise FileConversionError(f"false_positive_column_name - Using a column named [{col_name}] which is a known "
+                                      f"false positive for column [{known_false_positive_col_names[col_name]}]")
 
     return df, final_col_names
 

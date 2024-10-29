@@ -31,17 +31,13 @@ downloaded_files = Path("/home/arr65/data/nzgd/downloads_and_metadata/unorganise
 #previous_loading_summary = pd.read_csv(Path("/home/arr65/data/nzgd/standard_format_batch30/cpt/metadata") / "loading_summary.csv")
 
 ### !!! GO HERE !!!
-#previously_converted_filenames = list(previous_loading_summary[previous_loading_summary["file_was_loaded"]==True]["record_name"])
-previously_converted_filenames = []
-
-previously_converted_records = []
-for filename in previously_converted_filenames:
-    file_name_parts = filename.split("_")
-    previously_converted_records.append(f"{file_name_parts[0]}_{file_name_parts[1]}")
+#records_to_skip = list(previous_loading_summary[previous_loading_summary["file_was_loaded"]==True]["record_name"])
+#records_to_skip = pd.read_csv("/home/arr65/src/download_nzgd_data/download_nzgd_data/resources/cpt_loaded_from_spreadsheet_in_23102024_1042.csv")["record_name"].to_list()
+records_to_skip = []
 
 records_to_convert = []
 for record_dir in natsort.natsorted(list(downloaded_files.glob("*"))):
-    if record_dir.name not in previously_converted_records:
+    if record_dir.name not in records_to_skip:
         records_to_convert.append(record_dir)
 
 spreadsheet_format_description = pd.DataFrame()
@@ -56,25 +52,8 @@ loading_summary_df = pd.DataFrame(columns=["record_name", "file_was_loaded", "lo
 ### !!! GO HERE
 record_counter = 0
 for record_dir in tqdm(records_to_convert):
+#for record_dir in [Path("/home/arr65/data/nzgd/downloads_and_metadata/unorganised_raw_from_nzgd/cpt/CPT_158096")]:
 #for record_dir in [Path("/home/arr65/data/nzgd/downloads_and_metadata/unorganised_raw_from_nzgd/cpt/CPT_223176")]:
-
-#for record_dir in [Path("/home/arr65/data/nzgd/downloads_and_metadata/unorganised_raw_from_nzgd/cpt/CPT_88346")]:
-#for record_dir in [Path("/home/arr65/data/nzgd/downloads_and_metadata/unorganised_raw_from_nzgd/cpt/CPT_40709")]:
-
-#for record_dir in [Path("/home/arr65/data/nzgd/downloaded_files/cpt/CPT_96686")]:
-
-#for record_dir in [Path("/home/arr65/data/nzgd/downloaded_files/cpt/CPT_117329")]:
-#for record_dir in [Path("/home/arr65/data/nzgd/downloaded_files/cpt/CPT_125853")]:
-
-#for record_dir in [Path("/home/arr65/data/nzgd/downloaded_files/cpt/CPT_23319")]:
-#for record_dir in [Path("/home/arr65/data/nzgd/downloaded_files/cpt/CPT_110939")]:
-#for record_dir in [Path("/home/arr65/data/nzgd/downloaded_files/cpt/CPT_9326")]:
-#for record_dir in [Path("/home/arr65/data/nzgd/downloaded_files/cpt/CPT_60575")]:
-#for record_dir in [Path("/home/arr65/data/nzgd/downloaded_files/cpt/CPT_17546")]:
-#for record_dir in [Path("/home/arr65/data/nzgd/downloaded_files/cpt/CPT_2497")]:
-#for record_dir in [Path("/home/arr65/data/nzgd/downloaded_files/cpt/CPT_24230")]:
-#for record_dir in [Path("/home/arr65/data/nzgd/downloaded_files/cpt/CPT_72538")]:
-#for record_dir in [Path("/home/arr65/data/nzgd/downloaded_files/cpt/CPT_187908")]:
 
     ags_file_list = list(record_dir.glob("*.ags")) + list(record_dir.glob("*.AGS"))
     xls_file_list = list(record_dir.glob("*.xls")) + list(record_dir.glob("*.XLS"))
@@ -174,7 +153,7 @@ for record_dir in tqdm(records_to_convert):
     if has_loaded_a_file_for_this_record:
         continue
 
-    ### spreadsheet files
+    # ### spreadsheet files
     files_to_try = list(record_dir.glob("*.xls")) + list(record_dir.glob("*.XLS")) + \
                    list(record_dir.glob("*.xlsx")) + list(record_dir.glob("*.XLSX")) + \
                    list(record_dir.glob("*.csv")) + list(record_dir.glob("*.CSV")) +\

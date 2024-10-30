@@ -6,6 +6,123 @@ from dataclasses import dataclass
 import pandas as pd
 from scipy import interpolate
 import numpy as np
+from pathlib import Path
+import download_nzgd_data.validation.load_sql_db as load_sql_db
+from tqdm import tqdm
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
+def convert_old_sql_to_parquet(original_old_data_dir: Path, old_data_as_parquet_dir: Path) -> None:
+
+    """
+    Convert the old SQL database to parquet files.
+
+    Parameters
+    ----------
+    old_data_dir : Path
+        The directory containing the old SQL database.
+    new_data_dir : Path
+        The directory where the new parquet files will be saved.
+    session : sqlalchemy.orm.session.Session
+        The session to the old SQL database.
+    """
+
+    engine = create_engine(f"sqlite:///{original_old_data_dir}/nz_cpt.db")
+    DBSession = sessionmaker(bind=engine)
+    session = DBSession()
+
+    old_data_as_parquet_dir.mkdir(parents=True, exist_ok=True)
+
+    cpt_locs = load_sql_db.cpt_locations(session)
+
+    for cpt_loc in tqdm(cpt_locs):
+
+        cpt_records = load_sql_db.get_cpt_data(session, cpt_loc.name, columnwise=False)
+
+        if cpt_records.size == 0:
+            continue
+
+        elif cpt_records.shape[0] < 4:
+            continue
+
+        df = pd.DataFrame(cpt_records, columns=["Depth", "qc", "fs", "u"])
+
+        df.to_parquet(old_data_as_parquet_dir / f"{cpt_loc.name}.parquet")
+
+def get_list_of_sql_dfs(cpt_locs: list, session) -> list[pd.DataFrame]:
+
+    dfs = []
+
+    for cpt_loc in tqdm(cpt_locs):
+
+        cpt_records = load_sql_db.get_cpt_data(session, cpt_loc.name, columnwise=False)
+
+        if cpt_records.size == 0:
+            continue
+
+        elif cpt_records.shape[0] < 4:
+            continue
+
+        old_df = pd.DataFrame(cpt_records, columns=["Depth", "qc", "fs", "u"])
+
+        dfs.append(old_df)
+
+    return dfs
+
+
+def make_df_list(cpt_locs:list, new_converted_data_dir:Path):
+
+    dfs = []
+
+    for row_n, cpt_loc in enumerate(cpt_locs):
+
+        parquet_to_load = new_converted_data_dir / f"{cpt_loc.name}.parquet"
+
+        if not parquet_to_load.exists():
+            continue
+
+        cpt_records = load_sql_db.get_cpt_data(session, cpt_loc.name, columnwise=False)
+
+        if cpt_records.size == 0:
+            continue
+
+        elif cpt_records.shape[0] < 4:
+            continue
+
+        old_df = pd.DataFrame(cpt_records, columns=["Depth", "qc", "fs", "u"])
+
+        dfs.append((old_df, parquet_to_load))
+
+    return dfs
+
+
+def check_for_consistency(dfs: tuple[pd.DataFrame, pd.DataFrame], band_width_percent:float , allowed_percent_of_points_not_within_band: float) -> bool:
+
+    old_df = dfs[0]
+    new_df = dfs[1]
+
+    new_df_upper = new_df.copy()
+    new_df_lower = new_df.copy()
+
+    new_df_upper[["qc","fs","u"]] *= 1+(band_width_percent/100)
+    new_df_lower[["qc", "fs", "u"]] -= 1-(band_width_percent/100)
+
+    interpolated_new_df_upper = get_interpolated_df(organise_with_depth_range(old_df, new_df_upper))
+    interpolated_new_df_lower = get_interpolated_df(organise_with_depth_range(old_df, new_df_lower))
+
+    old_lower_than_new_upper = old_df[["qc","fs","u"]] < interpolated_new_df_upper[["qc","fs","u"]]
+    old_higher_than_new_lower = old_df[["qc","fs","u"]] > interpolated_new_df_lower[["qc","fs","u"]]
+
+    old_within_band = old_lower_than_new_upper & old_higher_than_new_lower
+    percent_not_within_band = 100*(len(old_within_band) - old_within_band.sum()) / len(old_within_band)
+
+    if (percent_not_within_band < allowed_percent_of_points_not_within_band).all():
+        return False
+    else:
+        return True
+
+
+
 
 
 

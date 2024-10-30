@@ -5,7 +5,7 @@ Functions to help with the validation of CPT data.
 from dataclasses import dataclass
 import pandas as pd
 from scipy import interpolate
-
+import numpy as np
 
 
 
@@ -75,3 +75,27 @@ def get_interpolated_df(organised_dfs: OrganizedWithDepthRange) -> pd.DataFrame:
     interpolated_df.loc[:,"u"] = u_interp(interpolated_df["Depth"])
 
     return interpolated_df
+
+
+
+def sigma_clip_indices(data: np.array, n_sigma: int) -> np.array:
+    """
+    Apply a 3-sigma clip to the residual data.
+
+    Parameters
+    ----------
+    data : np.array
+        The data to be clipped.
+
+    Returns
+    -------
+    tuple
+
+    """
+
+    data = np.abs(data)
+
+    keep_indices_bool_mask = data < np.median(data) + (n_sigma * np.std(data))
+
+
+    return keep_indices_bool_mask

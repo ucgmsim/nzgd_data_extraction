@@ -11,6 +11,117 @@ import download_nzgd_data.validation.load_sql_db as load_sql_db
 from tqdm import tqdm
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+import matplotlib.pyplot as plt
+
+def get_residual(record_name: str, old_data_ffp: Path, new_data_ffp: Path, make_plot=False) -> pd.DataFrame:
+
+    old_df = pd.read_parquet(old_data_ffp / f"{record_name}.parquet")
+    new_df = pd.read_parquet(new_data_ffp / f"{record_name}.parquet")
+
+    if new_df.size == 0:
+        return False
+
+    new_df = new_df[new_df["multiple_measurements"] == 0]
+    new_df = new_df.drop(columns=["multiple_measurements", "record_name", "latitude", "longitude"])
+
+    interpolated_df = get_interpolated_df(old_df, new_df)
+
+    #residual = np.log(interpolated_df) - np.log(old_df)
+    residual = interpolated_df - old_df
+
+
+    if make_plot:
+        plot_residual(residual, old_df, interpolated_df, new_df)
+
+    return residual, old_df, interpolated_df, new_df
+
+
+def check_residual(record_name: str, old_data_ffp: Path, new_data_ffp: Path, max_allowed_resid_as_pc_of_mean:float, allowed_percent_not_close_to_zero: float) -> bool:
+
+    residual, old_df, interpolated_df, new_df = get_residual(record_name = record_name, old_data_ffp = old_data_ffp, new_data_ffp=new_data_ffp)
+
+    resid_close_to_zero = residual.abs()[["qc","fs","u"]] <= (max_allowed_resid_as_pc_of_mean/100)*old_df.mean()[["qc","fs","u"]]
+
+    percent_resid_close_to_zero = 100*resid_close_to_zero.sum()/resid_close_to_zero.shape[0]
+
+    resid_close_to_zero_check = percent_resid_close_to_zero >= allowed_percent_not_close_to_zero
+
+    if (resid_close_to_zero_check).all():
+        return True
+
+    else:
+        return False
+
+
+def plot_residual(residual, old_df, interpolated_df, new_df,record_name = None) -> None:
+    """
+    Plot the residuals of the old and new data.
+
+    Parameters
+    ----------
+    old_df : pd.DataFrame
+        The old DataFrame.
+    new_df : pd.DataFrame
+        The new DataFrame.
+    """
+
+    fig, axes = plt.subplots(2, 3, sharex=True)
+
+    axes[0, 0].plot(new_df["Depth"],new_df["qc"], linestyle="--", marker="+", color="grey",label="new")
+    axes[0, 0].plot(old_df["Depth"],old_df["qc"], linestyle="--", color="green", marker="o",
+                    markersize=10, markerfacecolor='none', markeredgecolor='green', label="old")
+    axes[0, 0].plot(interpolated_df["Depth"], interpolated_df["qc"], linestyle="--", marker="x", color="red",
+                    label="interp")
+    axes[0, 0].legend()
+    axes[0, 0].set_xlabel("Depth (m)")
+    axes[0, 0].set_ylabel("qc (MPa)")
+
+    axes[0, 1].plot(new_df["Depth"],new_df["fs"], linestyle="--", marker="+", color="grey",
+                    label="new")
+    axes[0, 1].plot(old_df["Depth"],old_df["fs"], linestyle="--", color="green", marker="o",
+                    markersize=10, markerfacecolor='none', markeredgecolor='green', label="old")
+    axes[0, 1].plot(interpolated_df["Depth"], interpolated_df["fs"], linestyle="--", marker="x", color="red",
+                    label="interp")
+    axes[0, 1].legend()
+    axes[0, 1].set_xlabel("Depth (m)")
+    axes[0, 1].set_ylabel("fs (MPa)")
+
+    axes[0, 2].plot(new_df["Depth"],new_df["u"], linestyle="--", marker="+", color="grey",
+                    label="new")
+    axes[0, 2].plot(old_df["Depth"],
+                    old_df["u"], linestyle="--", color="green", marker="o",
+                    markersize=10, markerfacecolor='none', markeredgecolor='green', label="old")
+    axes[0, 2].plot(interpolated_df["Depth"], interpolated_df["u"], linestyle="--", marker="x", color="red",
+                    label="interp")
+    axes[0, 2].legend()
+    axes[0, 2].set_xlabel("Depth (m)")
+    axes[0, 2].set_ylabel("u (MPa)")
+
+    ###################################################################
+
+    axes[1, 0].plot(old_df["Depth"], residual["qc"], linestyle="--",marker="o",markersize=5)
+    axes[1, 0].set_xlabel("Depth (m)")
+    axes[1, 0].set_ylabel("qc resid")
+
+    axes[1, 1].plot(old_df["Depth"], residual["fs"], linestyle="--",marker="o",markersize=5)
+    axes[1, 1].set_xlabel("Depth (m)")
+    axes[1, 1].set_ylabel("fs resid")
+
+    axes[1, 2].plot(old_df["Depth"], residual["u"], linestyle="--",marker="o",markersize=5)
+    axes[1, 2].set_xlabel("Depth (m)")
+    axes[1, 2].set_ylabel("u resid")
+
+    plt.subplots_adjust(hspace=0.5, wspace=0.5)
+
+    if record_name:
+        plt.savefig(f"/home/arr65/data/nzgd/plots/{record_name}.png", dpi=500)
+    else:
+        plt.savefig(f"/home/arr65/data/nzgd/plots/redisuals.png", dpi=500)
+
+
+
+
+
 
 def convert_old_sql_to_parquet(original_old_data_dir: Path, old_data_as_parquet_dir: Path) -> None:
 
@@ -96,30 +207,38 @@ def make_df_list(cpt_locs:list, new_converted_data_dir:Path):
     return dfs
 
 
-def check_for_consistency(dfs: tuple[pd.DataFrame, pd.DataFrame], band_width_percent:float , allowed_percent_of_points_not_within_band: float) -> bool:
 
-    old_df = dfs[0]
-    new_df = dfs[1]
 
-    new_df_upper = new_df.copy()
-    new_df_lower = new_df.copy()
 
-    new_df_upper[["qc","fs","u"]] *= 1+(band_width_percent/100)
-    new_df_lower[["qc", "fs", "u"]] -= 1-(band_width_percent/100)
 
-    interpolated_new_df_upper = get_interpolated_df(organise_with_depth_range(old_df, new_df_upper))
-    interpolated_new_df_lower = get_interpolated_df(organise_with_depth_range(old_df, new_df_lower))
 
-    old_lower_than_new_upper = old_df[["qc","fs","u"]] < interpolated_new_df_upper[["qc","fs","u"]]
-    old_higher_than_new_lower = old_df[["qc","fs","u"]] > interpolated_new_df_lower[["qc","fs","u"]]
 
-    old_within_band = old_lower_than_new_upper & old_higher_than_new_lower
-    percent_not_within_band = 100*(len(old_within_band) - old_within_band.sum()) / len(old_within_band)
 
-    if (percent_not_within_band < allowed_percent_of_points_not_within_band).all():
-        return False
-    else:
-        return True
+
+# def check_for_consistency(record_name: str, band_width_percent:float, allowed_percent_of_points_not_within_band: float) -> bool:
+#
+#     old_df = dfs[0]
+#     new_df = dfs[1]
+#
+#     new_df_upper = new_df.copy()
+#     new_df_lower = new_df.copy()
+#
+#     new_df_upper[["qc","fs","u"]] *= 1+(band_width_percent/100)
+#     new_df_lower[["qc", "fs", "u"]] -= 1-(band_width_percent/100)
+#
+#     interpolated_new_df_upper = get_interpolated_df(organise_with_depth_range(old_df, new_df_upper))
+#     interpolated_new_df_lower = get_interpolated_df(organise_with_depth_range(old_df, new_df_lower))
+#
+#     old_lower_than_new_upper = old_df[["qc","fs","u"]] < interpolated_new_df_upper[["qc","fs","u"]]
+#     old_higher_than_new_lower = old_df[["qc","fs","u"]] > interpolated_new_df_lower[["qc","fs","u"]]
+#
+#     old_within_band = old_lower_than_new_upper & old_higher_than_new_lower
+#     percent_not_within_band = 100*(len(old_within_band) - old_within_band.sum()) / len(old_within_band)
+#
+#     if (percent_not_within_band < allowed_percent_of_points_not_within_band).all():
+#         return False
+#     else:
+#         return True
 
 
 
@@ -164,7 +283,43 @@ def organise_with_depth_range(df1: pd.DataFrame, df2: pd.DataFrame) -> Organized
     else:
         return OrganizedWithDepthRange(largest_depth_range=df2, shortest_depth_range=df1)
 
-def get_interpolated_df(organised_dfs: OrganizedWithDepthRange) -> pd.DataFrame:
+
+def get_interpolated_df(old_df, new_df) -> pd.DataFrame:
+
+    """
+    Interpolates the DataFrame with the largest depth range onto the DataFrame with the smallest depth range so that
+    every point in the smallest depth range has a corresponding point in the largest depth range.
+
+    Parameters
+    ----------
+    old_df : pd.DataFrame
+        The old CPT data from the SQL database.
+
+    new_df : pd.DataFrame
+        The new CPT data from the parquet files.
+
+    Returns
+    -------
+    pd.DataFrame: The DataFrame with the largest depth range with interpolated onto the Depth values of the DataFrame
+    with the smallest depth range.
+    """
+
+    qc_interp = interpolate.interp1d(new_df["Depth"], new_df["qc"], kind="linear", bounds_error=False, fill_value=np.nan)
+    fs_interp = interpolate.interp1d(new_df["Depth"], new_df["fs"], kind="linear", bounds_error=False, fill_value=np.nan)
+    u_interp = interpolate.interp1d(new_df["Depth"], new_df["u"], kind="linear", bounds_error=False, fill_value=np.nan)
+
+    interpolated_df = old_df.copy()
+
+    interpolated_df.loc[:,"qc"] = qc_interp(interpolated_df["Depth"])
+    interpolated_df.loc[:,"fs"] = fs_interp(interpolated_df["Depth"])
+    interpolated_df.loc[:,"u"] = u_interp(interpolated_df["Depth"])
+
+    return interpolated_df
+
+
+
+
+def OLD_get_interpolated_df(organised_dfs: OrganizedWithDepthRange) -> pd.DataFrame:
 
     """
     Interpolates the DataFrame with the largest depth range onto the DataFrame with the smallest depth range so that

@@ -114,13 +114,54 @@ def find_col_name_from_substring(df:pd.DataFrame,
     return col, df, remaining_cols_to_search
 
 
-def load_ags(file_path: Union[Path, str]) -> pd.DataFrame:
+def load_ags(file_path: Path) -> pd.DataFrame:
     """
     Load an AGS file.
 
     Parameters
     ----------
-    file_path : Path or str
+    file_path : Path
+        The path to the AGS file.
+
+    Returns
+    -------
+    pandas.DataFrame
+        The CPT data from the AGS file.
+    """
+
+    with open(Path(__file__).parent.parent / "resources" / "cpt_column_name_descriptions.toml", "r") as toml_file:
+        column_descriptions = toml.load(toml_file)
+
+    try:
+        tables, headings = AGS4.AGS4_to_dataframe(file_path)
+    except UnboundLocalError:
+        # Found the meaning of this UnboundLocalError by uploading one of these files to the AGS file conversion tool on https://agsapi.bgs.ac.uk
+        raise ValueError("ags_duplicate_headers - AGS file contains duplicate headers")
+
+    if len(tables) == 0:
+        raise ValueError("no_ags_data_tables - no data tables found in the AGS file")
+
+    try:
+        loaded_data_df = pd.DataFrame({
+            list(column_descriptions)[0]: tables["SCPT"]["SCPT_DPTH"],
+            list(column_descriptions)[1]: tables["SCPT"]["SCPT_RES"],
+            list(column_descriptions)[2]: tables["SCPT"]["SCPT_FRES"],
+            list(column_descriptions)[3]: tables["SCPT"]["SCPT_PWP2"]  ## Assuming dynamic pore pressure (u2) in MPa ???
+        })
+    except(KeyError):
+        raise ValueError("ags_missing_columns - AGS file is missing at least one of the required columns")
+
+    ### The first two rows are dropped as they contain header information from the ags file
+    return loaded_data_df.apply(pd.to_numeric, errors='coerce').dropna()
+
+
+def load_scpt_ags(file_path: Path) -> pd.DataFrame:
+    """
+    Load an AGS file.
+
+    Parameters
+    ----------
+    file_path : Path
         The path to the AGS file.
 
     Returns

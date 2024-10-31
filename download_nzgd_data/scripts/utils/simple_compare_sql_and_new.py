@@ -73,7 +73,7 @@ ids_to_check = pd.read_parquet(check_output_dir / "ids_to_check.parquet")["ids_t
 
 
 #ids_to_check = ids_to_check[0:1000]
-#ids_to_check = ["CPT_8333"]
+#ids_to_check = ["CPT_13"]
 #ids_to_check = ["CPT_104077"]
 #ids_to_check = ["CPT_146038"]
 #print()
@@ -99,7 +99,7 @@ print("starting check")
 #allowed_percentages_not_close_to_zero = np.array([5])
 
 allowed_percentages_not_close_to_zero = 10.0
-max_allowed_resid_as_pc_of_mean_vect = np.arange(40,220,20)
+max_allowed_resid_as_pc_of_mean_vect = np.arange(10,110,10)
 #max_allowed_resid_as_pc_of_mean_vect = np.array([50,60])#
 num_inconsistent_records = np.zeros_like(max_allowed_resid_as_pc_of_mean_vect)
 

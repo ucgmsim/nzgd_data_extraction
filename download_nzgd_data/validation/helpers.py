@@ -31,7 +31,7 @@ def get_residual(record_name: str, old_data_ffp: Path, new_data_ffp: Path, make_
 
 
     if make_plot:
-        plot_residual(residual, old_df, interpolated_df, new_df)
+        plot_residual(residual, old_df, interpolated_df, new_df, record_name=record_name)
 
     return residual, old_df, interpolated_df, new_df
 
@@ -40,7 +40,10 @@ def check_residual(record_name: str, old_data_ffp: Path, new_data_ffp: Path, max
 
     residual, old_df, interpolated_df, new_df = get_residual(record_name = record_name, old_data_ffp = old_data_ffp, new_data_ffp=new_data_ffp)
 
-    resid_close_to_zero = residual.abs()[["qc","fs","u"]] <= (max_allowed_resid_as_pc_of_mean/100)*old_df.mean()[["qc","fs","u"]]
+    old_df_range = old_df.max()[["qc","fs","u"]] - old_df.min()[["qc","fs","u"]]
+
+
+    resid_close_to_zero = residual.abs()[["qc","fs","u"]] <= (max_allowed_resid_as_pc_of_mean/100)*old_df_range
 
     percent_resid_close_to_zero = 100*resid_close_to_zero.sum()/resid_close_to_zero.shape[0]
 
@@ -114,9 +117,9 @@ def plot_residual(residual, old_df, interpolated_df, new_df,record_name = None) 
     plt.subplots_adjust(hspace=0.5, wspace=0.5)
 
     if record_name:
-        plt.savefig(f"/home/arr65/data/nzgd/plots/{record_name}.png", dpi=500)
+        plt.savefig(f"/home/arr65/data/nzgd/plots/inconsistent_cpt_records/{record_name}.png", dpi=500)
     else:
-        plt.savefig(f"/home/arr65/data/nzgd/plots/redisuals.png", dpi=500)
+        plt.savefig(f"/home/arr65/data/nzgd/plots/inconsistent_cpt_records/redisuals.png", dpi=500)
 
 
 

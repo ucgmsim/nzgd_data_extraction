@@ -13,8 +13,10 @@ from download_nzgd_data.lib import process_cpt_data, processing_helpers
 
 
 
+investigation_type = processing_helpers.InvestigationType.cpt
+
 nzgd_index_df = pd.read_csv(Path("/home/arr65/data/nzgd/nzgd_index_files/csv_files/NZGD_Investigation_Report_23102024_1042.csv"))
-output_dir = Path("/home/arr65/data/nzgd/processed_data/cpt")
+output_dir = Path(f"/home/arr65/data/nzgd/processed_data/{investigation_type}")
 
 if output_dir.exists():
     raise ValueError("Output directory already exists.")
@@ -106,7 +108,7 @@ for record_dir in tqdm(records_to_convert):
         for file_to_try in files_to_try:
             try:
                 ags_file_load_attempted = True
-                record_df = process_cpt_data.load_ags(file_to_try)
+                record_df = process_cpt_data.load_ags(file_to_try, investigation_type)
 
                 # record original name and location as attributes and columns
                 record_df.attrs["original_file_name"] = file_to_try.name

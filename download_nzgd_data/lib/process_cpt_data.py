@@ -114,7 +114,7 @@ def find_col_name_from_substring(df:pd.DataFrame,
     return col, df, remaining_cols_to_search
 
 
-def load_ags(file_path: Path) -> pd.DataFrame:
+def load_ags(file_path: Path, investigation_type: processing_helpers.InvestigationType) -> pd.DataFrame:
     """
     Load an AGS file.
 
@@ -150,6 +150,19 @@ def load_ags(file_path: Path) -> pd.DataFrame:
         })
     except(KeyError):
         raise ValueError("ags_missing_columns - AGS file is missing at least one of the required columns")
+
+    if investigation_type == processing_helpers.InvestigationType.scpt:
+        try:
+
+            ### Try to insert the vs column
+
+            pass
+
+        except:
+            pass
+
+
+
 
     ### The first two rows are dropped as they contain header information from the ags file
     return loaded_data_df.apply(pd.to_numeric, errors='coerce').dropna()

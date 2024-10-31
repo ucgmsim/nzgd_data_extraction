@@ -15,6 +15,9 @@ from pathlib import Path
 class FileConversionError(Exception):
     pass
 
+class InvestigationType(enum.StrEnum):
+    cpt = "cpt"
+    scpt = "scpt"
 
 def can_convert_str_to_float(value: str) -> bool:
 

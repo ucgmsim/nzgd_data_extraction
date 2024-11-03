@@ -12,10 +12,29 @@ from pathlib import Path
 
 
 
-class FileConversionError(Exception):
+class FileProcessingError(Exception):
+    """
+    Custom exception class for file processing errors.
+
+    This exception is raised when there is an error related to file processing,
+    such as issues with reading or parsing files.
+
+    Attributes:
+        Inherits all attributes from the base Exception class.
+    """
     pass
 
 class InvestigationType(enum.StrEnum):
+    """
+    Enumeration for different types of investigations.
+
+    Attributes
+    ----------
+    cpt : str
+        Represents a Cone Penetration Test (CPT) investigation type.
+    scpt : str
+        Represents a Seismic Cone Penetration Test (SCPT) investigation type.
+    """
     cpt = "cpt"
     scpt = "scpt"
 
@@ -302,10 +321,10 @@ def get_xls_sheet_names(file_path):
         return sheet_names, engine
 
     except zipfile.BadZipFile:
-        raise FileConversionError(f"bad_zip_file - file {file_path.name} is not a valid xls or xlsx file")
+        raise FileProcessingError(f"bad_zip_file - file {file_path.name} is not a valid xls or xlsx file")
 
     except xlrd.compdoc.CompDocError:
-        raise FileConversionError(f"corrupt_file - file {file_path.name} has MSAT extension corruption")
+        raise FileProcessingError(f"corrupt_file - file {file_path.name} has MSAT extension corruption")
 
 
 
@@ -327,7 +346,7 @@ def get_csv_or_txt_split_readlines(file_path, encoding):
         lines = file.readlines()
 
         if len(lines) == 1:
-            raise FileConversionError(f"only_one_line - sheet (0) has only one line with first cell of {lines[0]}")
+            raise FileProcessingError(f"only_one_line - sheet (0) has only one line with first cell of {lines[0]}")
 
     sep = r"," if file_path.suffix.lower() == ".csv" else r"\s+"
 
@@ -362,7 +381,7 @@ def get_column_names(df):
 
             # see if the selected column name is used more than once in the original file
             if len(df[candidate_col_name].shape) > 1:
-                raise FileConversionError(f"repeated_col_names_in_source - sheet has multiple columns with the name {candidate_col_name}")
+                raise FileProcessingError(f"repeated_col_names_in_source - sheet has multiple columns with the name {candidate_col_name}")
 
             num_finite_per_col = np.array([np.sum(np.isfinite(df[col_name])) for col_name in possible_col_names])
             valid_possible_col_names = np.array(possible_col_names)[num_finite_per_col > 0]
@@ -381,7 +400,7 @@ def get_column_names(df):
     ## Check if any of the identified column names are known false positives
     for col_name in final_col_names:
         if col_name in known_false_positive_col_names:
-            raise FileConversionError(f"false_positive_column_name - Using a column named [{col_name}] which is a known "
+            raise FileProcessingError(f"false_positive_column_name - Using a column named [{col_name}] which is a known "
                                       f"false positive for column [{known_false_positive_col_names[col_name]}]")
 
     return df, final_col_names
@@ -416,7 +435,7 @@ def load_csv_or_txt(file_path, sheet="0", col_data_types=np.array(["Depth",
 
     # csv and txt files do not have multiple sheets so just raise an error immediately if no header rows were found
     if len(header_lines_in_csv_or_txt_file) == 0:
-        raise FileConversionError(f"no_header_row - sheet ({sheet.replace("-", "_")}) has no header row")
+        raise FileProcessingError(f"no_header_row - sheet ({sheet.replace("-", "_")}) has no header row")
 
     if len(header_lines_in_csv_or_txt_file) > 1:
         multi_row_header_array = np.zeros((len(header_lines_in_csv_or_txt_file), 4), dtype=float)
@@ -431,7 +450,7 @@ def load_csv_or_txt(file_path, sheet="0", col_data_types=np.array(["Depth",
     missing_cols = list(col_data_types[~np.isfinite(col_data_type_indices)])
 
     if len(missing_cols) > 0:
-        raise FileConversionError(
+        raise FileProcessingError(
             f"missing_columns - sheet ({sheet.replace('-', '_')}) is missing [{' & '.join(missing_cols)}]")
 
     needed_col_indices_with_nans = search_line_for_all_needed_cells(
@@ -463,10 +482,10 @@ def combine_multiple_header_rows(df, header_row_indices):
 def change_exception_for_last_sheet(error_category, description, sheet_idx, sheet, sheet_names, final_missing_cols):
 
     if ((sheet_idx == len(sheet_names) - 1) & len(final_missing_cols) > 0):
-        raise FileConversionError(
+        raise FileProcessingError(
             f"missing_columns - sheet ({sheet.replace('-', '_')}) is missing [{' & '.join(final_missing_cols)}]")
     elif ((sheet_idx == len(sheet_names) - 1) & len(final_missing_cols) == 0):
-        raise FileConversionError(f"{error_category} - sheet ({sheet.replace("-", "_")}) {description}")
+        raise FileProcessingError(f"{error_category} - sheet ({sheet.replace("-", "_")}) {description}")
 
 def make_summary_df(summary_df, record_dir_name, file_was_loaded, loaded_file_type,
                       loaded_file_name, pdf_file_list, cpt_file_list, ags_file_list, xls_file_list,

@@ -11,15 +11,13 @@ import xlrd
 
 from download_nzgd_data.lib import process_cpt_data, processing_helpers
 
-
-
 investigation_type = processing_helpers.InvestigationType.cpt
 
 nzgd_index_df = pd.read_csv(Path("/home/arr65/data/nzgd/nzgd_index_files/csv_files/NZGD_Investigation_Report_23102024_1042.csv"))
-output_dir = Path(f"/home/arr65/data/nzgd/processed_data/{investigation_type}")
+output_dir = Path(f"/home/arr65/data/nzgd/processed_data_test/{investigation_type}")
 
-if output_dir.exists():
-    raise ValueError("Output directory already exists.")
+# if output_dir.exists():
+#     raise ValueError("Output directory already exists.")
 
 ### !!! GO HERE
 parquet_output_dir = output_dir / "data"
@@ -37,11 +35,29 @@ downloaded_files = Path("/home/arr65/data/nzgd/downloads_and_metadata/unorganise
 #records_to_skip = pd.read_csv("/home/arr65/src/download_nzgd_data/download_nzgd_data/resources/cpt_loaded_from_spreadsheet_in_23102024_1042.csv")["record_name"].to_list()
 records_to_skip = []
 
-records_to_convert = []
+records_to_process = []
 for record_dir in natsort.natsorted(list(downloaded_files.glob("*"))):
     if record_dir.name not in records_to_skip:
-        records_to_convert.append(record_dir)
+        records_to_process.append(record_dir)
 
+downloaded_record_names = set([record_dir.name for record_dir in records_to_process])
+
+# A small number of records have been removed from the NZGD after they were downloaded.
+# These records were likely removed for a reason such data quality or permission issues, so they are not considered.
+records_currently_in_nzgd = set(nzgd_index_df["ID"].values)
+
+records_that_have_been_removed = downloaded_record_names - records_currently_in_nzgd
+
+if len(records_that_have_been_removed) > 0:
+    print("The following records have been removed from the NZGD and will not be processed:")
+    for removed_record in records_that_have_been_removed:
+        print(removed_record)
+
+    ## Remove the records that have been removed from the list of records to process
+    records_to_process = [record_dir for record_dir in records_to_process if record_dir.name not in records_that_have_been_removed]
+
+
+## Create dataframes to store metadata
 spreadsheet_format_description = pd.DataFrame()
 
 all_failed_loads_df = pd.DataFrame(columns=["record_name", "file_type", "file_name", "category", "details"])
@@ -53,7 +69,10 @@ loading_summary_df = pd.DataFrame(columns=["record_name", "file_was_loaded", "lo
 
 ### !!! GO HERE
 record_counter = 0
-for record_dir in tqdm(records_to_convert):
+#for record_dir in tqdm(records_to_process):
+#for record_dir in [Path("/home/arr65/data/nzgd/downloads_and_metadata/unorganised_raw_from_nzgd/cpt/CPT_22400")]:
+for record_dir in [Path("/home/arr65/data/nzgd/downloads_and_metadata/unorganised_raw_from_nzgd/scpt/SCPT_14539")]:
+
 #for record_dir in [Path("/home/arr65/data/nzgd/downloads_and_metadata/unorganised_raw_from_nzgd/cpt/CPT_158096")]:
 #for record_dir in [Path("/home/arr65/data/nzgd/downloads_and_metadata/unorganised_raw_from_nzgd/cpt/CPT_223176")]:
 
@@ -73,10 +92,6 @@ for record_dir in tqdm(records_to_convert):
                                                   pdf_file_list=pdf_file_list, cpt_file_list=cpt_file_list, ags_file_list=ags_file_list,
                                                   xls_file_list=xls_file_list, xlsx_file_list=xlsx_file_list, csv_file_list=csv_file_list,
                                                   txt_file_list=txt_file_list, unknown_list=unknown_list)
-
-    if record_dir.name not in nzgd_index_df["ID"].values:
-        # it has been removed from the NZGD so just skip it and don't try to load any files
-        continue
 
     nzgd_meta_data_record = nzgd_index_df[nzgd_index_df["ID"]==record_dir.name].to_dict(orient="records")[0]
 
@@ -109,6 +124,8 @@ for record_dir in tqdm(records_to_convert):
             try:
                 ags_file_load_attempted = True
                 record_df = process_cpt_data.load_ags(file_to_try, investigation_type)
+                print()
+
 
                 # record original name and location as attributes and columns
                 record_df.attrs["original_file_name"] = file_to_try.name
@@ -209,7 +226,7 @@ for record_dir in tqdm(records_to_convert):
 
             break
 
-        except(processing_helpers.FileConversionError, ValueError, xlrd.compdoc.CompDocError, Exception) as e:
+        except(processing_helpers.FileProcessingError, ValueError, xlrd.compdoc.CompDocError, Exception) as e:
 
             loading_summary_df = partial_summary_df_helper(loading_summary_df, file_was_loaded=False,
                                                            loaded_file_type="N/A",

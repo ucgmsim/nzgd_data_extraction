@@ -118,60 +118,7 @@ for record_dir in tqdm(records_to_process):
                                                        loaded_file_type="N/A", loaded_file_name="N/A")
         continue
 
-    ### ags files
-    files_to_try = list(record_dir.glob("*.ags")) + list(record_dir.glob("*.AGS"))
-
-    if len(files_to_try) > 0:
-        for file_to_try in files_to_try:
-            try:
-                ags_file_load_attempted = True
-                record_df = process_cpt_data.load_ags(file_to_try, investigation_type)
-
-                # record original name and location as attributes and columns
-                record_df.attrs["original_file_name"] = file_to_try.name
-                record_df.attrs["nzgd_meta_data"] = nzgd_meta_data_record
-                record_df.attrs["max_depth"] = record_df["Depth"].max()
-                record_df.attrs["min_depth"] = record_df["Depth"].min()
-
-                record_df.insert(0, "multiple_measurements", 0)
-                record_df.insert(0,"record_name",record_dir.name)
-                record_df.insert(1, "latitude", nzgd_meta_data_record["Latitude"])
-                record_df.insert(2, "longitude", nzgd_meta_data_record["Longitude"])
-
-                record_df.reset_index(inplace=True, drop=True)
-                record_df.to_parquet(parquet_output_dir / f"{record_dir.name}.parquet")
-
-                has_loaded_a_file_for_this_record = True
-
-                loading_summary_df = partial_summary_df_helper(loading_summary_df, file_was_loaded=True,
-                                                               loaded_file_type=file_to_try.suffix.lower(),
-                                                               loaded_file_name=file_to_try.name)
-                continue
-
-            ## If the ags file is missing data, KeyError or UnboundLocalError will be raised
-            except(FileProcessingError) as e:
-
-                error_as_string = str(e)
-
-                if "-" not in error_as_string:
-                    error_as_string = "unknown_category - " + error_as_string
-
-                all_failed_loads_df = pd.concat([all_failed_loads_df,
-                        pd.DataFrame({"record_name": [record_dir.name],
-                                     "file_type": [file_to_try.suffix.lower()],
-                                     "file_name": [file_to_try.name],
-                                     "category": [error_as_string.split("-")[0].strip()],
-                                     "details": [error_as_string.split("-")[1].strip()]})], ignore_index=True)
-
-                loading_summary_df = partial_summary_df_helper(loading_summary_df, file_was_loaded=False,
-                                                               loaded_file_type="N/A", loaded_file_name="N/A")
-
-                ags_load_failed = True
-
-
-    if has_loaded_a_file_for_this_record:
-        continue
-
+    ########
     # ### spreadsheet files
     files_to_try = list(record_dir.glob("*.xls")) + list(record_dir.glob("*.XLS")) + \
                    list(record_dir.glob("*.xlsx")) + list(record_dir.glob("*.XLSX")) + \
@@ -249,6 +196,62 @@ for record_dir in tqdm(records_to_process):
             else:
                 # there are other files to try so continue to the next file
                 continue
+
+
+    ##########
+
+    if has_loaded_a_file_for_this_record:
+        continue
+
+    ### ags files
+    files_to_try = list(record_dir.glob("*.ags")) + list(record_dir.glob("*.AGS"))
+
+    if len(files_to_try) > 0:
+        for file_to_try in files_to_try:
+            try:
+                ags_file_load_attempted = True
+                record_df = process_cpt_data.load_ags(file_to_try, investigation_type)
+
+                # record original name and location as attributes and columns
+                record_df.attrs["original_file_name"] = file_to_try.name
+                record_df.attrs["nzgd_meta_data"] = nzgd_meta_data_record
+                record_df.attrs["max_depth"] = record_df["Depth"].max()
+                record_df.attrs["min_depth"] = record_df["Depth"].min()
+
+                record_df.insert(0, "multiple_measurements", 0)
+                record_df.insert(0,"record_name",record_dir.name)
+                record_df.insert(1, "latitude", nzgd_meta_data_record["Latitude"])
+                record_df.insert(2, "longitude", nzgd_meta_data_record["Longitude"])
+
+                record_df.reset_index(inplace=True, drop=True)
+                record_df.to_parquet(parquet_output_dir / f"{record_dir.name}.parquet")
+
+                has_loaded_a_file_for_this_record = True
+
+                loading_summary_df = partial_summary_df_helper(loading_summary_df, file_was_loaded=True,
+                                                               loaded_file_type=file_to_try.suffix.lower(),
+                                                               loaded_file_name=file_to_try.name)
+                continue
+
+            ## If the ags file is missing data, KeyError or UnboundLocalError will be raised
+            except(FileProcessingError) as e:
+
+                error_as_string = str(e)
+
+                if "-" not in error_as_string:
+                    error_as_string = "unknown_category - " + error_as_string
+
+                all_failed_loads_df = pd.concat([all_failed_loads_df,
+                        pd.DataFrame({"record_name": [record_dir.name],
+                                     "file_type": [file_to_try.suffix.lower()],
+                                     "file_name": [file_to_try.name],
+                                     "category": [error_as_string.split("-")[0].strip()],
+                                     "details": [error_as_string.split("-")[1].strip()]})], ignore_index=True)
+
+                loading_summary_df = partial_summary_df_helper(loading_summary_df, file_was_loaded=False,
+                                                               loaded_file_type="N/A", loaded_file_name="N/A")
+
+                ags_load_failed = True
 
 spreadsheet_format_description.to_csv(metadata_output_dir / "spreadsheet_format_description.csv", index=False)
 all_failed_loads_df.to_csv(metadata_output_dir / "all_failed_loads.csv", index=False)

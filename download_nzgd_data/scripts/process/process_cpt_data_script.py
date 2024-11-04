@@ -14,8 +14,9 @@ from download_nzgd_data.lib import process_cpt_data, processing_helpers
 
 investigation_type = processing_helpers.InvestigationType.cpt
 
-nzgd_index_df = pd.read_csv(Path("/home/arr65/data/nzgd/nzgd_index_files/csv_files/NZGD_Investigation_Report_23102024_1042.csv"))
-output_dir = Path(f"/home/arr65/data/nzgd/processed_data_redo/{investigation_type}")
+nzgd_index_df = pd.read_csv(Path("/home/arr65/data/nzgd/nzgd_index_files/csv_files/"
+                                 "NZGD_Investigation_Report_23102024_1042.csv"))
+output_dir = Path(f"/home/arr65/data/nzgd/processed_data/{investigation_type}")
 
 
 # if output_dir.exists():
@@ -35,16 +36,16 @@ downloaded_files = Path("/home/arr65/data/nzgd/downloads_and_metadata/unorganise
 ### !!! GO HERE !!!
 #records_to_skip = list(previous_loading_summary[previous_loading_summary["file_was_loaded"]==True]["record_name"])
 #records_to_skip = pd.read_csv("/home/arr65/src/download_nzgd_data/download_nzgd_data/resources/cpt_loaded_from_spreadsheet_in_23102024_1042.csv")["record_name"].to_list()
-#records_to_skip = []
+records_to_skip = []
 
-loaded_inconsistent_record_names = natsort.natsorted(list(Path("/home/arr65/data/nzgd/plots/inconsistent_cpt_records_V1").glob("*.png")))
+#loaded_inconsistent_record_names = natsort.natsorted(list(Path("/home/arr65/data/nzgd/plots/inconsistent_cpt_records_V1").glob("*.png")))
 
-records_to_redo = [record.stem for record in loaded_inconsistent_record_names]
+#records_to_redo = [record.stem for record in loaded_inconsistent_record_names]
 
 records_to_process = []
 for record_dir in natsort.natsorted(list(downloaded_files.glob("*"))):
-    #if record_dir.name not in records_to_skip:
-    if record_dir.name in records_to_redo:
+    if record_dir.name not in records_to_skip:
+    #if record_dir.name in records_to_redo:
         records_to_process.append(record_dir)
 
 

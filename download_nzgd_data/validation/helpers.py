@@ -13,7 +13,9 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 import matplotlib.pyplot as plt
 
-def get_residual(record_name: str, old_data_ffp: Path, new_data_ffp: Path, make_plot=False) -> pd.DataFrame:
+def get_residual(record_name: str, old_data_ffp: Path, new_data_ffp: Path, make_plot=None) -> pd.DataFrame:
+
+
 
     old_df = pd.read_parquet(old_data_ffp / f"{record_name}.parquet")
     new_df = pd.read_parquet(new_data_ffp / f"{record_name}.parquet")
@@ -29,14 +31,19 @@ def get_residual(record_name: str, old_data_ffp: Path, new_data_ffp: Path, make_
     #residual = np.log(interpolated_df) - np.log(old_df)
     residual = interpolated_df - old_df
 
-
+    print()
     if make_plot:
-        plot_residual(residual, old_df, interpolated_df, new_df, record_name=record_name)
+        make_plot.mkdir(parents=True, exist_ok=True)
+        print()
+        plot_residual(residual, old_df, interpolated_df, new_df, record_name=record_name, plot_output_dir=make_plot)
 
     return residual, old_df, interpolated_df, new_df
 
 
 def check_residual(record_name: str, old_data_ffp: Path, new_data_ffp: Path, max_allowed_resid_as_pc_of_mean:float, allowed_percent_not_close_to_zero: float) -> bool:
+
+    if record_name == "CPT_23719":
+        print()
 
     residual, old_df, interpolated_df, new_df = get_residual(record_name = record_name, old_data_ffp = old_data_ffp, new_data_ffp=new_data_ffp)
 
@@ -50,13 +57,15 @@ def check_residual(record_name: str, old_data_ffp: Path, new_data_ffp: Path, max
     resid_close_to_zero_check = percent_resid_close_to_zero >= allowed_percent_not_close_to_zero
 
     if (resid_close_to_zero_check).all():
+        print()
         return True
 
     else:
+        print()
         return False
 
 
-def plot_residual(residual, old_df, interpolated_df, new_df,record_name = None) -> None:
+def plot_residual(residual, old_df, interpolated_df, new_df,record_name = None, plot_output_dir=None) -> None:
     """
     Plot the residuals of the old and new data.
 
@@ -116,10 +125,13 @@ def plot_residual(residual, old_df, interpolated_df, new_df,record_name = None) 
 
     plt.subplots_adjust(hspace=0.5, wspace=0.5)
 
+    if record_name == "CPT_23719":
+        print()
+
     if record_name:
-        plt.savefig(f"/home/arr65/data/nzgd/plots/inconsistent_cpt_records/{record_name}.png", dpi=500)
+        plt.savefig(Path(plot_output_dir)/f"{record_name}.png", dpi=500)
     else:
-        plt.savefig(f"/home/arr65/data/nzgd/plots/inconsistent_cpt_records/redisuals.png", dpi=500)
+        plt.savefig("/home/arr65/data/nzgd/plots/inconsistent_cpt_records/redisuals.png", dpi=500)
 
 
 

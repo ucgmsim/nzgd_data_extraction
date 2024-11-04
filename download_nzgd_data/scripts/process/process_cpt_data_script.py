@@ -15,7 +15,8 @@ from download_nzgd_data.lib import process_cpt_data, processing_helpers
 investigation_type = processing_helpers.InvestigationType.cpt
 
 nzgd_index_df = pd.read_csv(Path("/home/arr65/data/nzgd/nzgd_index_files/csv_files/NZGD_Investigation_Report_23102024_1042.csv"))
-output_dir = Path(f"/home/arr65/data/nzgd/processed_data_test/{investigation_type}")
+output_dir = Path(f"/home/arr65/data/nzgd/processed_data_redo/{investigation_type}")
+
 
 # if output_dir.exists():
 #     raise ValueError("Output directory already exists.")
@@ -34,28 +35,34 @@ downloaded_files = Path("/home/arr65/data/nzgd/downloads_and_metadata/unorganise
 ### !!! GO HERE !!!
 #records_to_skip = list(previous_loading_summary[previous_loading_summary["file_was_loaded"]==True]["record_name"])
 #records_to_skip = pd.read_csv("/home/arr65/src/download_nzgd_data/download_nzgd_data/resources/cpt_loaded_from_spreadsheet_in_23102024_1042.csv")["record_name"].to_list()
-records_to_skip = []
+#records_to_skip = []
+
+loaded_inconsistent_record_names = natsort.natsorted(list(Path("/home/arr65/data/nzgd/plots/inconsistent_cpt_records_V1").glob("*.png")))
+
+records_to_redo = [record.stem for record in loaded_inconsistent_record_names]
 
 records_to_process = []
 for record_dir in natsort.natsorted(list(downloaded_files.glob("*"))):
-    if record_dir.name not in records_to_skip:
+    #if record_dir.name not in records_to_skip:
+    if record_dir.name in records_to_redo:
         records_to_process.append(record_dir)
+
 
 downloaded_record_names = set([record_dir.name for record_dir in records_to_process])
 
 # A small number of records have been removed from the NZGD after they were downloaded.
 # These records were likely removed for a reason such data quality or permission issues, so they are not considered.
-records_currently_in_nzgd = set(nzgd_index_df["ID"].values)
-
-records_that_have_been_removed = downloaded_record_names - records_currently_in_nzgd
-
-if len(records_that_have_been_removed) > 0:
-    print("The following records have been removed from the NZGD and will not be processed:")
-    for removed_record in records_that_have_been_removed:
-        print(removed_record)
-
-    ## Remove the records that have been removed from the list of records to process
-    records_to_process = [record_dir for record_dir in records_to_process if record_dir.name not in records_that_have_been_removed]
+# records_currently_in_nzgd = set(nzgd_index_df["ID"].values)
+#
+# records_that_have_been_removed = downloaded_record_names - records_currently_in_nzgd
+#
+# if len(records_that_have_been_removed) > 0:
+#     print("The following records have been removed from the NZGD and will not be processed:")
+#     for removed_record in records_that_have_been_removed:
+#         print(removed_record)
+#
+#     ## Remove the records that have been removed from the list of records to process
+#     records_to_process = [record_dir for record_dir in records_to_process if record_dir.name not in records_that_have_been_removed]
 
 
 ## Create dataframes to store metadata
@@ -71,6 +78,7 @@ loading_summary_df = pd.DataFrame(columns=["record_name", "file_was_loaded", "lo
 ### !!! GO HERE
 record_counter = 0
 for record_dir in tqdm(records_to_process):
+#for record_dir in [Path("/home/arr65/data/nzgd/downloads_and_metadata/unorganised_raw_from_nzgd/cpt/CPT_173")]:
 #for record_dir in [Path("/home/arr65/data/nzgd/downloads_and_metadata/unorganised_raw_from_nzgd/cpt/CPT_22401")]:
 #for record_dir in [Path("/home/arr65/data/nzgd/downloads_and_metadata/unorganised_raw_from_nzgd/cpt/CPT_135824")]:
 #for record_dir in [Path("/home/arr65/data/nzgd/downloads_and_metadata/unorganised_raw_from_nzgd/scpt/SCPT_14539")]:

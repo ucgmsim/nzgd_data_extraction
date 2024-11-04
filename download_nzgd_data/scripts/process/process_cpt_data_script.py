@@ -8,6 +8,7 @@ import pandas as pd
 import functools
 from tqdm import tqdm
 import xlrd
+from download_nzgd_data.lib.processing_helpers import FileProcessingError
 
 from download_nzgd_data.lib import process_cpt_data, processing_helpers
 
@@ -69,9 +70,10 @@ loading_summary_df = pd.DataFrame(columns=["record_name", "file_was_loaded", "lo
 
 ### !!! GO HERE
 record_counter = 0
-#for record_dir in tqdm(records_to_process):
-#for record_dir in [Path("/home/arr65/data/nzgd/downloads_and_metadata/unorganised_raw_from_nzgd/cpt/CPT_22400")]:
-for record_dir in [Path("/home/arr65/data/nzgd/downloads_and_metadata/unorganised_raw_from_nzgd/scpt/SCPT_14539")]:
+for record_dir in tqdm(records_to_process):
+#for record_dir in [Path("/home/arr65/data/nzgd/downloads_and_metadata/unorganised_raw_from_nzgd/cpt/CPT_22401")]:
+#for record_dir in [Path("/home/arr65/data/nzgd/downloads_and_metadata/unorganised_raw_from_nzgd/cpt/CPT_135824")]:
+#for record_dir in [Path("/home/arr65/data/nzgd/downloads_and_metadata/unorganised_raw_from_nzgd/scpt/SCPT_14539")]:
 
 #for record_dir in [Path("/home/arr65/data/nzgd/downloads_and_metadata/unorganised_raw_from_nzgd/cpt/CPT_158096")]:
 #for record_dir in [Path("/home/arr65/data/nzgd/downloads_and_metadata/unorganised_raw_from_nzgd/cpt/CPT_223176")]:
@@ -124,8 +126,6 @@ for record_dir in [Path("/home/arr65/data/nzgd/downloads_and_metadata/unorganise
             try:
                 ags_file_load_attempted = True
                 record_df = process_cpt_data.load_ags(file_to_try, investigation_type)
-                print()
-
 
                 # record original name and location as attributes and columns
                 record_df.attrs["original_file_name"] = file_to_try.name
@@ -149,7 +149,7 @@ for record_dir in [Path("/home/arr65/data/nzgd/downloads_and_metadata/unorganise
                 continue
 
             ## If the ags file is missing data, KeyError or UnboundLocalError will be raised
-            except(ValueError) as e:
+            except(FileProcessingError) as e:
 
                 error_as_string = str(e)
 

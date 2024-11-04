@@ -13,6 +13,8 @@ import download_nzgd_data.lib.processing_helpers as processing_helpers
 
 import toml
 
+from download_nzgd_data.lib.processing_helpers import FileProcessingError
+
 
 def find_missing_cols_for_best_sheet(missing_cols_per_sheet: list[list]) -> list:
 
@@ -135,37 +137,56 @@ def load_ags(file_path: Path, investigation_type: processing_helpers.Investigati
     try:
         tables, headings = AGS4.AGS4_to_dataframe(file_path)
     except UnboundLocalError:
-        # Found the meaning of this UnboundLocalError by uploading one of these files to the AGS file conversion tool on https://agsapi.bgs.ac.uk
-        raise ValueError("ags_duplicate_headers - AGS file contains duplicate headers")
+        ## Found the meaning of this UnboundLocalError by uploading one of these files to the AGS file conversion tool on https://agsapi.bgs.ac.uk
+        raise FileProcessingError("ags_duplicate_headers - AGS file contains duplicate headers")
 
     if len(tables) == 0:
-        raise ValueError("no_ags_data_tables - no data tables found in the AGS file")
+        raise FileProcessingError("no_ags_data_tables - no data tables found in the AGS file")
 
-    try:
-        loaded_data_df = pd.DataFrame({
-            list(column_descriptions)[0]: tables["SCPT"]["SCPT_DPTH"],
-            list(column_descriptions)[1]: tables["SCPT"]["SCPT_RES"],
-            list(column_descriptions)[2]: tables["SCPT"]["SCPT_FRES"],
-            list(column_descriptions)[3]: tables["SCPT"]["SCPT_PWP2"]  ## Assuming dynamic pore pressure (u2) in MPa ???
-        })
-    except(KeyError):
-        raise ValueError("ags_missing_columns - AGS file is missing at least one of the required columns")
-
+    required_ags_column_names = ["SCPT_DPTH", "SCPT_RES","SCPT_FRES","SCPT_PWP2"]
     if investigation_type == processing_helpers.InvestigationType.scpt:
-        try:
+        #required_ags_column_names.extend(["SCPT_SWV","SCPT_PWV"])
+        # assuming that only the s-wave velocity is required
+        required_ags_column_names.extend(["SCPT_SWV"])
 
-            ### Try to insert the vs column
+    ## Check if any required columns are completely missing from the ags file
+    for required_column_name in required_ags_column_names:
+        if required_column_name not in tables["SCPT"].columns:
+            raise FileProcessingError(f"ags_missing_columns - AGS file is missing {required_column_name} (and possibly other) columns")
 
-            pass
+    loaded_data_df = pd.DataFrame({
+        list(column_descriptions)[0]: tables["SCPT"]["SCPT_DPTH"],
+        list(column_descriptions)[1]: tables["SCPT"]["SCPT_RES"],
+        list(column_descriptions)[2]: tables["SCPT"]["SCPT_FRES"],
+        list(column_descriptions)[3]: tables["SCPT"]["SCPT_PWP2"]
+    })
 
-        except:
-            pass
+    if ((investigation_type == processing_helpers.InvestigationType.scpt) &
+        ("SCPT_SWV" in tables["SCPT"].columns)):
+        loaded_data_df[list(column_descriptions)[4]] = tables["SCPT"]["SCPT_SWV"]
 
+    if ((investigation_type == processing_helpers.InvestigationType.scpt) &
+        ("SCPT_PWV" in tables["SCPT"].columns)):
+        loaded_data_df[list(column_descriptions)[5]] = tables["SCPT"]["SCPT_PWV"]
 
+    ## The first two data rows are skipped as they contain units and the number of decimal places for each column.
+    ## For example:
+    #     Depth      qc      fs    u
+    # 0       m     MPa     MPa  MPa
+    # 1     2DP     3DP     4DP  4DP
+    loaded_data_df = loaded_data_df.iloc[2:]
+    num_numerical_vals = loaded_data_df.map(processing_helpers.can_convert_str_to_float).sum()
+    zero_value_columns = num_numerical_vals[num_numerical_vals == 0].index.tolist()
+    if len(zero_value_columns) > 0:
+        raise FileProcessingError(f"ags_lacking_numeric_data - AGS file has no numeric data in columns [{" ".join(zero_value_columns)}]")
 
+    ## Convert all data to numeric values (dropping rows that contain non-numeric data)
+    loaded_data_df = loaded_data_df.apply(pd.to_numeric, errors='coerce').dropna()
 
-    ### The first two rows are dropped as they contain header information from the ags file
-    return loaded_data_df.apply(pd.to_numeric, errors='coerce').dropna()
+    ## Enusre that the depth column is defined as positive (some have depth as negative)
+    loaded_data_df[list(column_descriptions)[0]] = np.abs(loaded_data_df[list(column_descriptions)[0]])
+
+    return loaded_data_df
 
 
 def load_scpt_ags(file_path: Path) -> pd.DataFrame:
@@ -236,13 +257,13 @@ def load_cpt_spreadsheet_file(file_path: Path) -> pd.DataFrame:
     known_special_cases = toml.load(Path(__file__).parent.parent / "resources" / "cpt_column_name_descriptions.toml")
     record_id = f"{file_path.name.split("_")[0]}_{file_path.name.split("_")[1]}"
     if record_id in known_special_cases.keys():
-        raise processing_helpers.FileConversionError(known_special_cases[record_id])
+        raise processing_helpers.FileProcessingError(known_special_cases[record_id])
 
     if file_path.suffix.lower() in [".xls", ".xlsx"]:
         sheet_names, engine = processing_helpers.get_xls_sheet_names(file_path)
 
         if len(sheet_names) == 0:
-            raise processing_helpers.FileConversionError(f"corrupt_file - cannot detect sheets in file {file_path.name}")
+            raise processing_helpers.FileProcessingError(f"corrupt_file - cannot detect sheets in file {file_path.name}")
 
     else:
         # A dummy sheet name as .txt and .csv files do not have sheet names

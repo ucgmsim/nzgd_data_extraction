@@ -420,7 +420,6 @@ def convert_to_m_and_mpa(df, col_names):
                 # checking the other columns
                 if "kpa" in col_name.lower():
                     df.loc[:, col_name] /= 1000
-
     return df
 
 def load_csv_or_txt(file_path, sheet="0", col_data_types=np.array(["Depth",

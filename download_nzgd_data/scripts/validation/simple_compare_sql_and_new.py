@@ -27,9 +27,9 @@ start_time = time.time()
 
 
 old_data_dir = Path("/home/arr65/vs30_data_input_data/parquet")
-new_data_dir = Path("/home/arr65/data/nzgd/processed_data/cpt/data")
+new_data_dir = Path("/home/arr65/data/nzgd/processed_data_redo/cpt/data")
 
-check_output_dir = Path("/home/arr65/data/nzgd/check_output")
+check_output_dir = Path("/home/arr65/data/nzgd/check_output_redo")
 check_output_dir.mkdir(parents=True, exist_ok=True)
 
 print("getting record names")
@@ -67,7 +67,10 @@ print("getting record names")
 # df_ids_to_check.to_parquet(check_output_dir / "ids_to_check.parquet")
 # df_ids_to_check.to_parquet(check_output_dir / "ids_with_new_empty_parquet_files.parquet")
 
-ids_to_check = pd.read_parquet(check_output_dir / "ids_to_check.parquet")["ids_to_check"].to_list()
+#ids_to_check = pd.read_parquet(check_output_dir / "ids_to_check.parquet")["ids_to_check"].to_list()
+ids_to_check = natsort.natsorted(list(Path("/home/arr65/data/nzgd/processed_data_redo/cpt/data").glob("*.parquet")))
+#ids_to_check = [file.stem for file in ids_to_check]
+ids_to_check = ["CPT_23719"]
 
 #ids_to_check = ids_to_check[0:100]
 
@@ -99,14 +102,16 @@ print("starting check")
 #allowed_percentages_not_close_to_zero = np.array([5])
 
 allowed_percentages_not_close_to_zero = 10.0
-max_allowed_resid_as_pc_of_mean_vect = np.arange(10,110,10)
+#max_allowed_resid_as_pc_of_mean_vect = np.arange(10,110,10)
+max_allowed_resid_as_pc_of_mean_vect = np.array([50])
 #max_allowed_resid_as_pc_of_mean_vect = np.array([50,60])#
 num_inconsistent_records = np.zeros_like(max_allowed_resid_as_pc_of_mean_vect)
 
 concat_results_df = pd.DataFrame()
 
 #for index, allowed_percentage_not_close_to_zero in tqdm(enumerate(allowed_percentages_not_close_to_zero)):
-for index, max_allowed_resid_as_pc_of_mean in tqdm(enumerate(max_allowed_resid_as_pc_of_mean_vect),total=len(max_allowed_resid_as_pc_of_mean_vect)):
+for index, max_allowed_resid_as_pc_of_mean in tqdm(enumerate(max_allowed_resid_as_pc_of_mean_vect),
+                                                   total=len(max_allowed_resid_as_pc_of_mean_vect)):
 
     check_residual_partial = functools.partial(helpers.check_residual,
                                                old_data_ffp=old_data_dir,
@@ -116,9 +121,12 @@ for index, max_allowed_resid_as_pc_of_mean in tqdm(enumerate(max_allowed_resid_a
 
     with multiprocessing.Pool(processes=8) as pool:
         record_checks = pool.map(check_residual_partial, ids_to_check)
+        print()
     num_inconsistent_records[index] = sum(~np.array(record_checks))
 
     inconsistent_record_names = list(np.array(ids_to_check)[~np.array(record_checks)])
+
+    print()
 
     inconsistent_record_names_str = " ".join(inconsistent_record_names)
 

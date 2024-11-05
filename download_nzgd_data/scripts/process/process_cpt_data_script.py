@@ -241,7 +241,7 @@ for record_dir in tqdm(records_to_process):
                 continue
 
             ## If the ags file is missing data, KeyError or UnboundLocalError will be raised
-            except(FileProcessingError) as e:
+            except(FileProcessingError, KeyError, Exception) as e:
 
                 error_as_string = str(e)
 

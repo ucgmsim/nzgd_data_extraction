@@ -2,30 +2,42 @@
 This script generates the html.index file for the NZGD HTTP server on Hypocentre.
 """
 import folium
-from folium.plugins import MarkerCluster
+from folium.plugins import MarkerCluster, Search
 import pandas as pd
 from pathlib import Path
 from tqdm import tqdm
 from download_nzgd_data.lib import map
+import branca
 
 import time
 
 start_time = time.time()
 
+
+max_num_records = None
+
 record_id_df = pd.read_csv("/home/arr65/data/nzgd/nzgd_index_files/csv_files/NZGD_Investigation_Report_23102024_1042.csv")
+
+record_id_df = record_id_df[record_id_df["Type"].isin(["CPT", "SCPT", "Borehole", "VsVp"])]
+
+if max_num_records:
+    record_id_df = record_id_df.iloc[:max_num_records]
 
 date_of_last_nzgd_retrieval = Path("/home/arr65/data/nzgd/hypocentre_mirror/nzgd/date_of_last_nzgd_retrieval.txt").read_text().strip("\n")
 
 raw_nzgd_files = map.get_files_with_relative_paths(processed_files=False,
                            file_root_directory=Path("/home/arr65/data/nzgd/hypocentre_mirror/nzgd/raw_from_nzgd"),
-                           relative_to = Path("/home/arr65/data/nzgd/hypocentre_mirror/nzgd"))
+                           relative_to = Path("/home/arr65/data/nzgd/hypocentre_mirror/nzgd"),
+                           max_num_records=max_num_records)
 
 processed_files = map.get_files_with_relative_paths(processed_files=True,
                             file_root_directory=Path("/home/arr65/data/nzgd/hypocentre_mirror/nzgd/processed"),
-                            relative_to = Path("/home/arr65/data/nzgd/hypocentre_mirror/nzgd"))
+                            relative_to = Path("/home/arr65/data/nzgd/hypocentre_mirror/nzgd",
+                            max_num_records=max_num_records))
 
 processed_metadata = map.get_processed_metadata(
-    file_root_directory=Path("/home/arr65/data/nzgd/hypocentre_mirror/nzgd/processed"))
+    file_root_directory=Path("/home/arr65/data/nzgd/hypocentre_mirror/nzgd/processed"),
+    max_num_records=max_num_records)
 
 
 # Make an empty map centered on New Zealand
@@ -33,6 +45,8 @@ m = folium.Map(location=[-41.2728,173.2994], tiles="OpenStreetMap", zoom_start=6
 
 # Create a MarkerCluster object
 marker_cluster = MarkerCluster().add_to(m)
+# Create a FeatureGroup for searchable markers
+searchable_group = FeatureGroup(name="Searchable Markers").add_to(m)
 
 date_of_last_ngzd_retrieval = f"""
      <div style="position: fixed; 
@@ -56,15 +70,53 @@ browse_link_text = f"""
         </div>
         """
 
+# Create the HTML for the legend
+legend_html = '''
+     <div style="
+     position: fixed; 
+     bottom: 150px; left: 50px; width: 150px; height: 150px; 
+     background-color: white; z-index:9999; font-size:14px;
+     border:2px solid grey;
+     border-radius: 5px;
+     padding: 10px;
+     ">
+     <h4>Legend</h4>
+     <div style="display: flex; align-items: center;">
+         <div style="height: 12px; width: 12px; background-color: blue; border-radius: 50%; margin-right: 5px;"></div>
+         <span>CPT</span>
+     </div>
+     <div style="display: flex; align-items: center;">
+         <div style="height: 12px; width: 12px; background-color: red; margin-right: 5px; border: 1px solid red;"></div>
+         <span>SCPT</span>
+     </div>
+     <div style="display: flex; align-items: center;">
+         <div style="height: 0; width: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-bottom: 12px solid green; margin-right: 5px;"></div>
+         <span>Borehole</span>
+     </div>
+     <div style="display: flex; align-items: center;">
+         <div style="height: 12px; width: 12px; color: yellow;">★</div>
+         <span>VsVp</span>
+     </div>
+     </div>
+     '''
+
 m.get_root().html.add_child(folium.Element(date_of_last_ngzd_retrieval))
 m.get_root().html.add_child(folium.Element(browse_link_text))
+m.get_root().html.add_child(branca.element.Element(legend_html))
 
-print()
 print("Adding markers to map")
 for row_index, row in tqdm(record_id_df.iterrows(), total=record_id_df.shape[0]):
 
     if row["ID"] not in raw_nzgd_files:
         continue
+
+    icon = folium.Icon(icon="star", color="purple", prefix="fa") #row["Type"] == "VsVp"
+    if row["Type"] == "CPT":
+        icon = folium.Icon(icon="circle", color="blue", prefix="fa")
+    elif row["Type"] == "SCPT":
+        icon = folium.Icon(icon="square", color="red", prefix="fa")
+    elif row["Type"] == "Borehole":
+        icon = folium.Icon(icon="play", color="green", prefix="fa")
 
     popup_html = f"<h1>{row['ID']}</h1><br>"
 
@@ -90,7 +142,18 @@ for row_index, row in tqdm(record_id_df.iterrows(), total=record_id_df.shape[0])
     folium.Marker(
         location=[row['Latitude'], row['Longitude']],
         popup=popup_html,
+        icon=icon
     ).add_to(marker_cluster)
+
+# Add Search plugin to search within the MarkerCluster based on popup text
+search = Search(
+    layer=marker_cluster,
+    geom_type="Point",
+    placeholder="Search for location...",
+    collapsed=False,
+    search_label="popup"
+).add_to(m)
+
 
 print()
 print("Saving map")

@@ -10,7 +10,7 @@ import pandas as pd
 MetaData = namedtuple("MetaData", ["max_depth", "min_depth"])
 
 def get_files_with_relative_paths(
-    processed_files: bool, file_root_directory: Path, relative_to: Path
+    processed_files: bool, file_root_directory: Path, relative_to: Path, max_num_records = None
 ) -> dict[str, list[Path]]:
     """
     Get all files in a directory and its subdirectories and match them to record IDs.
@@ -34,7 +34,10 @@ def get_files_with_relative_paths(
     all_files = [
         file for file in tqdm(list(file_root_directory.rglob("*"))) if file.is_file()
     ]
-    print()
+
+    if max_num_records:
+        all_files = all_files[:max_num_records]
+
     print("Matching all files to record IDs")
     record_id_to_files = defaultdict(list)
     for file in tqdm(all_files):
@@ -47,7 +50,7 @@ def get_files_with_relative_paths(
     return record_id_to_files
 
 
-def get_processed_metadata(file_root_directory: Path) -> dict[str, MetaData]:
+def get_processed_metadata(file_root_directory: Path, max_num_records = None) -> dict[str, MetaData]:
     """
     Get metadata for processed files in a directory and its subdirectories.
 
@@ -69,6 +72,9 @@ def get_processed_metadata(file_root_directory: Path) -> dict[str, MetaData]:
     all_files = [
         file for file in tqdm(list(file_root_directory.rglob("*"))) if file.is_file()
     ]
+
+    if max_num_records:
+        all_files = all_files[:max_num_records]
 
     for file in tqdm(all_files):
         record_df = pd.read_parquet(file)

@@ -2,12 +2,12 @@
 import matplotlib.pyplot as plt
 
 import pandas as pd
-import scipy
-import random
+# import scipy
+# import random
 
 from pathlib import Path
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+# from sqlalchemy import create_engine
+# from sqlalchemy.orm import sessionmaker
 import multiprocessing
 import time
 import natsort
@@ -15,7 +15,7 @@ import natsort
 
 
 
-import download_nzgd_data.validation.load_sql_db as load_sql_db
+#import download_nzgd_data.validation.load_sql_db as load_sql_db
 import download_nzgd_data.validation.helpers as helpers
 
 import numpy as np
@@ -27,9 +27,9 @@ start_time = time.time()
 
 
 old_data_dir = Path("/home/arr65/vs30_data_input_data/parquet")
-new_data_dir = Path("/home/arr65/data/nzgd/processed_data_redo/cpt/data")
+new_data_dir = Path("/home/arr65/data/nzgd/processed_data/cpt/data")
 
-check_output_dir = Path("/home/arr65/data/nzgd/check_output_redo")
+check_output_dir = Path("/home/arr65/data/nzgd/validation_checks/processed_data")
 check_output_dir.mkdir(parents=True, exist_ok=True)
 
 print("getting record names")
@@ -68,9 +68,9 @@ print("getting record names")
 # df_ids_to_check.to_parquet(check_output_dir / "ids_with_new_empty_parquet_files.parquet")
 
 #ids_to_check = pd.read_parquet(check_output_dir / "ids_to_check.parquet")["ids_to_check"].to_list()
-ids_to_check = natsort.natsorted(list(Path("/home/arr65/data/nzgd/processed_data_redo/cpt/data").glob("*.parquet")))
+ids_to_check = natsort.natsorted(list(new_data_dir.glob("*.parquet")))
 #ids_to_check = [file.stem for file in ids_to_check]
-ids_to_check = ["CPT_23719"]
+#ids_to_check = ["CPT_23719"]
 
 #ids_to_check = ids_to_check[0:100]
 

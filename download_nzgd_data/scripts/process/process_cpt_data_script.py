@@ -19,8 +19,8 @@ nzgd_index_df = pd.read_csv(Path("/home/arr65/data/nzgd/nzgd_index_files/csv_fil
 output_dir = Path(f"/home/arr65/data/nzgd/processed_data/{investigation_type}")
 
 
-# if output_dir.exists():
-#     raise ValueError("Output directory already exists.")
+if output_dir.exists():
+    raise ValueError("Output directory already exists.")
 
 ### !!! GO HERE
 parquet_output_dir = output_dir / "data"
@@ -48,23 +48,21 @@ for record_dir in natsort.natsorted(list(downloaded_files.glob("*"))):
     #if record_dir.name in records_to_redo:
         records_to_process.append(record_dir)
 
-
 downloaded_record_names = set([record_dir.name for record_dir in records_to_process])
 
-# A small number of records have been removed from the NZGD after they were downloaded.
-# These records were likely removed for a reason such data quality or permission issues, so they are not considered.
-# records_currently_in_nzgd = set(nzgd_index_df["ID"].values)
-#
-# records_that_have_been_removed = downloaded_record_names - records_currently_in_nzgd
-#
-# if len(records_that_have_been_removed) > 0:
-#     print("The following records have been removed from the NZGD and will not be processed:")
-#     for removed_record in records_that_have_been_removed:
-#         print(removed_record)
-#
-#     ## Remove the records that have been removed from the list of records to process
-#     records_to_process = [record_dir for record_dir in records_to_process if record_dir.name not in records_that_have_been_removed]
+### A small number of records have been removed from the NZGD after they were downloaded.
+### These records were likely removed for a reason such data quality or permission issues, so they are not considered.
 
+records_currently_in_nzgd = set(nzgd_index_df["ID"].values)
+records_that_have_been_removed = downloaded_record_names - records_currently_in_nzgd
+
+if len(records_that_have_been_removed) > 0:
+    print("The following records have been removed from the NZGD and will not be processed:")
+    for removed_record in records_that_have_been_removed:
+        print(removed_record)
+
+    ## Remove the records that have been removed from the list of records to process
+    records_to_process = [record_dir for record_dir in records_to_process if record_dir.name not in records_that_have_been_removed]
 
 ## Create dataframes to store metadata
 spreadsheet_format_description = pd.DataFrame()
@@ -79,7 +77,7 @@ loading_summary_df = pd.DataFrame(columns=["record_name", "file_was_loaded", "lo
 ### !!! GO HERE
 record_counter = 0
 for record_dir in tqdm(records_to_process):
-#for record_dir in [Path("/home/arr65/data/nzgd/downloads_and_metadata/unorganised_raw_from_nzgd/cpt/CPT_173")]:
+#for record_dir in [Path("/home/arr65/data/nzgd/downloads_and_metadata/unorganised_raw_from_nzgd/cpt/CPT_187732")]:
 #for record_dir in [Path("/home/arr65/data/nzgd/downloads_and_metadata/unorganised_raw_from_nzgd/cpt/CPT_22401")]:
 #for record_dir in [Path("/home/arr65/data/nzgd/downloads_and_metadata/unorganised_raw_from_nzgd/cpt/CPT_135824")]:
 #for record_dir in [Path("/home/arr65/data/nzgd/downloads_and_metadata/unorganised_raw_from_nzgd/scpt/SCPT_14539")]:

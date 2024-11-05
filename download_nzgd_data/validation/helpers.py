@@ -15,9 +15,8 @@ import matplotlib.pyplot as plt
 
 def get_residual(record_name: str, old_data_ffp: Path, new_data_ffp: Path, make_plot=None) -> pd.DataFrame:
 
-
-
     old_df = pd.read_parquet(old_data_ffp / f"{record_name}.parquet")
+    old_df = old_df.drop(columns=["record_name", "latitude", "longitude"])
     new_df = pd.read_parquet(new_data_ffp / f"{record_name}.parquet")
 
     if new_df.size == 0:
@@ -31,10 +30,8 @@ def get_residual(record_name: str, old_data_ffp: Path, new_data_ffp: Path, make_
     #residual = np.log(interpolated_df) - np.log(old_df)
     residual = interpolated_df - old_df
 
-    print()
     if make_plot:
         make_plot.mkdir(parents=True, exist_ok=True)
-        print()
         plot_residual(residual, old_df, interpolated_df, new_df, record_name=record_name, plot_output_dir=make_plot)
 
     return residual, old_df, interpolated_df, new_df
@@ -42,13 +39,9 @@ def get_residual(record_name: str, old_data_ffp: Path, new_data_ffp: Path, make_
 
 def check_residual(record_name: str, old_data_ffp: Path, new_data_ffp: Path, max_allowed_resid_as_pc_of_mean:float, allowed_percent_not_close_to_zero: float) -> bool:
 
-    if record_name == "CPT_23719":
-        print()
-
     residual, old_df, interpolated_df, new_df = get_residual(record_name = record_name, old_data_ffp = old_data_ffp, new_data_ffp=new_data_ffp)
 
     old_df_range = old_df.max()[["qc","fs","u"]] - old_df.min()[["qc","fs","u"]]
-
 
     resid_close_to_zero = residual.abs()[["qc","fs","u"]] <= (max_allowed_resid_as_pc_of_mean/100)*old_df_range
 
@@ -57,11 +50,9 @@ def check_residual(record_name: str, old_data_ffp: Path, new_data_ffp: Path, max
     resid_close_to_zero_check = percent_resid_close_to_zero >= allowed_percent_not_close_to_zero
 
     if (resid_close_to_zero_check).all():
-        print()
         return True
 
     else:
-        print()
         return False
 
 

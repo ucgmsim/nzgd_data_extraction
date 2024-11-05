@@ -26,7 +26,7 @@ import functools
 start_time = time.time()
 
 
-old_data_dir = Path("/home/arr65/vs30_data_input_data/parquet")
+old_data_dir = Path("/home/arr65/vs30_data_input_data/parquet/data")
 new_data_dir = Path("/home/arr65/data/nzgd/processed_data/cpt/data")
 
 check_output_dir = Path("/home/arr65/data/nzgd/validation_checks/processed_data")
@@ -34,66 +34,12 @@ check_output_dir.mkdir(parents=True, exist_ok=True)
 
 print("getting record names")
 
-# old_ids = natsort.natsorted([file.with_suffix("").name for file in old_data_dir.glob("*.parquet")])
-# new_ids = natsort.natsorted([file.with_suffix("").name for file in new_data_dir.glob("*.parquet")])
-#
-# ids_to_check_with_empty = [id for id in new_ids if id in old_ids]
-# ids_to_check_with_empty_df = pd.DataFrame({"ids_to_check":ids_to_check_with_empty})
-#
-#
-# # ids_to_check = pd.read_parquet(check_output_dir / "ids_to_check.parquet")["ids_to_check"]
-# # df = pd.DataFrame({"ids_to_check":ids_to_check})
-# # df.to_parquet(check_output_dir / "ids_to_check.parquet")
-# # print()
-# #
-# ids_to_check_with_empty_df.to_parquet(check_output_dir / "ids_to_check_with_empty.parquet")
-#
-#
-# #ids_to_check.remove("CPT_104077")
-#
-# ids_to_check = []
-# new_empty_parquet_files = []
-#
-# for id in ids_to_check_with_empty:
-#     new_df = pd.read_parquet(new_data_dir / f"{id}.parquet")
-#     if new_df.size != 0:
-#         ids_to_check.append(id)
-#     else:
-#         new_empty_parquet_files.append(id)
-#
-# df_ids_to_check = pd.DataFrame({"ids_to_check":ids_to_check})
-# df_new_empty_parquet_files = pd.DataFrame({"new_empty_parquet_files":new_empty_parquet_files})
-#
-# df_ids_to_check.to_parquet(check_output_dir / "ids_to_check.parquet")
-# df_ids_to_check.to_parquet(check_output_dir / "ids_with_new_empty_parquet_files.parquet")
+### Find the record_ids that are in both the old and new data directories
+old_ids = natsort.natsorted([file.stem for file in old_data_dir.glob("*.parquet")])
+new_ids = natsort.natsorted([file.stem for file in new_data_dir.glob("*.parquet")])
+ids_to_check = [id for id in new_ids if id in old_ids]
 
-#ids_to_check = pd.read_parquet(check_output_dir / "ids_to_check.parquet")["ids_to_check"].to_list()
-ids_to_check = natsort.natsorted(list(new_data_dir.glob("*.parquet")))
-#ids_to_check = [file.stem for file in ids_to_check]
-#ids_to_check = ["CPT_23719"]
-
-#ids_to_check = ids_to_check[0:100]
-
-
-#ids_to_check = ids_to_check[0:1000]
-#ids_to_check = ["CPT_13"]
-#ids_to_check = ["CPT_104077"]
-#ids_to_check = ["CPT_146038"]
-#print()
-
-
-
-
-
-
-#new_ids = new_ids[37:39]
-# for record_name in tqdm(new_ids):
-#
-#     #residual, old_df, interpolated_df, new_df = helpers.get_residual(record_name = record_name, old_data_ffp = old_data_dir, new_data_ffp=new_data_dir,make_plot=True)
-#
-#     test = helpers.check_residual(record_name = record_name, old_data_ffp = old_data_dir, new_data_ffp=new_data_dir, allowed_percent_not_close_to_zero=5)
-#
-
+# ids_to_check = ["CPT_143345"]
 
 print("starting check")
 
@@ -102,8 +48,8 @@ print("starting check")
 #allowed_percentages_not_close_to_zero = np.array([5])
 
 allowed_percentages_not_close_to_zero = 10.0
-#max_allowed_resid_as_pc_of_mean_vect = np.arange(10,110,10)
-max_allowed_resid_as_pc_of_mean_vect = np.array([50])
+max_allowed_resid_as_pc_of_mean_vect = np.arange(10,110,10)
+#max_allowed_resid_as_pc_of_mean_vect = np.array([50])
 #max_allowed_resid_as_pc_of_mean_vect = np.array([50,60])#
 num_inconsistent_records = np.zeros_like(max_allowed_resid_as_pc_of_mean_vect)
 

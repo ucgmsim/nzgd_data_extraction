@@ -48,41 +48,36 @@ print("starting check")
 #allowed_percentages_not_close_to_zero = np.array([5])
 
 allowed_percentages_not_close_to_zero = 10.0
-max_allowed_resid_as_pc_of_mean_vect = np.arange(10,110,10)
-#max_allowed_resid_as_pc_of_mean_vect = np.array([50])
+#max_allowed_resid_as_pc_of_mean_vect = np.arange(10,110,10)
+max_allowed_resid_as_pc_of_mean_vect = np.array([10,50,100])
 #max_allowed_resid_as_pc_of_mean_vect = np.array([50,60])#
-num_inconsistent_records = np.zeros_like(max_allowed_resid_as_pc_of_mean_vect)
 
 concat_results_df = pd.DataFrame()
 
 #for index, allowed_percentage_not_close_to_zero in tqdm(enumerate(allowed_percentages_not_close_to_zero)):
-for index, max_allowed_resid_as_pc_of_mean in tqdm(enumerate(max_allowed_resid_as_pc_of_mean_vect),
+for index, max_allowed_resid_as_pc_of_old_range in tqdm(enumerate(max_allowed_resid_as_pc_of_mean_vect),
                                                    total=len(max_allowed_resid_as_pc_of_mean_vect)):
 
     check_residual_partial = functools.partial(helpers.check_residual,
                                                old_data_ffp=old_data_dir,
                                                new_data_ffp=new_data_dir,
-                                               max_allowed_resid_as_pc_of_mean = max_allowed_resid_as_pc_of_mean,
+                                               max_allowed_resid_as_pc_of_old_range = max_allowed_resid_as_pc_of_old_range,
                                                allowed_percent_not_close_to_zero=allowed_percentages_not_close_to_zero)
 
     with multiprocessing.Pool(processes=8) as pool:
-        record_checks = pool.map(check_residual_partial, ids_to_check)
-        print()
-    num_inconsistent_records[index] = sum(~np.array(record_checks))
+        residuals_ok_for_record = pool.map(check_residual_partial, ids_to_check)
 
-    inconsistent_record_names = list(np.array(ids_to_check)[~np.array(record_checks)])
-
-    print()
+    inconsistent_record_names = list(np.array(ids_to_check)[~np.array(residuals_ok_for_record)])
+    num_inconsistent_records = len(inconsistent_record_names)
 
     inconsistent_record_names_str = " ".join(inconsistent_record_names)
 
     results_df = pd.DataFrame({"allowed_percentages_not_close_to_zero": [allowed_percentages_not_close_to_zero],
-                               "max_allowed_resid_as_pc_of_mean": [max_allowed_resid_as_pc_of_mean],
-                            "num_inconsistent_records": [num_inconsistent_records[index]],
-                            "num_records_in_old_and_new": [len(ids_to_check)],
-                            "percent_inconsistent_records": [100*num_inconsistent_records[index]/len(ids_to_check)],
-                             "inconsistent_record_names":[inconsistent_record_names_str]})
-                             #  "inconsistent_record_names": ["placeholder"]})
+                               "max_allowed_resid_as_pc_of_old_range": [max_allowed_resid_as_pc_of_old_range],
+                               "num_inconsistent_records": [num_inconsistent_records],
+                               "num_records_in_both_old_and_new": [len(ids_to_check)],
+                               "percent_inconsistent_records": [100*num_inconsistent_records/len(ids_to_check)],
+                               "inconsistent_record_names":[inconsistent_record_names_str]})
 
     concat_results_df = pd.concat([concat_results_df,results_df],ignore_index=True)
 

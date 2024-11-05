@@ -13,7 +13,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 import matplotlib.pyplot as plt
 
-def get_residual(record_name: str, old_data_ffp: Path, new_data_ffp: Path, make_plot=None) -> pd.DataFrame:
+def get_residual(record_name: str, old_data_ffp: Path, new_data_ffp: Path) -> pd.DataFrame:
 
     old_df = pd.read_parquet(old_data_ffp / f"{record_name}.parquet")
     old_df = old_df.drop(columns=["record_name", "latitude", "longitude"])
@@ -30,20 +30,43 @@ def get_residual(record_name: str, old_data_ffp: Path, new_data_ffp: Path, make_
     #residual = np.log(interpolated_df) - np.log(old_df)
     residual = interpolated_df - old_df
 
-    if make_plot:
-        make_plot.mkdir(parents=True, exist_ok=True)
-        plot_residual(residual, old_df, interpolated_df, new_df, record_name=record_name, plot_output_dir=make_plot)
-
     return residual, old_df, interpolated_df, new_df
 
 
-def check_residual(record_name: str, old_data_ffp: Path, new_data_ffp: Path, max_allowed_resid_as_pc_of_mean:float, allowed_percent_not_close_to_zero: float) -> bool:
+def check_residual(record_name: str,
+                   old_data_ffp: Path,
+                   new_data_ffp: Path,
+                   max_allowed_resid_as_pc_of_old_range:float,
+                   allowed_percent_not_close_to_zero: float) -> bool:
+
+    """
+    Calculates residuals and checks if they are within the allowed range.
+    Returns True if residuals are within the allowed range, False otherwise.
+
+    Parameters
+    ----------
+    record_name : str
+        The name of the record.
+    old_data_ffp : Path
+        The path to the old data.
+    new_data_ffp : Path
+        The path to the new data.
+    max_allowed_resid_as_pc_of_old_range : float
+        The maximum allowed residual as a percentage of the mean.
+    allowed_percent_not_close_to_zero : float
+        The allowed percentage of residuals not close to zero.
+
+    Returns
+    -------
+    bool
+        True if residuals are within the allowed range, False otherwise.
+    """
 
     residual, old_df, interpolated_df, new_df = get_residual(record_name = record_name, old_data_ffp = old_data_ffp, new_data_ffp=new_data_ffp)
 
     old_df_range = old_df.max()[["qc","fs","u"]] - old_df.min()[["qc","fs","u"]]
 
-    resid_close_to_zero = residual.abs()[["qc","fs","u"]] <= (max_allowed_resid_as_pc_of_mean/100)*old_df_range
+    resid_close_to_zero = residual.abs()[["qc","fs","u"]] <= (max_allowed_resid_as_pc_of_old_range/100)*old_df_range
 
     percent_resid_close_to_zero = 100*resid_close_to_zero.sum()/resid_close_to_zero.shape[0]
 
@@ -116,13 +139,12 @@ def plot_residual(residual, old_df, interpolated_df, new_df,record_name = None, 
 
     plt.subplots_adjust(hspace=0.5, wspace=0.5)
 
-    if record_name == "CPT_23719":
-        print()
-
     if record_name:
         plt.savefig(Path(plot_output_dir)/f"{record_name}.png", dpi=500)
     else:
         plt.savefig("/home/arr65/data/nzgd/plots/inconsistent_cpt_records/redisuals.png", dpi=500)
+
+    plt.close()
 
 
 

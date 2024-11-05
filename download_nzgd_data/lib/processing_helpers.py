@@ -88,15 +88,14 @@ def convert_num_as_str_to_float(val):
     except ValueError:
         return val
 
-def find_cell_in_line_containing_single_character(line, character):
+def find_cell_with_exact_match_in_line(line, character):
     """Return the index of the first cell containing the given character in the given line."""
 
     for i, cell in enumerate(line):
 
         if isinstance(cell, str):
-            if len(cell) == 1:
-                if cell.lower() == character:
-                    return i
+            if cell.lower() == character:
+                return i
 
 
 def find_cell_in_line_that_contains_string(line, string):
@@ -122,7 +121,7 @@ def search_line_for_cell(line, characters, substrings):
     candidates_idx = []
 
     for character in characters:
-         candidates_idx.append(find_cell_in_line_containing_single_character(line, character))
+         candidates_idx.append(find_cell_with_exact_match_in_line(line, character))
 
     for substring in substrings:
         substring_cells = find_cells_in_line_that_contains_string(line, substring)
@@ -136,7 +135,7 @@ def search_line_for_cell(line, characters, substrings):
 def search_line_for_all_needed_cells(
         line,
         output_all_candidates=False,
-        characters1=["m","w","h","r"],
+        characters1=["m","w","h","r","cf"],
         substrings1=["depth", "length", "top", "h "],
         characters2=["q","mpa"],
         substrings2 = ["qc", "q_c", "cone", "resistance", "res", "tip"],
@@ -147,6 +146,7 @@ def search_line_for_all_needed_cells(
 
 
     col1_search = search_line_for_cell(line, characters1, substrings1)
+    print()
     col2_search = search_line_for_cell(line, characters2, substrings2)
     col3_search = search_line_for_cell(line, characters3, substrings3)
     col4_search = search_line_for_cell(line, characters4, substrings4)

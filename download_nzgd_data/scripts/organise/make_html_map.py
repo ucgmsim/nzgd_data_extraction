@@ -1,6 +1,7 @@
 """
 This script generates the html.index file for the NZGD HTTP server on Hypocentre.
 """
+
 import folium
 from folium.plugins import MarkerCluster, Search
 import pandas as pd
@@ -13,10 +14,10 @@ import time
 
 start_time = time.time()
 
-
 max_num_records = None
 
 record_id_df = pd.read_csv("/home/arr65/data/nzgd/nzgd_index_files/csv_files/NZGD_Investigation_Report_23102024_1042.csv")
+hypo_base_dir = Path("/home/arr65/data/nzgd/small_hypocentre_mirror/nzgd")
 
 record_id_df = record_id_df[record_id_df["Type"].isin(["CPT", "SCPT", "Borehole", "VsVp"])]
 
@@ -26,27 +27,24 @@ if max_num_records:
 date_of_last_nzgd_retrieval = Path("/home/arr65/data/nzgd/hypocentre_mirror/nzgd/date_of_last_nzgd_retrieval.txt").read_text().strip("\n")
 
 raw_nzgd_files = map.get_files_with_relative_paths(processed_files=False,
-                           file_root_directory=Path("/home/arr65/data/nzgd/hypocentre_mirror/nzgd/raw_from_nzgd"),
-                           relative_to = Path("/home/arr65/data/nzgd/hypocentre_mirror/nzgd"),
+                           file_root_directory=hypo_base_dir / "raw_from_nzgd",
+                           relative_to = hypo_base_dir,
                            max_num_records=max_num_records)
 
 processed_files = map.get_files_with_relative_paths(processed_files=True,
-                            file_root_directory=Path("/home/arr65/data/nzgd/hypocentre_mirror/nzgd/processed"),
-                            relative_to = Path("/home/arr65/data/nzgd/hypocentre_mirror/nzgd",
-                            max_num_records=max_num_records))
+                            file_root_directory=hypo_base_dir / "processed",
+                            relative_to = hypo_base_dir,
+                            max_num_records=max_num_records)
 
 processed_metadata = map.get_processed_metadata(
-    file_root_directory=Path("/home/arr65/data/nzgd/hypocentre_mirror/nzgd/processed"),
+    file_root_directory=hypo_base_dir / "processed",
     max_num_records=max_num_records)
-
 
 # Make an empty map centered on New Zealand
 m = folium.Map(location=[-41.2728,173.2994], tiles="OpenStreetMap", zoom_start=6)
 
 # Create a MarkerCluster object
 marker_cluster = MarkerCluster().add_to(m)
-# Create a FeatureGroup for searchable markers
-searchable_group = FeatureGroup(name="Searchable Markers").add_to(m)
 
 date_of_last_ngzd_retrieval = f"""
      <div style="position: fixed; 
@@ -100,13 +98,30 @@ legend_html = '''
      </div>
      '''
 
+# legend_html = """
+# <div style="
+#     position: fixed;
+#     bottom: 50px;
+#     left: 50px;
+#     width: 150px;
+#     height: 60px;
+#     background-color: white;
+#     border:2px solid grey;
+#     z-index:9999;
+#     font-size:14px;
+#     padding: 10px;
+#     ">
+#     <b>Legend</b><br>
+#     <i class="fa fa-circle" style="color:blue"></i>&nbsp;Blue Circle Marker<br>
+# </div>
+# """
+
 m.get_root().html.add_child(folium.Element(date_of_last_ngzd_retrieval))
 m.get_root().html.add_child(folium.Element(browse_link_text))
 m.get_root().html.add_child(branca.element.Element(legend_html))
 
 print("Adding markers to map")
 for row_index, row in tqdm(record_id_df.iterrows(), total=record_id_df.shape[0]):
-
     if row["ID"] not in raw_nzgd_files:
         continue
 
@@ -142,23 +157,23 @@ for row_index, row in tqdm(record_id_df.iterrows(), total=record_id_df.shape[0])
     folium.Marker(
         location=[row['Latitude'], row['Longitude']],
         popup=popup_html,
-        icon=icon
+        icon=icon,
+        name=row["ID"]
     ).add_to(marker_cluster)
 
 # Add Search plugin to search within the MarkerCluster based on popup text
 search = Search(
     layer=marker_cluster,
     geom_type="Point",
-    placeholder="Search for location...",
+    placeholder="Search for a record name (e.g., CPT_1)",
     collapsed=False,
-    search_label="popup"
+    search_label="name"
 ).add_to(m)
-
 
 print()
 print("Saving map")
 
-m.save('/home/arr65/data/nzgd/hypocentre_mirror/nzgd/index.html')
+m.save(hypo_base_dir / "index.html")
 
 
 end_time = time.time()

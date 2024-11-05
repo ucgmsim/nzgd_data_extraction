@@ -69,10 +69,7 @@ column_idx = one_failed_load_per_failed_cpt_record_no_ags["details"].str.contain
 corruption_idx = one_failed_load_per_failed_cpt_record_no_ags["details"].str.contains("corruption")
 no_raw_data_supplied_idx = one_failed_load_per_failed_cpt_record_no_ags["details"].str.contains("No raw data supplied")
 
-
-
 u_idx2 = u_idx.copy()
-
 
 u_idx2[non_numeric_index] = False
 u_idx2[opus_note] = False
@@ -83,15 +80,4 @@ u_idx2[no_raw_data_supplied_idx] = False
 
 missing_u_or_porepressure = one_failed_load_per_failed_cpt_record_no_ags[u_idx2 | pore_pressure_idx]
 
-
-
-
 missing_u_or_porepressure.to_csv(output_path / "metadata/missing_u_or_porepressure.csv", index=False)
-
-
-
-
-print()
-
-
-print()

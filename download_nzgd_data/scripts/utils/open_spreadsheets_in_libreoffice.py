@@ -1,5 +1,7 @@
 import pandas as pd
 from pathlib import Path
+import natsort
+import random
 import subprocess
 import os
 import time
@@ -14,18 +16,24 @@ import numpy as np
 
 
 
-failed_df = pd.read_csv("/home/arr65/data/nzgd/standard_format_batch50/cpt/metadata/all_failed_loads.csv")
+# failed_df = pd.read_csv("/home/arr65/data/nzgd/standard_format_batch50/cpt/metadata/all_failed_loads.csv")
+#
+# print()
+#
+# failed_df = failed_df.iloc[225:]
+#
+# idx = np.where(failed_df["record_name"] == "CPT_58993")
 
-print()
+xls_scpts = list(Path("/home/arr65/data/nzgd/downloads_and_metadata/unorganised_raw_from_nzgd/scpt").rglob("*.xls"))
+random.shuffle(xls_scpts)
 
-failed_df = failed_df.iloc[225:]
+#for index, row in failed_df.iterrows():
+for index, xls_scpt_ffp in enumerate(xls_scpts):
+    # print(row["record_name"])
+    #
+    # load_path = Path(f"/home/arr65/data/nzgd/downloaded_files/cpt/{row['record_name']}/{row['file_name']}")
 
-idx = np.where(failed_df["record_name"] == "CPT_58993")
-
-for index, row in failed_df.iterrows():
-    print(row["record_name"])
-
-    load_path = Path(f"/home/arr65/data/nzgd/downloaded_files/cpt/{row['record_name']}/{row['file_name']}")
+    load_path = xls_scpt_ffp
 
     command_str = f"libreoffice --calc {load_path}"
 

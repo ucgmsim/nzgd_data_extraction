@@ -48,8 +48,8 @@ print("starting check")
 #allowed_percentages_not_close_to_zero = np.array([5])
 
 allowed_percentages_not_close_to_zero = 10.0
-#max_allowed_resid_as_pc_of_mean_vect = np.arange(10,110,10)
-max_allowed_resid_as_pc_of_mean_vect = np.array([10,50,100])
+max_allowed_resid_as_pc_of_mean_vect = np.array([1,3,5,10,15,20,25,30,50,75])
+#max_allowed_resid_as_pc_of_mean_vect = np.array([10,50,100])
 #max_allowed_resid_as_pc_of_mean_vect = np.array([50,60])#
 
 concat_results_df = pd.DataFrame()

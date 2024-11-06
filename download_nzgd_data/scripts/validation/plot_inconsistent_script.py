@@ -112,6 +112,22 @@ for record_name in tqdm(inconsistent_record_names):
 
 print(f"count_of_inconsistent_plots: {count_of_inconsistent_plots}")
 
+print(f"percent of inconsistent records with constant u = 0 in old data: {100*len(old_id_qc_0)/len(inconsistent_record_names)}")
+print(f"percent of inconsistent records with constant u = 0 in new data: {100*len(new_id_qc_0)/len(inconsistent_record_names)}")
+print(f"percent of inconsistent records with constant fs = 0 in old data: {100*len(old_id_fs_0)/len(inconsistent_record_names)}")
+print(f"percent of inconsistent records with constant fs = 0 in new data: {100*len(new_id_fs_0)/len(inconsistent_record_names)}")
+print(f"percent of inconsistent records with constant qc = 0 in old data: {100*len(old_id_u_0)/len(inconsistent_record_names)}")
+print(f"percent of inconsistent records with constant qc = 0 in new data: {100*len(new_id_u_0)/len(inconsistent_record_names)}")
+
+print(f"percent of inconsistent records with qc > 10*old qc in new data: {100*len(new_id_qc_10x)/len(inconsistent_record_names)}")
+print(f"percent of inconsistent records with fs > 10*old fs in new data: {100*len(new_id_fs_10x)/len(inconsistent_record_names)}")
+print(f"percent of inconsistent records with u > 10*old u in new data: {100*len(new_id_u_10x)/len(inconsistent_record_names)}")
+print(f"percent of inconsistent records with qc > 10*new qc in old data: {100*len(old_id_qc_10x)/len(inconsistent_record_names)}")
+print(f"percent of inconsistent records with fs > 10*new fs in old data: {100*len(old_id_fs_10x)/len(inconsistent_record_names)}")
+print(f"percent of inconsistent records with u > 10*new u in old data: {100*len(old_id_u_10x)/len(inconsistent_record_names)}")
+
+
+
 ## Save new_id_qc_0 as a text file in the directory identified_issues
 np.savetxt(identified_issues / "old_id_qc_0.txt", np.array(old_id_qc_0), fmt="%s")
 np.savetxt(identified_issues / "new_id_qc_0.txt", np.array(new_id_qc_0), fmt="%s")

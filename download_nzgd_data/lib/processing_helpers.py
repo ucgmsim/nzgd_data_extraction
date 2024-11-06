@@ -146,7 +146,6 @@ def search_line_for_all_needed_cells(
 
 
     col1_search = search_line_for_cell(line, characters1, substrings1)
-    print()
     col2_search = search_line_for_cell(line, characters2, substrings2)
     col3_search = search_line_for_cell(line, characters3, substrings3)
     col4_search = search_line_for_cell(line, characters4, substrings4)
@@ -396,7 +395,6 @@ def get_column_names(df):
 
             df.attrs[f"candidate_{col_index_to_name[possible_col_idx]}_column_names_in_original_file"] = list(valid_possible_col_names)
             df.attrs[f"adopted_{col_index_to_name[possible_col_idx]}_column_name_in_original_file"] = col_name
-
     ## Check if any of the identified column names are known false positives
     for col_name in final_col_names:
         if col_name in known_false_positive_col_names:

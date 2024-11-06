@@ -355,6 +355,13 @@ def load_cpt_spreadsheet_file(file_path: Path) -> pd.DataFrame:
                          final_col_names[2]: list(column_descriptions)[2],
                          final_col_names[3]: list(column_descriptions)[3]})).apply(pd.to_numeric, errors='coerce')
 
+            ## If the values in the fs and u columns are very large, they are likely in kPa so convert to MPa
+            fs_u_in_kpa_threshold = 200
+            if df[list(column_descriptions)[2]].max() > fs_u_in_kpa_threshold:
+                df[list(column_descriptions)[2]] /= 1000
+            if df[list(column_descriptions)[3]].max() > fs_u_in_kpa_threshold:
+                df[list(column_descriptions)[3]] /= 1000
+
             # ensure that the depth column is defined as positive (some have depth as negative)
             df[list(column_descriptions)[0]] = np.abs(df[list(column_descriptions)[0]])
             dataframes_to_return.append(df)

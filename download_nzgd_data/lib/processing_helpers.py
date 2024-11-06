@@ -385,13 +385,14 @@ def get_column_names(df):
             num_finite_per_col = np.array([np.sum(np.isfinite(df[col_name])) for col_name in possible_col_names])
             valid_possible_col_names = np.array(possible_col_names)[num_finite_per_col > 0]
 
-            # check for a "clean" column
             col_name = valid_possible_col_names[0]
+
             for possible_col_name in valid_possible_col_names:
-                ### Avoid "clean" columns as they may have been modified such that the Vs30 correlations are no longer valid
-                if "clean" not in possible_col_name.lower():
+                ### Avoid "clean" or "corrected" columns as they may have been modified such that the Vs30 correlations are no longer valid
+                if ("clean" not in possible_col_name.lower()) & ("corrected" not in possible_col_name.lower()):
                     col_name = possible_col_name
                     break
+
             final_col_names.append(col_name)
 
             df.attrs[f"candidate_{col_index_to_name[possible_col_idx]}_column_names_in_original_file"] = list(valid_possible_col_names)

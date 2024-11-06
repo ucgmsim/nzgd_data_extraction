@@ -16,11 +16,12 @@ investigation_type = processing_helpers.InvestigationType.cpt
 
 nzgd_index_df = pd.read_csv(Path("/home/arr65/data/nzgd/nzgd_index_files/csv_files/"
                                  "NZGD_Investigation_Report_23102024_1042.csv"))
-output_dir = Path(f"/home/arr65/data/nzgd/processed_data/{investigation_type}")
 
+#output_dir = Path(f"/home/arr65/data/nzgd/processed_data/{investigation_type}")
+output_dir = Path(f"/home/arr65/data/nzgd/processed_data_test/{investigation_type}")
 
-if output_dir.exists():
-    raise ValueError("Output directory already exists.")
+# if output_dir.exists():
+#     raise ValueError("Output directory already exists.")
 
 ### !!! GO HERE
 parquet_output_dir = output_dir / "data"
@@ -76,8 +77,8 @@ loading_summary_df = pd.DataFrame(columns=["record_name", "file_was_loaded", "lo
 
 ### !!! GO HERE
 record_counter = 0
-for record_dir in tqdm(records_to_process):
-#for record_dir in [Path("/home/arr65/data/nzgd/downloads_and_metadata/unorganised_raw_from_nzgd/cpt/CPT_161435")]:
+#for record_dir in tqdm(records_to_process):
+for record_dir in [Path("/home/arr65/data/nzgd/downloads_and_metadata/unorganised_raw_from_nzgd/cpt/CPT_110695")]:
 
     ags_file_list = list(record_dir.glob("*.ags")) + list(record_dir.glob("*.AGS"))
     xls_file_list = list(record_dir.glob("*.xls")) + list(record_dir.glob("*.XLS"))

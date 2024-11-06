@@ -388,7 +388,8 @@ def get_column_names(df):
             # check for a "clean" column
             col_name = valid_possible_col_names[0]
             for possible_col_name in valid_possible_col_names:
-                if "clean" in possible_col_name.lower():
+                ### Avoid "clean" columns as they may have been modified such that the Vs30 correlations are no longer valid
+                if "clean" not in possible_col_name.lower():
                     col_name = possible_col_name
                     break
             final_col_names.append(col_name)

@@ -538,7 +538,38 @@ def nth_highest_value(array, n):
 
     return sorted_array[-n]
 
-def final_check_for_wrong_units_and_negative_values(df, cm_threshold = 50, kpa_threshold = 100, nth_highest = 5):
+def final_check_for_wrong_units_and_negative_values(df: pd.DataFrame,
+                                                    cm_threshold = 50,
+                                                    qc_kpa_threshold: float = 80,
+                                                    fs_kpa_threshold: float = 10,
+                                                    u_kpa_threshold: float = 3,
+                                                    nth_highest: int = 5) -> pd.DataFrame:
+    """
+    Perform final checks on a DataFrame to correct units and remove negative values.
+
+    This function checks for incorrect units in the columns of the DataFrame and converts them if necessary.
+    It also ensures that the depth column has positive values and removes rows with negative values in specific columns.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        The input DataFrame containing the data to be checked.
+    cm_threshold : int, optional
+        An nth highest value over this threshold indicates that depth is in cm. Default is 50.
+    qc_kpa_threshold : float, optional
+        An nth highest value over this threshold indicates that qc is in kPa. Default is 80.
+    fs_kpa_threshold : float, optional
+        An nth highest value over this threshold indicates that fs is in kPa. Default is 10.
+    u_kpa_threshold : float, optional
+        An nth highest value over this threshold indicates that u is in kPa. Default is 3.
+    nth_highest : int, optional
+        The nth highest value to be checked in the columns. Default is 5.
+
+    Returns
+    -------
+    pd.DataFrame
+        The corrected DataFrame with appropriate units and no negative values in specified columns.
+    """
 
     with open(Path(__file__).parent.parent / "resources" / "cpt_column_name_descriptions.toml", "r") as toml_file:
         column_descriptions = toml.load(toml_file)
@@ -546,14 +577,14 @@ def final_check_for_wrong_units_and_negative_values(df, cm_threshold = 50, kpa_t
     if nth_highest_value(df[list(column_descriptions)[0]].values, nth_highest) > cm_threshold:
         df[list(column_descriptions)[0]] /= 100
 
-    if nth_highest_value(df[list(column_descriptions)[1]].values, nth_highest) > kpa_threshold:
+    if nth_highest_value(df[list(column_descriptions)[1]].values, nth_highest) > qc_kpa_threshold:
         df[list(column_descriptions)[1]] /= 1000
-    if nth_highest_value(df[list(column_descriptions)[2]].values, nth_highest) > kpa_threshold:
+    if nth_highest_value(df[list(column_descriptions)[2]].values, nth_highest) > fs_kpa_threshold:
         df[list(column_descriptions)[2]] /= 1000
-    if nth_highest_value(df[list(column_descriptions)[3]].values, nth_highest) > kpa_threshold:
+    if nth_highest_value(df[list(column_descriptions)[3]].values, nth_highest) > u_kpa_threshold:
         df[list(column_descriptions)[3]] /= 1000
 
-    ## ensure that the depth column is defined as positive (some have depth as negative)
+    ## Ensure that the depth column is defined as positive (some have depth as negative)
     df[list(column_descriptions)[0]] = np.abs(df[list(column_descriptions)[0]])
 
     ## Drop any rows of df that have negative values in columns qc or fs

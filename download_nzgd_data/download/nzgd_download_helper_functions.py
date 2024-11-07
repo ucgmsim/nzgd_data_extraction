@@ -19,7 +19,9 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 from webdriver_manager.chrome import ChromeDriverManager
 
-import config as cfg
+import download_nzgd_data.download.download_config as cfg
+
+from dotenv import dotenv_values
 
 config = cfg.Config()
 
@@ -91,12 +93,26 @@ def process_df_row(url_df_row_index, url_df_row):
     -------
     None
     """
+
+    download_metadata_dir = Path(config.get_value("high_level_download_dir")) / "downloads_metadata" / config.get_value("download_subdir")
+    completed_downloads_dir = download_metadata_dir / "completed_downloads"
+    files_for_record_dir = download_metadata_dir / "files_for_record"
+    link_strs_for_record_dir = download_metadata_dir / "link_strs_for_record"
+
+    completed_downloads_dir.mkdir(parents=True, exist_ok=True)
+    files_for_record_dir.mkdir(parents=True, exist_ok=True)
+    link_strs_for_record_dir.mkdir(parents=True, exist_ok=True)
+
     login_url = config.get_value("login_url")
-    username_str = os.getenv("NZGD_USERNAME")
-    password_str = os.getenv("NZGD_PASSWORD")
+
+    login_cred = dotenv_values(Path(__file__).parent / ".env_nzgd")
+
+    username_str = login_cred["NZGD_USERNAME"]
+    password_str = login_cred["NZGD_PASSWORD"]
+
     load_wait_time_s = config.get_value("load_wait_time_s")
 
-    download_dir = Path(config.get_value("high_level_download_dir")) / url_df_row["ID"]
+    download_dir = Path(config.get_value("high_level_download_dir")) / config.get_value("download_subdir") / url_df_row["ID"]
     os.makedirs(download_dir, exist_ok=True)
     driver = setup_driver(download_dir)
 
@@ -122,7 +138,7 @@ def process_df_row(url_df_row_index, url_df_row):
     # Wait for specific text that indicates a successful login
     wait.until(
         EC.presence_of_element_located((By.XPATH, "//*[contains(text(), 'Home')]"))
-    )  # Replace 'Welcome' with the actual text
+    )
 
     data_url = url_df_row["URL"]
 
@@ -149,11 +165,12 @@ def process_df_row(url_df_row_index, url_df_row):
 
         time.sleep(load_wait_time_s)  # Wait for the download to complete
 
-    np.savetxt(Path(config.get_value("downloaded_record_note_per_record")) / f"{url_df_row_index}.txt", np.array([url_df_row_index]))
-    with open(Path(config.get_value("name_to_files_dir_per_record")) / f"{url_df_row_index}.toml", "w") as toml_file:
+    np.savetxt(completed_downloads_dir / f"{url_df_row_index}.txt", np.array([url_df_row_index]))
+    
+    with open(files_for_record_dir / f"{url_df_row_index}.toml", "w") as toml_file:
         toml.dump(file_names_dict, toml_file)
 
-    with open(Path(config.get_value("name_to_link_str_dir_per_record")) / f"{url_df_row_index}.toml", "w") as toml_file:
+    with open(link_strs_for_record_dir / f"{url_df_row_index}.toml", "w") as toml_file:
         toml.dump(link_as_str_dict, toml_file)
 
     driver.quit()
@@ -301,8 +318,6 @@ def get_metadata_from_nzgd_record_page(url_df_row_index, url_df_row):
 
     # Save the metadata to a CSV file
     metadata_df.to_csv(Path(config.get_value("name_to_metadata_dir_per_record")) / f"row_{url_df_row_index}_metadata.csv", index=False)
-    #
-    #
-    #
+
     # Quit the driver
     driver.quit()

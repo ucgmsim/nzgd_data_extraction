@@ -9,7 +9,7 @@ class Config:
     """
 
     _instance = None
-    config_path = Path(__file__).parent.resolve() / "config.yaml"
+    config_path = Path(__file__).parent / "download_config.yaml"
 
     def __new__(cls, *args, **kwargs):
         """

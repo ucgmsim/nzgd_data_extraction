@@ -1,0 +1,10 @@
+data_lookup_index : "/home/arr65/data/nzgd/nzgd_index_files/csv_files/NZGD_Investigation_Report_08112024_1017.csv"
+load_wait_time_s : 15
+number_of_processes : 6
+
+high_level_download_dir : "/home/arr65/data/nzgd/downloads_and_metadata/"
+download_subdir : "08112024"
+
+previous_download_dir : "/home/arr65/data/nzgd/downloads_and_metadata/unorganised_raw_from_nzgd"
+
+login_url : 'https://www.nzgd.org.nz/Registration/Login.aspx'

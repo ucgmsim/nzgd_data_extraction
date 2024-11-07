@@ -15,9 +15,8 @@ from download_nzgd_data.lib import process_cpt_data, processing_helpers
 investigation_type = processing_helpers.InvestigationType.cpt
 
 nzgd_index_df = pd.read_csv(Path("/home/arr65/data/nzgd/nzgd_index_files/csv_files/"
-                                 "NZGD_Investigation_Report_23102024_1042.csv"))
+                                 "NZGD_Investigation_Report_08112024_1017.csv"))
 
-#output_dir = Path(f"/home/arr65/data/nzgd/processed_data/{investigation_type}")
 output_dir = Path(f"/home/arr65/data/nzgd/processed_data/{investigation_type}")
 
 if output_dir.exists():
@@ -32,16 +31,10 @@ metadata_output_dir.mkdir(exist_ok=True, parents=True)
 
 downloaded_files = Path(f"/home/arr65/data/nzgd/downloads_and_metadata/unorganised_raw_from_nzgd/{investigation_type}")
 
-#previous_loading_summary = pd.read_csv(Path("/home/arr65/data/nzgd/standard_format_batch30/cpt/metadata") / "loading_summary.csv")
-
 ### !!! GO HERE !!!
 #records_to_skip = list(previous_loading_summary[previous_loading_summary["file_was_loaded"]==True]["record_name"])
 #records_to_skip = pd.read_csv("/home/arr65/src/download_nzgd_data/download_nzgd_data/resources/cpt_loaded_from_spreadsheet_in_23102024_1042.csv")["record_name"].to_list()
 records_to_skip = []
-
-#loaded_inconsistent_record_names = natsort.natsorted(list(Path("/home/arr65/data/nzgd/plots/inconsistent_cpt_records_V1").glob("*.png")))
-
-#records_to_redo = [record.stem for record in loaded_inconsistent_record_names]
 
 records_to_process = []
 for record_dir in natsort.natsorted(list(downloaded_files.glob("*"))):
@@ -78,7 +71,6 @@ loading_summary_df = pd.DataFrame(columns=["record_name", "file_was_loaded", "lo
 ### !!! GO HERE
 record_counter = 0
 for record_dir in tqdm(records_to_process):
-#for record_dir in [Path("/home/arr65/data/nzgd/downloads_and_metadata/unorganised_raw_from_nzgd/cpt/CPT_18878")]:
 
     ags_file_list = list(record_dir.glob("*.ags")) + list(record_dir.glob("*.AGS"))
     xls_file_list = list(record_dir.glob("*.xls")) + list(record_dir.glob("*.XLS"))

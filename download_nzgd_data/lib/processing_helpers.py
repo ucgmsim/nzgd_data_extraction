@@ -385,10 +385,13 @@ def get_column_names(df):
             num_finite_per_col = np.array([np.sum(np.isfinite(df[col_name])) for col_name in possible_col_names])
             valid_possible_col_names = np.array(possible_col_names)[num_finite_per_col > 0]
 
+            ### Initially set the column name to the first valid column name
             col_name = valid_possible_col_names[0]
 
             for possible_col_name in valid_possible_col_names:
-                ### Avoid "clean" or "corrected" columns as they may have been modified such that the Vs30 correlations are no longer valid
+                ### If another valid column name does not include "clean" or "corrected" then use that column name
+                ### as the "clean" or "corrected" column names may have been processed such that the correlations
+                ### are no longer valid
                 if ("clean" not in possible_col_name.lower()) & ("corrected" not in possible_col_name.lower()):
                     col_name = possible_col_name
                     break
@@ -513,6 +516,50 @@ def make_summary_df(summary_df, record_dir_name, file_was_loaded, loaded_file_ty
                                          "num_other_files": [len(unknown_list)]})],
                           ignore_index=True)
     return concat_df
+
+def nth_highest_value(array, n):
+    """
+    Find the nth highest value in an array.
+
+    Parameters
+    ----------
+    array : np.array
+        The input array.
+    n : int
+        The value of n.
+
+    Returns
+    -------
+    float
+        The nth highest value in the array.
+    """
+
+    sorted_array = np.sort(array)
+
+    return sorted_array[-n]
+
+def final_check_for_wrong_units_and_negative_values(df, cm_threshold = 50, kpa_threshold = 100, nth_highest = 5):
+
+    with open(Path(__file__).parent.parent / "resources" / "cpt_column_name_descriptions.toml", "r") as toml_file:
+        column_descriptions = toml.load(toml_file)
+
+    if nth_highest_value(df[list(column_descriptions)[0]].values, nth_highest) > cm_threshold:
+        df[list(column_descriptions)[0]] /= 100
+
+    if nth_highest_value(df[list(column_descriptions)[1]].values, nth_highest) > kpa_threshold:
+        df[list(column_descriptions)[1]] /= 1000
+    if nth_highest_value(df[list(column_descriptions)[2]].values, nth_highest) > kpa_threshold:
+        df[list(column_descriptions)[2]] /= 1000
+    if nth_highest_value(df[list(column_descriptions)[3]].values, nth_highest) > kpa_threshold:
+        df[list(column_descriptions)[3]] /= 1000
+
+    ## ensure that the depth column is defined as positive (some have depth as negative)
+    df[list(column_descriptions)[0]] = np.abs(df[list(column_descriptions)[0]])
+
+    ## Drop any rows of df that have negative values in columns qc or fs
+    df = df[(df[list(column_descriptions)[1]] >= 0) & (df[list(column_descriptions)[2]] >= 0)]
+
+    return df
 
 
 

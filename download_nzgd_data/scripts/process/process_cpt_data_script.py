@@ -30,7 +30,7 @@ metadata_output_dir = output_dir / "metadata"
 parquet_output_dir.mkdir(exist_ok=True, parents=True)
 metadata_output_dir.mkdir(exist_ok=True, parents=True)
 
-downloaded_files = Path("/home/arr65/data/nzgd/downloads_and_metadata/unorganised_raw_from_nzgd/cpt")
+downloaded_files = Path(f"/home/arr65/data/nzgd/downloads_and_metadata/unorganised_raw_from_nzgd/{investigation_type}")
 
 #previous_loading_summary = pd.read_csv(Path("/home/arr65/data/nzgd/standard_format_batch30/cpt/metadata") / "loading_summary.csv")
 

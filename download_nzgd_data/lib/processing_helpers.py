@@ -390,8 +390,8 @@ def get_column_names(df):
 
             for possible_col_name in valid_possible_col_names:
                 ### If another valid column name does not include "clean" or "corrected" then use that column name
-                ### as the "clean" or "corrected" column names may have been processed such that the correlations
-                ### are no longer valid
+                ### instead as the "clean" or "corrected" columns may have been processed such that the
+                ### correlations are no longer valid
                 if ("clean" not in possible_col_name.lower()) & ("corrected" not in possible_col_name.lower()):
                     col_name = possible_col_name
                     break

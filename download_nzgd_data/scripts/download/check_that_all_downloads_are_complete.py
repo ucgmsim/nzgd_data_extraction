@@ -10,51 +10,25 @@ from tqdm import tqdm
 
 import combine_download_notes_dicts
 
+high_level_download_dir = Path("/home/arr65/data/nzgd/downloads_and_metadata")
 
-high_level_download_dir = Path("/home/arr65/data/nzgd/downloads_and_metadata/21102024")
+download_subdir = "08112024"
+
+data_path = high_level_download_dir / download_subdir
+
+metadata_dir = high_level_download_dir / "downloads_metadata" / download_subdir
 
 ################################################################################################################
 ### If the dictionaries need to be assembled from individual files
-
-name_to_files_dict = combine_download_notes_dicts.combine_dicts((high_level_download_dir / "downloads_metadata" / "name_to_files_dicts_per_record").glob("*.toml"))
-
-name_to_link_strs_dict = combine_download_notes_dicts.combine_dicts((high_level_download_dir / "downloads_metadata" / "name_to_files_dicts_per_record").glob("*.toml"))
-
-# with open(
-#     combined_dict_dir / f"combined_name_to_files_dict_batch{batch_num}.toml", "w"
-# ) as toml_file:
-#     toml.dump(name_to_files_dict, toml_file)
-# with open(
-#     combined_dict_dir / f"combined_name_to_link_strs_dict_batch{batch_num}.toml", "w"
-# ) as toml_file:
-#     toml.dump(name_to_link_strs_dict, toml_file)
-
-## End dictionary assembly
-################################################################################################################
-
-# name_to_files_dict = toml.load(
-#     Path("/home/arr65/data/nzgd/combined_dicts")
-#     / f"combined_name_to_files_dict_batch{batch_num}.toml"
-# )
-# name_to_link_strs_dict = toml.load(
-#     Path("/home/arr65/data/nzgd/combined_dicts")
-#     / f"combined_name_to_link_strs_dict_batch{batch_num}.toml"
-# )
+name_to_files_dict = combine_download_notes_dicts.combine_dicts((metadata_dir / "files_for_record").glob("*.toml"))
+name_to_link_strs_dict = combine_download_notes_dicts.combine_dicts((metadata_dir / "link_strs_for_record").glob("*.toml"))
 
 if len(name_to_files_dict) != len(name_to_link_strs_dict):
     raise ValueError("Should have the same number of keys")
 
-print()
-
 id_not_in_dict = []
 file_mismatch = []
 files_and_links_mismatch = []
-
-data_path = high_level_download_dir/"downloaded_files"
-#downloaded_records = [record.name for record in data_path.glob("*")]
-
-print()
-
 
 with tqdm(total=len(list(data_path.glob("*")))) as pbar:
 
@@ -101,7 +75,7 @@ with tqdm(total=len(list(data_path.glob("*")))) as pbar:
 
 
 print(f"Number of records not in the dictionary: {len(id_not_in_dict)}")
-print(f"Number of records with different file names and : {len(file_mismatch)}")
+print(f"Number of records with different file names: {len(file_mismatch)}")
 print(
     f"Number of records with mismatch in files and links: {len(files_and_links_mismatch)}"
 )
@@ -111,7 +85,7 @@ ids_with_download_issue = set(id_not_in_dict + file_mismatch + files_and_links_m
 print(f"Total number of records with download issues: {len(ids_with_download_issue)}")
 
 ## Save a list of the records with download issues
-with open(Path(high_level_download_dir/"downloads_metadata"/ f"records_with_download_issues.txt"), "w") as file:
+with open((metadata_dir / f"records_with_download_issues.txt"), "w") as file:
         for record in ids_with_download_issue:
             file.write(f"{record}\n")
 

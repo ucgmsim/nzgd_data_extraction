@@ -29,9 +29,6 @@ download_subdir.mkdir(parents=True, exist_ok=True)
 
 download_metadata_dir = high_level_download_dir / "downloads_metadata" / config.get_value("download_subdir")
 
-downloaded_record_note_per_record_dir = download_metadata_dir / "downloaded_record_note_per_record"
-downloaded_record_note_per_record_dir.mkdir(parents=True, exist_ok=True)
-
 download_mode = DownloadMode.files
 
 previous_download_dir = Path(config.get_value("previous_download_dir"))

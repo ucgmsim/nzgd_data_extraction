@@ -14,6 +14,25 @@ import time
 
 start_time = time.time()
 
+vs30_df = pd.read_csv("/home/arr65/data/nzgd/processed_data/cpt/metadata/parquet_vs30_results.csv")
+vs30_correlation = "Boore2011"
+cpt_vs_correlation = "Andrus2007"
+
+print()
+### drop rows of the vs30_df that have NaN values in the vs30 or vs30_std columns
+vs30_df = vs30_df.dropna(subset=["vs30", "vs30_sd"])
+print()
+
+vs30_dict = {}
+for row_index, row in vs30_df.iterrows():
+    vs30_dict[row["cpt_name"]] = row["vs30"]
+
+
+
+
+
+print()
+
 max_num_records = None
 
 record_id_df = pd.read_csv("/home/arr65/data/nzgd/nzgd_index_files/csv_files/NZGD_Investigation_Report_23102024_1042.csv")
@@ -133,12 +152,16 @@ for row_index, row in tqdm(record_id_df.iterrows(), total=record_id_df.shape[0])
     elif row["Type"] == "Borehole":
         icon = folium.Icon(icon="play", color="green", prefix="fa")
 
-    popup_html = f"<h1>{row['ID']}</h1><br>"
+    popup_html = f"<h2>{row['ID']}</h2><br>"
 
     if row["ID"] in processed_metadata:
         popup_html += f"<h4>Metadata:</h4><br>"
-        popup_html += f"max depth = {processed_metadata[row['ID']].max_depth}<br>"
-        popup_html += f"min depth = {processed_metadata[row['ID']].min_depth}<br><br>"
+        if row["ID"] in vs30_dict:
+            popup_html += f"Vs30 = {vs30_dict[row['ID']]} m/s (using {vs30_correlation} and {cpt_vs_correlation})<br>"
+        else:
+            popup_html += f"Vs30 not available.<br>"
+        popup_html += f"max depth = {processed_metadata[row['ID']].max_depth} m<br>"
+        popup_html += f"min depth = {processed_metadata[row['ID']].min_depth} m<br><br>"
     else:
         popup_html += f"No metadata available.<br><br>"
 

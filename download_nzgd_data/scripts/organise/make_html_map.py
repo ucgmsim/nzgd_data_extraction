@@ -14,7 +14,7 @@ import time
 
 start_time = time.time()
 
-vs30_df = pd.read_csv("/home/arr65/data/nzgd/processed_data/cpt/metadata/parquet_vs30_results.csv")
+vs30_df = pd.read_csv("/home/arr65/data/nzgd/processed_data_copy/cpt/metadata/parquet_vs30_results.csv")
 vs30_correlation = "Boore2011"
 cpt_vs_correlation = "Andrus2007"
 
@@ -36,7 +36,8 @@ print()
 max_num_records = None
 
 record_id_df = pd.read_csv("/home/arr65/data/nzgd/nzgd_index_files/csv_files/NZGD_Investigation_Report_23102024_1042.csv")
-hypo_base_dir = Path("/home/arr65/data/nzgd/small_hypocentre_mirror/nzgd")
+#hypo_base_dir = Path("/home/arr65/data/nzgd/small_hypocentre_mirror/nzgd")
+hypo_base_dir = Path("/home/arr65/data/nzgd/hypocentre_mirror/nzgd")
 
 record_id_df = record_id_df[record_id_df["Type"].isin(["CPT", "SCPT", "Borehole", "VsVp"])]
 
@@ -157,11 +158,11 @@ for row_index, row in tqdm(record_id_df.iterrows(), total=record_id_df.shape[0])
     if row["ID"] in processed_metadata:
         popup_html += f"<h4>Metadata:</h4><br>"
         if row["ID"] in vs30_dict:
-            popup_html += f"Vs30 = {vs30_dict[row['ID']]} m/s (using {vs30_correlation} and {cpt_vs_correlation})<br>"
+            popup_html += f"Vs30 = {vs30_dict[row['ID']]:.2f} m/s<br> using {vs30_correlation} and {cpt_vs_correlation}.<br><br>"
         else:
             popup_html += f"Vs30 not available.<br>"
-        popup_html += f"max depth = {processed_metadata[row['ID']].max_depth} m<br>"
-        popup_html += f"min depth = {processed_metadata[row['ID']].min_depth} m<br><br>"
+        popup_html += f"Max depth = {processed_metadata[row['ID']].max_depth} m<br><br>"
+        #popup_html += f"min depth = {processed_metadata[row['ID']].min_depth} m<br><br>"
     else:
         popup_html += f"No metadata available.<br><br>"
 
@@ -185,19 +186,18 @@ for row_index, row in tqdm(record_id_df.iterrows(), total=record_id_df.shape[0])
     ).add_to(marker_cluster)
 
 # Add Search plugin to search within the MarkerCluster based on popup text
-search = Search(
-    layer=marker_cluster,
-    geom_type="Point",
-    placeholder="Search for a record name (e.g., CPT_1)",
-    collapsed=False,
-    search_label="name"
-).add_to(m)
+# search = Search(
+#     layer=marker_cluster,
+#     geom_type="Point",
+#     placeholder="Search for a record name (e.g., CPT_1)",
+#     collapsed=False,
+#     search_label="name"
+# ).add_to(m)
 
 print()
 print("Saving map")
 
 m.save(hypo_base_dir / "index.html")
-
 
 end_time = time.time()
 

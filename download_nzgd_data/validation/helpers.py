@@ -91,6 +91,8 @@ def plot_residual(residual, old_df, interpolated_df, new_df,record_name = None, 
         The new DataFrame.
     """
 
+    legend_font_size = 6
+
     fig, axes = plt.subplots(2, 3, sharex=True)
 
     axes[0, 0].plot(new_df["Depth"],new_df["qc"], linestyle="--", marker="+", color="grey",label="new")
@@ -98,7 +100,7 @@ def plot_residual(residual, old_df, interpolated_df, new_df,record_name = None, 
                     markersize=10, markerfacecolor='none', markeredgecolor='green', label="old")
     axes[0, 0].plot(interpolated_df["Depth"], interpolated_df["qc"], linestyle="--", marker="x", color="red",
                     label="interp")
-    axes[0, 0].legend()
+    axes[0, 0].legend(fontsize=legend_font_size)
     axes[0, 0].set_xlabel("Depth (m)")
     axes[0, 0].set_ylabel("qc (MPa)")
 
@@ -107,8 +109,8 @@ def plot_residual(residual, old_df, interpolated_df, new_df,record_name = None, 
     axes[0, 1].plot(old_df["Depth"],old_df["fs"], linestyle="--", color="green", marker="o",
                     markersize=10, markerfacecolor='none', markeredgecolor='green', label="old")
     axes[0, 1].plot(interpolated_df["Depth"], interpolated_df["fs"], linestyle="--", marker="x", color="red",
-                    label="interp")
-    axes[0, 1].legend()
+                    label="new interp")
+    axes[0, 1].legend(fontsize=legend_font_size)
     axes[0, 1].set_xlabel("Depth (m)")
     axes[0, 1].set_ylabel("fs (MPa)")
 
@@ -118,8 +120,8 @@ def plot_residual(residual, old_df, interpolated_df, new_df,record_name = None, 
                     old_df["u"], linestyle="--", color="green", marker="o",
                     markersize=10, markerfacecolor='none', markeredgecolor='green', label="old")
     axes[0, 2].plot(interpolated_df["Depth"], interpolated_df["u"], linestyle="--", marker="x", color="red",
-                    label="interp")
-    axes[0, 2].legend()
+                    label="new interp")
+    axes[0, 2].legend(fontsize=legend_font_size)
     axes[0, 2].set_xlabel("Depth (m)")
     axes[0, 2].set_ylabel("u (MPa)")
 

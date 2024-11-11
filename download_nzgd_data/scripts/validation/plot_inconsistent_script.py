@@ -112,49 +112,29 @@ for record_name in tqdm(inconsistent_record_names):
 
     count_of_inconsistent_plots += 1
 
-print(f"count_of_inconsistent_plots: {count_of_inconsistent_plots}")
 
-print(f"percent of inconsistent records with constant u = 0 in old data: {100*len(old_id_qc_0)/len(inconsistent_record_names)}")
-print(f"percent of inconsistent records with constant u = 0 in new data: {100*len(new_id_qc_0)/len(inconsistent_record_names)}")
-print(f"percent of inconsistent records with constant fs = 0 in old data: {100*len(old_id_fs_0)/len(inconsistent_record_names)}")
-print(f"percent of inconsistent records with constant fs = 0 in new data: {100*len(new_id_fs_0)/len(inconsistent_record_names)}")
-print(f"percent of inconsistent records with constant qc = 0 in old data: {100*len(old_id_u_0)/len(inconsistent_record_names)}")
-print(f"percent of inconsistent records with constant qc = 0 in new data: {100*len(new_id_u_0)/len(inconsistent_record_names)}")
-
-print(f"percent of inconsistent records with qc > 10*old qc in new data: {100*len(new_id_qc_10x)/len(inconsistent_record_names)}")
-print(f"percent of inconsistent records with fs > 10*old fs in new data: {100*len(new_id_fs_10x)/len(inconsistent_record_names)}")
-print(f"percent of inconsistent records with u > 10*old u in new data: {100*len(new_id_u_10x)/len(inconsistent_record_names)}")
-print(f"percent of inconsistent records with qc > 10*new qc in old data: {100*len(old_id_qc_10x)/len(inconsistent_record_names)}")
-print(f"percent of inconsistent records with fs > 10*new fs in old data: {100*len(old_id_fs_10x)/len(inconsistent_record_names)}")
-print(f"percent of inconsistent records with u > 10*new u in old data: {100*len(old_id_u_10x)/len(inconsistent_record_names)}")
-
-"number with constant qc = 0 in old data"
-len(inconsistent_record_names)
-
-def make_summary_df_line(description, inconsistent_array, num_inconsistent_records, num_all_records=34663):
+def make_summary_df_line(description, num_points_inconsistent_array, num_inconsistent_records, num_old_with_u_0, num_all_records=34663.0):
     summary_df_line = pd.DataFrame({"description": [description],
-                  "number_of_records": [len(inconsistent_array)],
-                  "number_as_percent_of_inconsistent_records": [100*len(inconsistent_array)/num_inconsistent_records],
-                  "number_as_percent_of_all_records": [100*len(old_id_qc_0)/num_all_records],
-                  "number_as_percent_of_inconsistent_records_excluding_old_with_constant_u = 0": [100*(len(old_id_qc_0)-len(old_id_u_0))/num_inconsistent_records],
-                  "number_as_percent_of_all_records_excluding_old_with_constant_u = 0": [100*(len(old_id_qc_0)-len(old_id_u_0))/num_all_records]})
+                  "number_of_records": [num_points_inconsistent_array],
+                  "number_as_percent_of_inconsistent_records": [100.0*num_points_inconsistent_array/num_inconsistent_records],
+                  "number_as_percent_of_all_records_in_both_old_and_new": [100.0*num_points_inconsistent_array/num_all_records],
+                  "number_as_percent_of_inconsistent_records_excluding_old_with_constant_u = 0": [100.0*num_points_inconsistent_array/(num_inconsistent_records-num_old_with_u_0)],
+                  "number_as_percent_of_all_records_in_both_old_and_new_excluding_old_with_constant_u = 0": [100*num_points_inconsistent_array/(num_all_records-num_old_with_u_0)]})
     return summary_df_line
 
-
-
 summary_df = pd.concat([
-    make_summary_df_line("number with constant u = 0 in old data", old_id_u_0, len(inconsistent_record_names)),
-    make_summary_df_line("number with constant qc = 0 in old data", old_id_qc_0, len(inconsistent_record_names)),
-    make_summary_df_line("number with constant fs = 0 in old data", old_id_fs_0, len(inconsistent_record_names)),
-    make_summary_df_line("number with constant u = 0 in new data", new_id_u_0, len(inconsistent_record_names)),
-    make_summary_df_line("number with constant qc = 0 in new data", new_id_qc_0, len(inconsistent_record_names)),
-    make_summary_df_line("number with constant fs = 0 in new data", new_id_fs_0, len(inconsistent_record_names)),
-    make_summary_df_line("number in old data with u > (10*new u)", old_id_u_10x, len(inconsistent_record_names)),
-    make_summary_df_line("number old data with qc > (10*new qc)", old_id_qc_10x, len(inconsistent_record_names)),
-    make_summary_df_line("number in old data with fs > (10*new fs)", old_id_fs_10x, len(inconsistent_record_names)),
-    make_summary_df_line("number in new data with u > (10*old u)", new_id_u_10x, len(inconsistent_record_names)),
-    make_summary_df_line("number in new data with qc > (10*old qc)", new_id_qc_10x, len(inconsistent_record_names)),
-    make_summary_df_line("number in new with fs > (10*old fs)", new_id_fs_10x, len(inconsistent_record_names))])
+    make_summary_df_line("number with constant u = 0 in old data", len(old_id_u_0), len(inconsistent_record_names), len(old_id_qc_0)),
+    make_summary_df_line("number with constant qc = 0 in old data", len(old_id_qc_0), len(inconsistent_record_names), len(old_id_qc_0)),
+    make_summary_df_line("number with constant fs = 0 in old data", len(old_id_fs_0), len(inconsistent_record_names), len(old_id_qc_0)),
+    make_summary_df_line("number with constant u = 0 in new data", len(new_id_u_0), len(inconsistent_record_names), len(old_id_qc_0)),
+    make_summary_df_line("number with constant qc = 0 in new data", len(new_id_qc_0), len(inconsistent_record_names), len(old_id_qc_0)),
+    make_summary_df_line("number with constant fs = 0 in new data", len(new_id_fs_0), len(inconsistent_record_names), len(old_id_qc_0)),
+    make_summary_df_line("number in old data with u > (10*new u)", len(old_id_u_10x), len(inconsistent_record_names), len(old_id_qc_0)),
+    make_summary_df_line("number old data with qc > (10*new qc)", len(old_id_qc_10x), len(inconsistent_record_names), len(old_id_qc_0)),
+    make_summary_df_line("number in old data with fs > (10*new fs)", len(old_id_fs_10x), len(inconsistent_record_names), len(old_id_qc_0)),
+    make_summary_df_line("number in new data with u > (10*old u)", len(new_id_u_10x), len(inconsistent_record_names), len(old_id_qc_0)),
+    make_summary_df_line("number in new data with qc > (10*old qc)", len(new_id_qc_10x), len(inconsistent_record_names), len(old_id_qc_0)),
+    make_summary_df_line("number in new with fs > (10*old fs)", len(new_id_fs_10x), len(inconsistent_record_names), len(old_id_qc_0))])
 
 summary_df.to_csv(identified_issues / "summary.csv")
 

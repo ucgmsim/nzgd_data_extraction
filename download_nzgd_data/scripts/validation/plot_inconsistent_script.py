@@ -9,6 +9,8 @@ import random
 import numpy as np
 
 from pathlib import Path
+
+from sqlalchemy import column
 from tqdm import tqdm
 
 import time
@@ -22,8 +24,6 @@ start_time = time.time()
 old_data_dir = Path("/home/arr65/vs30_data_input_data/parquet/data")
 new_data_dir = Path("/home/arr65/data/nzgd/processed_data/cpt/data")
 
-
-
 data_validation_check_output_dir = Path("/home/arr65/data/nzgd/validation_checks/processed_data")
 
 plot_output_dir = data_validation_check_output_dir / "plots"
@@ -35,6 +35,8 @@ identified_issues.mkdir(parents=True, exist_ok=True)
 data_validation_check_output_dir.mkdir(parents=True, exist_ok=True)
 
 df = pd.read_csv(f"{data_validation_check_output_dir}/results.csv")
+record_names_in_both_old_and_new_datasets = pd.read_csv("/home/arr65/data/nzgd/resources/record_names_in_old_and_new_datasets.csv")["record_names_in_old_and_new_datasets"].to_list()
+
 
 inconsistent_record_names = df.loc[0,"inconsistent_record_names"]
 inconsistent_record_names = inconsistent_record_names.split(" ")
@@ -126,7 +128,35 @@ print(f"percent of inconsistent records with qc > 10*new qc in old data: {100*le
 print(f"percent of inconsistent records with fs > 10*new fs in old data: {100*len(old_id_fs_10x)/len(inconsistent_record_names)}")
 print(f"percent of inconsistent records with u > 10*new u in old data: {100*len(old_id_u_10x)/len(inconsistent_record_names)}")
 
+"number with constant qc = 0 in old data"
+len(inconsistent_record_names)
 
+def make_summary_df_line(description, inconsistent_array, num_inconsistent_records, num_all_records=34663):
+    summary_df_line = pd.DataFrame({"description": [description],
+                  "number_of_records": [len(inconsistent_array)],
+                  "number_as_percent_of_inconsistent_records": [100*len(inconsistent_array)/num_inconsistent_records],
+                  "number_as_percent_of_all_records": [100*len(old_id_qc_0)/num_all_records],
+                  "number_as_percent_of_inconsistent_records_excluding_old_with_constant_u = 0": [100*(len(old_id_qc_0)-len(old_id_u_0))/num_inconsistent_records],
+                  "number_as_percent_of_all_records_excluding_old_with_constant_u = 0": [100*(len(old_id_qc_0)-len(old_id_u_0))/num_all_records]})
+    return summary_df_line
+
+
+
+summary_df = pd.concat([
+    make_summary_df_line("number with constant u = 0 in old data", old_id_u_0, len(inconsistent_record_names)),
+    make_summary_df_line("number with constant qc = 0 in old data", old_id_qc_0, len(inconsistent_record_names)),
+    make_summary_df_line("number with constant fs = 0 in old data", old_id_fs_0, len(inconsistent_record_names)),
+    make_summary_df_line("number with constant u = 0 in new data", new_id_u_0, len(inconsistent_record_names)),
+    make_summary_df_line("number with constant qc = 0 in new data", new_id_qc_0, len(inconsistent_record_names)),
+    make_summary_df_line("number with constant fs = 0 in new data", new_id_fs_0, len(inconsistent_record_names)),
+    make_summary_df_line("number in old data with u > (10*new u)", old_id_u_10x, len(inconsistent_record_names)),
+    make_summary_df_line("number old data with qc > (10*new qc)", old_id_qc_10x, len(inconsistent_record_names)),
+    make_summary_df_line("number in old data with fs > (10*new fs)", old_id_fs_10x, len(inconsistent_record_names)),
+    make_summary_df_line("number in new data with u > (10*old u)", new_id_u_10x, len(inconsistent_record_names)),
+    make_summary_df_line("number in new data with qc > (10*old qc)", new_id_qc_10x, len(inconsistent_record_names)),
+    make_summary_df_line("number in new with fs > (10*old fs)", new_id_fs_10x, len(inconsistent_record_names))])
+
+summary_df.to_csv(identified_issues / "summary.csv")
 
 ## Save new_id_qc_0 as a text file in the directory identified_issues
 np.savetxt(identified_issues / "old_id_qc_0.txt", np.array(old_id_qc_0), fmt="%s")

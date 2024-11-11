@@ -540,7 +540,7 @@ def nth_highest_value(array, n):
 
 def final_check_for_wrong_units_and_negative_values(df: pd.DataFrame,
                                                     cm_threshold = 50,
-                                                    qc_kpa_threshold: float = 80,
+                                                    qc_kpa_threshold: float = 150,
                                                     fs_kpa_threshold: float = 10,
                                                     u_kpa_threshold: float = 3,
                                                     nth_highest: int = 5) -> pd.DataFrame:

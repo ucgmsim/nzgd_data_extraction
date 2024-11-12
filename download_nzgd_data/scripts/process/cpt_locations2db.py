@@ -4,6 +4,7 @@ from pathlib import Path
 
 
 import pandas as pd
+from tqdm import tqdm
 
 from sqlalchemy import Column, ForeignKey, Integer, String, Float
 from sqlalchemy.dialects.mssql.information_schema import columns
@@ -93,9 +94,11 @@ if __name__ == '__main__':
                            "NZTM_X": nztm_yx[:,1],
                            "NZTM_Y": nztm_yx[:,0]})
 
+    cpt_df.to_csv(out_dir / "cpt_locations.csv")
+
     # Create an engine that stores data in the local directory's
     # sqlalchemy_example.db file.
-    engine = create_engine('sqlite:///nz_cpt.db')
+    engine = create_engine(f'sqlite:///{out_dir}/nz_cpt.db')
     Base.metadata.drop_all(engine)
 
     # Create all tables in the engine. This is equivalent to "Create Table"
@@ -105,7 +108,7 @@ if __name__ == '__main__':
     DBSession = sessionmaker(bind=engine)
     session = DBSession()
 
-    for row_n, cpt in cpt_df.iterrows():
+    for row_n, cpt in tqdm(cpt_df.iterrows(), total=len(cpt_df)):
         new_record = CPTLocation(
             name=cpt.CombinedName,
             private=1 if cpt['TTGD Only'] else 0,

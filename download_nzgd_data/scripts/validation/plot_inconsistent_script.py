@@ -43,14 +43,19 @@ inconsistent_record_names = inconsistent_record_names.split(" ")
 
 uncategorized_issues = []
 
-new_id_qc_0 = []
 old_id_qc_0 = []
-
-new_id_fs_0 = []
 old_id_fs_0 = []
-
-new_id_u_0 = []
 old_id_u_0 = []
+
+old_id_qc_less_than_zero = []
+old_id_fs_less_than_zero = []
+
+new_id_qc_0 = []
+new_id_fs_0 = []
+new_id_u_0 = []
+
+new_id_qc_less_than_0 = []
+new_id_fs_less_than_0 = []
 
 new_id_qc_10x = []
 new_id_fs_10x = []
@@ -68,25 +73,42 @@ for record_name in tqdm(inconsistent_record_names):
                                                                      old_data_ffp = old_data_dir,
                                                                      new_data_ffp=new_data_dir)
 
-    if np.isclose(old_df["qc"],0).all():
-        old_id_qc_0.append(record_name)
-        plot_subdir = plot_output_dir / "old_qc_all_zeros"
-    elif np.isclose(new_df["qc"],0).all():
-        new_id_qc_0.append(record_name)
-        plot_subdir = plot_output_dir / "new_qc_all_zeros"
-    elif np.isclose(old_df["fs"],0).all():
-        old_id_fs_0.append(record_name)
-        plot_subdir = plot_output_dir / "old_fs_all_zeros"
-    elif np.isclose(new_df["fs"],0).all():
-        new_id_fs_0.append(record_name)
-        plot_subdir = plot_output_dir / "new_fs_all_zeros"
-    elif np.isclose(old_df["u"],0).all():
+    if np.isclose(old_df["u"],0).all():
         old_id_u_0.append(record_name)
         plot_subdir = plot_output_dir / "old_u_all_zeros"
     elif np.isclose(new_df["u"],0).all():
         new_id_u_0.append(record_name)
         plot_subdir = plot_output_dir / "new_u_all_zeros"
 
+    elif np.isclose(old_df["qc"],0).all():
+        old_id_qc_0.append(record_name)
+        plot_subdir = plot_output_dir / "old_qc_all_zeros"
+    elif old_df["qc"].min() < 0:
+        old_id_qc_less_than_zero.append(record_name)
+        plot_subdir = plot_output_dir / "old_qc_less_than_0"
+
+    elif np.isclose(new_df["qc"],0).all():
+        new_id_qc_0.append(record_name)
+        plot_subdir = plot_output_dir / "new_qc_all_zeros"
+    elif new_df["qc"].min() < 0:
+        new_id_qc_less_than_0.append(record_name)
+        plot_subdir = plot_output_dir / "new_qc_less_than_0"
+
+    elif np.isclose(old_df["fs"],0).all():
+        old_id_fs_0.append(record_name)
+        plot_subdir = plot_output_dir / "old_fs_all_zeros"
+    elif old_df["fs"].min() < 0:
+        old_id_fs_less_than_zero.append(record_name)
+        plot_subdir = plot_output_dir / "old_fs_less_than_0"
+
+    elif np.isclose(new_df["fs"],0).all():
+        new_id_fs_0.append(record_name)
+        plot_subdir = plot_output_dir / "new_fs_all_zeros"
+    elif new_df["fs"].min() < 0:
+        new_id_fs_less_than_0.append(record_name)
+        plot_subdir = plot_output_dir / "new_fs_less_than_0"
+
+     ### if the max of one data set is 10 times the max of the other data set
     elif new_df["qc"].max() > 10*old_df["qc"].max():
         new_id_qc_10x.append(record_name)
         plot_subdir = plot_output_dir / "new_qc_10x"
@@ -127,8 +149,8 @@ def make_summary_df_line(description, num_points_inconsistent_array, num_inconsi
     return summary_df_line
 
 summary_df = pd.concat([
-    make_summary_df_line("number with constant u = 0 in old data", len(old_id_u_0), len(inconsistent_record_names), len(old_id_u_0)),
-    make_summary_df_line("number with constant qc = 0 in old data", len(old_id_qc_0), len(inconsistent_record_names), len(old_id_u_0)),
+    make_summary_df_line("number with constant u = 0 in old data", len(old_id_u_0), len(inconsistent_record_names), np.nan), ### subtituting np.nan for num_old_with_u_0 is not applicable since we use it to find the percentage excluding the old records with constant u = 0 (which would exclude itself)
+    make_summary_df_line("number with constant qc = 0 in old data", len(old_id_qc_0), len(inconsistent_record_names), np.nan),
     make_summary_df_line("number with constant fs = 0 in old data", len(old_id_fs_0), len(inconsistent_record_names), len(old_id_u_0)),
     make_summary_df_line("number with constant u = 0 in new data", len(new_id_u_0), len(inconsistent_record_names), len(old_id_u_0)),
     make_summary_df_line("number with constant qc = 0 in new data", len(new_id_qc_0), len(inconsistent_record_names), len(old_id_u_0)),

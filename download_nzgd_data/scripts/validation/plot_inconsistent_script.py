@@ -110,33 +110,36 @@ for record_name in tqdm(inconsistent_record_names):
         plot_subdir = plot_output_dir / "uncategorized_issues"
         uncategorized_issues.append(record_name)
     plot_subdir.mkdir(parents=True, exist_ok=True)
-    helpers.plot_residual(residual, old_df, interpolated_df, new_df, record_name=record_name, plot_output_dir=plot_subdir)
+    #helpers.plot_residual(residual, old_df, interpolated_df, new_df, record_name=record_name, plot_output_dir=plot_subdir)
     inconsistent_record_counter += 1
 
 
 def make_summary_df_line(description, num_points_inconsistent_array, num_inconsistent_records, num_old_with_u_0, num_all_records=34663.0):
     summary_df_line = pd.DataFrame({"description": [description],
-                  "number_of_records": [num_points_inconsistent_array],
+                  "number_of_records_with_this_issue": [num_points_inconsistent_array],
+                  "number_of_inconsistent_records": [num_inconsistent_records],
+                  "number_of_records_both_in_old_and_new_for_comparison": [num_all_records],
                   "number_as_percent_of_inconsistent_records": [100.0*num_points_inconsistent_array/num_inconsistent_records],
                   "number_as_percent_of_all_records_in_both_old_and_new": [100.0*num_points_inconsistent_array/num_all_records],
                   "number_as_percent_of_inconsistent_records_excluding_old_with_constant_u = 0": [100.0*num_points_inconsistent_array/(num_inconsistent_records-num_old_with_u_0)],
                   "number_as_percent_of_all_records_in_both_old_and_new_excluding_old_with_constant_u = 0": [100*num_points_inconsistent_array/(num_all_records-num_old_with_u_0)]})
+
     return summary_df_line
 
 summary_df = pd.concat([
-    make_summary_df_line("number with constant u = 0 in old data", len(old_id_u_0), len(inconsistent_record_names), len(old_id_qc_0)),
-    make_summary_df_line("number with constant qc = 0 in old data", len(old_id_qc_0), len(inconsistent_record_names), len(old_id_qc_0)),
-    make_summary_df_line("number with constant fs = 0 in old data", len(old_id_fs_0), len(inconsistent_record_names), len(old_id_qc_0)),
-    make_summary_df_line("number with constant u = 0 in new data", len(new_id_u_0), len(inconsistent_record_names), len(old_id_qc_0)),
-    make_summary_df_line("number with constant qc = 0 in new data", len(new_id_qc_0), len(inconsistent_record_names), len(old_id_qc_0)),
-    make_summary_df_line("number with constant fs = 0 in new data", len(new_id_fs_0), len(inconsistent_record_names), len(old_id_qc_0)),
-    make_summary_df_line("number in old data with u > (10*new u)", len(old_id_u_10x), len(inconsistent_record_names), len(old_id_qc_0)),
-    make_summary_df_line("number old data with qc > (10*new qc)", len(old_id_qc_10x), len(inconsistent_record_names), len(old_id_qc_0)),
-    make_summary_df_line("number in old data with fs > (10*new fs)", len(old_id_fs_10x), len(inconsistent_record_names), len(old_id_qc_0)),
-    make_summary_df_line("number in new data with u > (10*old u)", len(new_id_u_10x), len(inconsistent_record_names), len(old_id_qc_0)),
-    make_summary_df_line("number in new data with qc > (10*old qc)", len(new_id_qc_10x), len(inconsistent_record_names), len(old_id_qc_0)),
-    make_summary_df_line("number in new with fs > (10*old fs)", len(new_id_fs_10x), len(inconsistent_record_names), len(old_id_qc_0)),
-    make_summary_df_line("uncategorized issues", len(uncategorized_issues), len(inconsistent_record_names), len(old_id_qc_0))],
+    make_summary_df_line("number with constant u = 0 in old data", len(old_id_u_0), len(inconsistent_record_names), len(old_id_u_0)),
+    make_summary_df_line("number with constant qc = 0 in old data", len(old_id_qc_0), len(inconsistent_record_names), len(old_id_u_0)),
+    make_summary_df_line("number with constant fs = 0 in old data", len(old_id_fs_0), len(inconsistent_record_names), len(old_id_u_0)),
+    make_summary_df_line("number with constant u = 0 in new data", len(new_id_u_0), len(inconsistent_record_names), len(old_id_u_0)),
+    make_summary_df_line("number with constant qc = 0 in new data", len(new_id_qc_0), len(inconsistent_record_names), len(old_id_u_0)),
+    make_summary_df_line("number with constant fs = 0 in new data", len(new_id_fs_0), len(inconsistent_record_names), len(old_id_u_0)),
+    make_summary_df_line("number in old data with u > (10*new u)", len(old_id_u_10x), len(inconsistent_record_names), len(old_id_u_0)),
+    make_summary_df_line("number old data with qc > (10*new qc)", len(old_id_qc_10x), len(inconsistent_record_names), len(old_id_u_0)),
+    make_summary_df_line("number in old data with fs > (10*new fs)", len(old_id_fs_10x), len(inconsistent_record_names), len(old_id_u_0)),
+    make_summary_df_line("number in new data with u > (10*old u)", len(new_id_u_10x), len(inconsistent_record_names), len(old_id_u_0)),
+    make_summary_df_line("number in new data with qc > (10*old qc)", len(new_id_qc_10x), len(inconsistent_record_names), len(old_id_u_0)),
+    make_summary_df_line("number in new with fs > (10*old fs)", len(new_id_fs_10x), len(inconsistent_record_names), len(old_id_u_0)),
+    make_summary_df_line("uncategorized issues", len(uncategorized_issues), len(inconsistent_record_names), len(old_id_u_0))],
     ignore_index=True)
 
 summary_df.to_csv(identified_issues / "summary.csv")

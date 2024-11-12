@@ -408,7 +408,7 @@ def get_column_names(df):
 
     return df, final_col_names
 
-def convert_to_m_and_mpa(df, col_names):
+def convert_explicit_indications_of_cm_and_kpa(df, col_names):
 
     for col_index, col_name in enumerate(col_names):
 
@@ -538,7 +538,7 @@ def nth_highest_value(array, n):
 
     return sorted_array[-n]
 
-def final_check_for_wrong_units_and_negative_values(df: pd.DataFrame,
+def infer_wrong_units(df: pd.DataFrame,
                                                     cm_threshold = 50,
                                                     qc_kpa_threshold: float = 150,
                                                     fs_kpa_threshold: float = 10,
@@ -584,14 +584,33 @@ def final_check_for_wrong_units_and_negative_values(df: pd.DataFrame,
     if nth_highest_value(df[list(column_descriptions)[3]].values, nth_highest) > u_kpa_threshold:
         df[list(column_descriptions)[3]] /= 1000
 
+    return df
+
+def ensure_positive_depth_and_qc_fs_gtr_0(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Ensure that the depth column has positive values and remove rows with negative values in qc and fs.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        The input DataFrame containing the data to be checked.
+
+    Returns
+    -------
+    pd.DataFrame
+        The corrected DataFrame with positive depth values and no negative values in qc and fs columns.
+    """
+
+    with open(Path(__file__).parent.parent / "resources" / "cpt_column_name_descriptions.toml", "r") as toml_file:
+        column_descriptions = toml.load(toml_file)
+
     ## Ensure that the depth column is defined as positive (some have depth as negative)
     df[list(column_descriptions)[0]] = np.abs(df[list(column_descriptions)[0]])
 
-    ## Drop any rows of df that have negative values in columns qc or fs
-    df = df[(df[list(column_descriptions)[1]] >= 0) & (df[list(column_descriptions)[2]] >= 0)]
+    ## Ensure that qc and fs are greater than 0
+    df = df[(df[list(column_descriptions)[1]] > 0) & (df[list(column_descriptions)[2]] > 0)]
 
     return df
-
 
 
 

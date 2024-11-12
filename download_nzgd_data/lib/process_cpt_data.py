@@ -183,15 +183,17 @@ def load_ags(file_path: Path, investigation_type: processing_helpers.Investigati
 
     ### If the values are unrealistically large in MPa, they are likely in kPa so convert to MPa.
     ### Similarly, unrealistically large depth values may be in cm so convert to m.
-    ### Also make sure that depth is positive and drop rows that have negative values of qc and fs
-    loaded_data_df = processing_helpers.final_check_for_wrong_units_and_negative_values(loaded_data_df)
+    loaded_data_df = processing_helpers.infer_wrong_units(loaded_data_df)
+
+    ### Ensure that the depth column has positive values and that qc and fs are greater than 0
+    loaded_data_df = processing_helpers.ensure_positive_depth_and_qc_fs_gtr_0(loaded_data_df)
 
     if loaded_data_df.empty:
         raise FileProcessingError("ags_tried_to_save_empty - Tried to save an empty DataFrame")
     return loaded_data_df
 
 
-def load_cpt_spreadsheet_file(file_path: Path) -> pd.DataFrame:
+def load_cpt_spreadsheet_file(file_path: Path) -> list[pd.DataFrame]:
     """
     Load the results of a Cone Penetration Test (CPT) from an Excel file.
 
@@ -304,7 +306,7 @@ def load_cpt_spreadsheet_file(file_path: Path) -> pd.DataFrame:
         df.attrs["header_row_index_in_original_file"] = float(header_row_index)
         df.reset_index(inplace=True, drop=True)
         df, final_col_names = processing_helpers.get_column_names(df)
-        df = processing_helpers.convert_to_m_and_mpa(df, final_col_names)
+        df = processing_helpers.convert_explicit_indications_of_cm_and_kpa(df, final_col_names)
 
         final_col_names_without_none = [col for col in final_col_names if col is not None]
         if all(i is not None for i in final_col_names) & (len(np.unique(final_col_names_without_none)) == len(final_col_names_without_none)):
@@ -319,7 +321,10 @@ def load_cpt_spreadsheet_file(file_path: Path) -> pd.DataFrame:
             ### If the values are unrealistically large in MPa, they are likely in kPa so convert to MPa.
             ### Similarly, unrealistically large depth values may be in cm so convert to m.
             ### Also make sure that depth is positive and drop rows that have negative values of qc and fs
-            df = processing_helpers.final_check_for_wrong_units_and_negative_values(df)
+            df = processing_helpers.infer_wrong_units(df)
+
+            ### Ensure that the depth column has positive values and that qc and fs are greater than 0
+            df = processing_helpers.ensure_positive_depth_and_qc_fs_gtr_0(df)
             dataframes_to_return.append(df)
 
         else:

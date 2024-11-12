@@ -186,6 +186,8 @@ def load_ags(file_path: Path, investigation_type: processing_helpers.Investigati
     ### Also make sure that depth is positive and drop rows that have negative values of qc and fs
     loaded_data_df = processing_helpers.final_check_for_wrong_units_and_negative_values(loaded_data_df)
 
+    if loaded_data_df.empty:
+        raise FileProcessingError("ags_tried_to_save_empty - Tried to save an empty DataFrame")
     return loaded_data_df
 
 

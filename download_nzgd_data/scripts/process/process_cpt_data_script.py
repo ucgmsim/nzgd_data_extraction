@@ -144,6 +144,8 @@ for record_dir in tqdm(records_to_process):
             record_df.insert(2, "longitude", nzgd_meta_data_record["Longitude"])
 
             record_df.reset_index(inplace=True, drop=True)
+            if record_df.empty:
+                raise processing_helpers.FileProcessingError("spreadsheet_dataframe_empty - while loading from a spreadsheet, tried to save an empty dataframe")
 
             record_df.to_parquet(parquet_output_dir / f"{record_dir.name}.parquet")
             has_loaded_a_file_for_this_record = True

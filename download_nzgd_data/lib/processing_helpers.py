@@ -409,6 +409,7 @@ def get_column_names(df):
     return df, final_col_names
 
 def convert_explicit_indications_of_cm_and_kpa(df, col_names):
+    explicit_unit_conversions = []
 
     for col_index, col_name in enumerate(col_names):
 
@@ -418,11 +419,16 @@ def convert_explicit_indications_of_cm_and_kpa(df, col_names):
                 # checking the depth column
                 if "cm" in col_name.lower():
                     df.loc[:, col_name] /= 100
+                    explicit_unit_conversions.append(f"{col_name} was converted from cm to m")
 
             else:
                 # checking the other columns
                 if "kpa" in col_name.lower():
                     df.loc[:, col_name] /= 1000
+                    explicit_unit_conversions.append(f"{col_name} was converted from kPa to MPa")
+
+    df.attrs["explicit_unit_conversions"] = ", ".join(explicit_unit_conversions)
+
     return df
 
 def load_csv_or_txt(file_path, sheet="0", col_data_types=np.array(["Depth",
@@ -574,15 +580,22 @@ def infer_wrong_units(df: pd.DataFrame,
     with open(Path(__file__).parent.parent / "resources" / "cpt_column_name_descriptions.toml", "r") as toml_file:
         column_descriptions = toml.load(toml_file)
 
+    inferred_unit_conversions = []
+
     if nth_highest_value(df[list(column_descriptions)[0]].values, nth_highest) > cm_threshold:
         df[list(column_descriptions)[0]] /= 100
-
+        inferred_unit_conversions.append(f"{list(column_descriptions)[0]} was converted from cm to m")
     if nth_highest_value(df[list(column_descriptions)[1]].values, nth_highest) > qc_kpa_threshold:
         df[list(column_descriptions)[1]] /= 1000
+        inferred_unit_conversions.append(f"{list(column_descriptions)[0]} was converted from kPa to MPa")
     if nth_highest_value(df[list(column_descriptions)[2]].values, nth_highest) > fs_kpa_threshold:
         df[list(column_descriptions)[2]] /= 1000
+        inferred_unit_conversions.append(f"{list(column_descriptions)[0]} was converted from kPa to MPa")
     if nth_highest_value(df[list(column_descriptions)[3]].values, nth_highest) > u_kpa_threshold:
         df[list(column_descriptions)[3]] /= 1000
+        inferred_unit_conversions.append(f"{list(column_descriptions)[0]} was converted from kPa to MPa")
+
+    df.attrs["inferred_unit_conversions"] = ", ".join(inferred_unit_conversions)
 
     return df
 
@@ -605,10 +618,16 @@ def ensure_positive_depth_and_qc_fs_gtr_0(df: pd.DataFrame) -> pd.DataFrame:
         column_descriptions = toml.load(toml_file)
 
     ## Ensure that the depth column is defined as positive (some have depth as negative)
-    df[list(column_descriptions)[0]] = np.abs(df[list(column_descriptions)[0]])
+    if df[list(column_descriptions)[0]].min() < 0:
+        df[list(column_descriptions)[0]] = np.abs(df[list(column_descriptions)[0]])
+        df.attrs["depth_originally_defined_as_negative"] = True
 
     ## Ensure that qc and fs are greater than 0
-    df = df[(df[list(column_descriptions)[1]] > 0) & (df[list(column_descriptions)[2]] > 0)]
+    row_indices_to_keep = (df[list(column_descriptions)[1]] > 0) & (df[list(column_descriptions)[2]] > 0)
+    df = df[row_indices_to_keep]
+    dropped_row_indices_as_int = np.where(row_indices_to_keep==False)[0]
+    dropped_row_indices_as_str = [str(i) for i in dropped_row_indices_as_int]
+    df.attrs["qc_fs_row_indices_dropped_for_not_greater_than_zero"] = ", ".join(dropped_row_indices_as_str)
 
     return df
 

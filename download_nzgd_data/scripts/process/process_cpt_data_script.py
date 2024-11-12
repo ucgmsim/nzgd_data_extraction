@@ -36,29 +36,29 @@ downloaded_files = Path(f"/home/arr65/data/nzgd/downloads_and_metadata/unorganis
 #records_to_skip = pd.read_csv("/home/arr65/src/download_nzgd_data/download_nzgd_data/resources/cpt_loaded_from_spreadsheet_in_23102024_1042.csv")["record_name"].to_list()
 records_to_skip = []
 
-# records_to_process = []
-# for record_dir in natsort.natsorted(list(downloaded_files.glob("*"))):
-#     if record_dir.name not in records_to_skip:
-#     #if record_dir.name in records_to_redo:
-#         records_to_process.append(record_dir)
-#
-# downloaded_record_names = set([record_dir.name for record_dir in records_to_process])
-#
-# ### A small number of records have been removed from the NZGD after they were downloaded.
-# ### These records were likely removed for a reason such data quality or permission issues, so they are not considered.
-#
-# records_currently_in_nzgd = set(nzgd_index_df["ID"].values)
-# records_that_have_been_removed = downloaded_record_names - records_currently_in_nzgd
-#
-# if len(records_that_have_been_removed) > 0:
-#     print("The following records have been removed from the NZGD and will not be processed:")
-#     for removed_record in records_that_have_been_removed:
-#         print(removed_record)
-#
-#     ## Remove the records that have been removed from the list of records to process
-#     records_to_process = [record_dir for record_dir in records_to_process if record_dir.name not in records_that_have_been_removed]
+records_to_process = []
+for record_dir in natsort.natsorted(list(downloaded_files.glob("*"))):
+    if record_dir.name not in records_to_skip:
+    #if record_dir.name in records_to_redo:
+        records_to_process.append(record_dir)
 
-records_to_process = [Path("/home/arr65/data/nzgd/downloads_and_metadata/unorganised_raw_from_nzgd/cpt/CPT_17829")]
+downloaded_record_names = set([record_dir.name for record_dir in records_to_process])
+
+### A small number of records have been removed from the NZGD after they were downloaded.
+### These records were likely removed for a reason such data quality or permission issues, so they are not considered.
+
+records_currently_in_nzgd = set(nzgd_index_df["ID"].values)
+records_that_have_been_removed = downloaded_record_names - records_currently_in_nzgd
+
+if len(records_that_have_been_removed) > 0:
+    print("The following records have been removed from the NZGD and will not be processed:")
+    for removed_record in records_that_have_been_removed:
+        print(removed_record)
+
+    ## Remove the records that have been removed from the list of records to process
+    records_to_process = [record_dir for record_dir in records_to_process if record_dir.name not in records_that_have_been_removed]
+
+#records_to_process = [Path("/home/arr65/data/nzgd/downloads_and_metadata/unorganised_raw_from_nzgd/cpt/CPT_17829")]
 
 ## Create dataframes to store metadata
 spreadsheet_format_description = pd.DataFrame()
@@ -136,6 +136,12 @@ for record_dir in tqdm(records_to_process):
                 else:
                     record_df = pd.concat([record_df, record_df_list[record_df_idx]], ignore_index=True)
 
+            # If some attributes were lost by the concatenation, add them back
+            if len(record_df.attrs.keys()) != record_df_copy_for_attrs.attrs.keys():
+                for i in record_df_copy_for_attrs.attrs.keys():
+                    if i not in record_df.attrs.keys():
+                        record_df.attrs[i] = record_df_copy_for_attrs.attrs[i]
+
             record_df.attrs["max_depth"] = record_df["Depth"].max()
             record_df.attrs["min_depth"] = record_df["Depth"].min()
             # record original name and location as attributes and columns
@@ -150,6 +156,7 @@ for record_dir in tqdm(records_to_process):
                 raise processing_helpers.FileProcessingError("spreadsheet_dataframe_empty - while loading from a spreadsheet, tried to save an empty dataframe")
 
             record_df.to_parquet(parquet_output_dir / f"{record_dir.name}.parquet")
+
             has_loaded_a_file_for_this_record = True
             spreadsheet_format_description_per_record = pd.DataFrame([{"record_name":record_dir.name,
                                                                "header_row_index":record_df_copy_for_attrs.attrs["header_row_index_in_original_file"],
@@ -173,6 +180,7 @@ for record_dir in tqdm(records_to_process):
 
         except(processing_helpers.FileProcessingError, ValueError, xlrd.compdoc.CompDocError, Exception) as e:
 
+
             loading_summary_df = partial_summary_df_helper(loading_summary_df, file_was_loaded=False,
                                                            loaded_file_type="N/A",
                                                            loaded_file_name="N/A")
@@ -194,8 +202,6 @@ for record_dir in tqdm(records_to_process):
             else:
                 # there are other files to try so continue to the next file
                 continue
-
-
     ##########
 
     if has_loaded_a_file_for_this_record:

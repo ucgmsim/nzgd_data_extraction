@@ -252,6 +252,9 @@ def load_cpt_spreadsheet_file(file_path: Path) -> list[pd.DataFrame]:
         df.attrs["original_file_name"] = file_path.name
         df.attrs["sheet_in_original_file"] = sheet
         df.attrs["column_name_descriptions"] = column_descriptions
+        df.attrs["explicit_unit_conversions"] = []
+        df.attrs["inferred_unit_conversions"] = []
+        df.attrs["depth_originally_defined_as_negative"] = False
 
         df_for_counting_str_per_row = df.map(lambda x: 1.0 if isinstance(x, (str)) else 0)
 
@@ -341,7 +344,7 @@ def load_cpt_spreadsheet_file(file_path: Path) -> list[pd.DataFrame]:
 
     final_missing_cols = find_missing_cols_for_best_sheet(missing_cols_per_sheet)
     if len(final_missing_cols) > 0:
-        raise ValueError(f"missing_columns - sheet ({sheet.replace('-', '_')}) is missing [{' & '.join(final_missing_cols)}]")
+        processing_helpers.FileProcessingError(f"missing_columns - sheet ({sheet.replace('-', '_')}) is missing [{' & '.join(final_missing_cols)}]")
 
     else:
-        raise ValueError(error_text[0])
+        processing_helpers.FileProcessingError(error_text[0])

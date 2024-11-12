@@ -41,7 +41,7 @@ record_names_in_both_old_and_new_datasets = pd.read_csv("/home/arr65/data/nzgd/r
 inconsistent_record_names = df.loc[0,"inconsistent_record_names"]
 inconsistent_record_names = inconsistent_record_names.split(" ")
 
-count_of_inconsistent_plots = 0
+uncategorized_issues = []
 
 new_id_qc_0 = []
 old_id_qc_0 = []
@@ -59,6 +59,8 @@ new_id_u_10x = []
 old_id_qc_10x = []
 old_id_fs_10x = []
 old_id_u_10x = []
+
+inconsistent_record_counter = 0
 
 for record_name in tqdm(inconsistent_record_names):
 
@@ -105,12 +107,11 @@ for record_name in tqdm(inconsistent_record_names):
         plot_subdir = plot_output_dir / "old_u_10x"
 
     else:
-        plot_subdir = plot_output_dir / "no_cols_all_zeros"
+        plot_subdir = plot_output_dir / "uncategorized_issues"
+        uncategorized_issues.append(record_name)
     plot_subdir.mkdir(parents=True, exist_ok=True)
-
     helpers.plot_residual(residual, old_df, interpolated_df, new_df, record_name=record_name, plot_output_dir=plot_subdir)
-
-    count_of_inconsistent_plots += 1
+    inconsistent_record_counter += 1
 
 
 def make_summary_df_line(description, num_points_inconsistent_array, num_inconsistent_records, num_old_with_u_0, num_all_records=34663.0):
@@ -134,7 +135,9 @@ summary_df = pd.concat([
     make_summary_df_line("number in old data with fs > (10*new fs)", len(old_id_fs_10x), len(inconsistent_record_names), len(old_id_qc_0)),
     make_summary_df_line("number in new data with u > (10*old u)", len(new_id_u_10x), len(inconsistent_record_names), len(old_id_qc_0)),
     make_summary_df_line("number in new data with qc > (10*old qc)", len(new_id_qc_10x), len(inconsistent_record_names), len(old_id_qc_0)),
-    make_summary_df_line("number in new with fs > (10*old fs)", len(new_id_fs_10x), len(inconsistent_record_names), len(old_id_qc_0))])
+    make_summary_df_line("number in new with fs > (10*old fs)", len(new_id_fs_10x), len(inconsistent_record_names), len(old_id_qc_0)),
+    make_summary_df_line("uncategorized issues", len(uncategorized_issues), len(inconsistent_record_names), len(old_id_qc_0))],
+    ignore_index=True)
 
 summary_df.to_csv(identified_issues / "summary.csv")
 

@@ -72,51 +72,51 @@ plt.legend()
 plt.savefig(check_output_dir / "num_points_in_new_and_old.png",dpi=500)
 plt.close()
 print()
-#
-#
-# # ids_in_both_old_and_new_datasets = ["CPT_143345"]
-#
-# print("starting check")
-#
-# #allowed_percentages_not_close_to_zero = np.array([5])
-# #allowed_percentages_not_close_to_zero = np.arange(5,50,5)
-# #allowed_percentages_not_close_to_zero = np.array([5])
-#
-# allowed_percentages_not_close_to_zero = 10.0
-# max_allowed_resid_as_pc_of_mean_vect = np.array([1,3,5,10,15,20])
-# #max_allowed_resid_as_pc_of_mean_vect = np.array([10,50,100])
-# #max_allowed_resid_as_pc_of_mean_vect = np.array([50,60])#
-#
-# concat_results_df = pd.DataFrame()
-#
-# #for index, allowed_percentage_not_close_to_zero in tqdm(enumerate(allowed_percentages_not_close_to_zero)):
-# for index, max_allowed_resid_as_pc_of_old_range in tqdm(enumerate(max_allowed_resid_as_pc_of_mean_vect),
-#                                                    total=len(max_allowed_resid_as_pc_of_mean_vect)):
-#
-#     check_residual_partial = functools.partial(helpers.check_residual,
-#                                                old_data_ffp=old_data_dir,
-#                                                new_data_ffp=new_data_dir,
-#                                                max_allowed_resid_as_pc_of_old_range = max_allowed_resid_as_pc_of_old_range,
-#                                                allowed_percent_not_close_to_zero=allowed_percentages_not_close_to_zero)
-#
-#     with multiprocessing.Pool(processes=8) as pool:
-#         residuals_ok_for_record = pool.map(check_residual_partial, ids_in_both_old_and_new_datasets)
-#
-#     inconsistent_record_names = list(np.array(ids_in_both_old_and_new_datasets)[~np.array(residuals_ok_for_record)])
-#     num_inconsistent_records = len(inconsistent_record_names)
-#
-#     inconsistent_record_names_str = " ".join(inconsistent_record_names)
-#
-#     results_df = pd.DataFrame({"allowed_percentages_not_close_to_zero": [allowed_percentages_not_close_to_zero],
-#                                "max_allowed_resid_as_pc_of_old_range": [max_allowed_resid_as_pc_of_old_range],
-#                                "num_inconsistent_records": [num_inconsistent_records],
-#                                "num_records_in_both_old_and_new": [len(ids_in_both_old_and_new_datasets)],
-#                                "percent_inconsistent_records": [100*num_inconsistent_records/len(ids_in_both_old_and_new_datasets)],
-#                                "inconsistent_record_names":[inconsistent_record_names_str]})
-#
-#     concat_results_df = pd.concat([concat_results_df,results_df],ignore_index=True)
-#
-# concat_results_df.to_csv(check_output_dir / "results.csv")
+
+
+# ids_in_both_old_and_new_datasets = ["CPT_143345"]
+
+print("starting check")
+
+#allowed_percentages_not_close_to_zero = np.array([5])
+#allowed_percentages_not_close_to_zero = np.arange(5,50,5)
+#allowed_percentages_not_close_to_zero = np.array([5])
+
+allowed_percentages_not_close_to_zero = 10.0
+max_allowed_resid_as_pc_of_mean_vect = np.array([1,3,5,10,15,20])
+#max_allowed_resid_as_pc_of_mean_vect = np.array([10,50,100])
+#max_allowed_resid_as_pc_of_mean_vect = np.array([50,60])#
+
+concat_results_df = pd.DataFrame()
+
+#for index, allowed_percentage_not_close_to_zero in tqdm(enumerate(allowed_percentages_not_close_to_zero)):
+for index, max_allowed_resid_as_pc_of_old_range in tqdm(enumerate(max_allowed_resid_as_pc_of_mean_vect),
+                                                   total=len(max_allowed_resid_as_pc_of_mean_vect)):
+
+    check_residual_partial = functools.partial(helpers.check_residual,
+                                               old_data_ffp=old_data_dir,
+                                               new_data_ffp=new_data_dir,
+                                               max_allowed_resid_as_pc_of_old_range = max_allowed_resid_as_pc_of_old_range,
+                                               allowed_percent_not_close_to_zero=allowed_percentages_not_close_to_zero)
+
+    with multiprocessing.Pool(processes=8) as pool:
+        residuals_ok_for_record = pool.map(check_residual_partial, ids_in_both_old_and_new_datasets)
+
+    inconsistent_record_names = list(np.array(ids_in_both_old_and_new_datasets)[~np.array(residuals_ok_for_record)])
+    num_inconsistent_records = len(inconsistent_record_names)
+
+    inconsistent_record_names_str = " ".join(inconsistent_record_names)
+
+    results_df = pd.DataFrame({"allowed_percentages_not_close_to_zero": [allowed_percentages_not_close_to_zero],
+                               "max_allowed_resid_as_pc_of_old_range": [max_allowed_resid_as_pc_of_old_range],
+                               "num_inconsistent_records": [num_inconsistent_records],
+                               "num_records_in_both_old_and_new": [len(ids_in_both_old_and_new_datasets)],
+                               "percent_inconsistent_records": [100*num_inconsistent_records/len(ids_in_both_old_and_new_datasets)],
+                               "inconsistent_record_names":[inconsistent_record_names_str]})
+
+    concat_results_df = pd.concat([concat_results_df,results_df],ignore_index=True)
+
+concat_results_df.to_csv(check_output_dir / "inconsistent_records_with_variable_thresholds.csv")
 
 print(f"time taken: {(time.time()-start_time)/60} minutes")
 

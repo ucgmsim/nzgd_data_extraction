@@ -34,7 +34,7 @@ identified_issues.mkdir(parents=True, exist_ok=True)
 
 data_validation_check_output_dir.mkdir(parents=True, exist_ok=True)
 
-df = pd.read_csv(f"{data_validation_check_output_dir}/results.csv")
+df = pd.read_csv(f"{data_validation_check_output_dir}/inconsistent_records_with_variable_thresholds.csv")
 record_names_in_both_old_and_new_datasets = pd.read_csv("/home/arr65/data/nzgd/resources/record_names_in_old_and_new_datasets.csv")["record_names_in_old_and_new_datasets"].to_list()
 
 

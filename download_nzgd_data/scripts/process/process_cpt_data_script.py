@@ -17,10 +17,10 @@ investigation_type = processing_helpers.InvestigationType.cpt
 nzgd_index_df = pd.read_csv(Path("/home/arr65/data/nzgd/nzgd_index_files/csv_files/"
                                  "NZGD_Investigation_Report_08112024_1017.csv"))
 
-output_dir = Path(f"/home/arr65/data/nzgd/processed_data_test/{investigation_type}")
+output_dir = Path(f"/home/arr65/data/nzgd/processed_data/{investigation_type}")
 
-# if output_dir.exists():
-#     raise ValueError("Output directory already exists.")
+if output_dir.exists():
+    raise ValueError("Output directory already exists. Delete or rename previous output and try again.")
 
 ### !!! GO HERE
 parquet_output_dir = output_dir / "data"
@@ -44,9 +44,8 @@ for record_dir in natsort.natsorted(list(downloaded_files.glob("*"))):
 
 downloaded_record_names = set([record_dir.name for record_dir in records_to_process])
 
-### A small number of records have been removed from the NZGD after they were downloaded.
-### These records were likely removed for a reason such data quality or permission issues, so they are not considered.
-
+## A small number of records have been removed from the NZGD after they were downloaded.
+## These records were likely removed for a reason such data quality or permission issues, so they are not considered.
 records_currently_in_nzgd = set(nzgd_index_df["ID"].values)
 records_that_have_been_removed = downloaded_record_names - records_currently_in_nzgd
 
@@ -58,7 +57,7 @@ if len(records_that_have_been_removed) > 0:
     ## Remove the records that have been removed from the list of records to process
     records_to_process = [record_dir for record_dir in records_to_process if record_dir.name not in records_that_have_been_removed]
 
-#records_to_process = [Path("/home/arr65/data/nzgd/downloads_and_metadata/unorganised_raw_from_nzgd/cpt/CPT_17829")]
+#records_to_process = [Path("/home/arr65/data/nzgd/downloads_and_metadata/unorganised_raw_from_nzgd/cpt/CPT_35")]
 
 ## Create dataframes to store metadata
 spreadsheet_format_description = pd.DataFrame()

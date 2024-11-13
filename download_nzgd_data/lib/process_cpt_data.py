@@ -344,7 +344,7 @@ def load_cpt_spreadsheet_file(file_path: Path) -> list[pd.DataFrame]:
 
     final_missing_cols = find_missing_cols_for_best_sheet(missing_cols_per_sheet)
     if len(final_missing_cols) > 0:
-        processing_helpers.FileProcessingError(f"missing_columns - sheet ({sheet.replace('-', '_')}) is missing [{' & '.join(final_missing_cols)}]")
+        raise processing_helpers.FileProcessingError(f"missing_columns - sheet ({sheet.replace('-', '_')}) is missing [{' & '.join(final_missing_cols)}]")
 
     else:
-        processing_helpers.FileProcessingError(error_text[0])
+        raise processing_helpers.FileProcessingError(error_text[0])

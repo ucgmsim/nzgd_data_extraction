@@ -14,9 +14,13 @@ import time
 
 start_time = time.time()
 
-vs30_df = pd.read_csv("/home/arr65/data/nzgd/processed_data_copy/cpt/metadata/parquet_vs30_results.csv")
+#vs30_df = pd.read_csv("/home/arr65/data/nzgd/processed_data_copy/cpt/metadata/parquet_vs30_results.csv")
+vs30_df = pd.read_csv("/home/arr65/data/nzgd/old_processed_data_with_vs30/cpt/metadata/parquet_vs30_results.csv")
+
 vs30_correlation = "Boore2011"
 cpt_vs_correlation = "Andrus2007"
+
+print()
 
 print()
 ### drop rows of the vs30_df that have NaN values in the vs30 or vs30_std columns

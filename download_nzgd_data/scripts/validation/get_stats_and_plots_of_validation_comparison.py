@@ -132,7 +132,7 @@ for record_name in tqdm(inconsistent_record_names):
         plot_subdir = plot_output_dir / "uncategorized_issues"
         uncategorized_issues.append(record_name)
     plot_subdir.mkdir(parents=True, exist_ok=True)
-    #helpers.plot_residual(residual, old_df, interpolated_df, new_df, record_name=record_name, plot_output_dir=plot_subdir)
+    helpers.plot_residual(residual, old_df, interpolated_df, new_df, record_name=record_name, plot_output_dir=plot_subdir)
     inconsistent_record_counter += 1
 
 

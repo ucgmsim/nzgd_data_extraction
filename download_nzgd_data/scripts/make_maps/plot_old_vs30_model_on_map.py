@@ -133,6 +133,11 @@ fig.plot(
     cmap=True,
     style="c0.05c")
 
+fig.colorbar(
+    frame='af+l"Vs30 (m/s)"'
+)
+
+
 # print("adding colorbar...")
 # fig.colorbar(frame="xaf+llog residual (ln(new) - ln(old))")
 
@@ -143,9 +148,6 @@ fig.plot(
 # )
 # fig.colorbar(frame='af+l"Vs30 (m/s)"')
 
-fig.colorbar(
-    frame='af+l"Vs30 (m/s)"'
-)
 
 print("saving figure...")
 

@@ -1,13 +1,27 @@
+from pathlib import Path
 from pygmt_helper import plotting
 import pandas as pd
 import pygmt
+import enum
 import toml
 import numpy as np
 import matplotlib.pyplot as plt
+
 from qcore import coordinates
 
-import pygmt
-from pathlib import Path
+class CPTCorrelation(enum.StrEnum):
+    andrus_2007 = "andrus_2007"
+    robertson_2009 = "robertson_2009"
+    hegazy_2006 = "hegazy_2006"
+    mcgann_2015 = "mcgann_2015"
+    mcgann_2018 = "mcgann_2018"
+
+class Vs30Correlation(enum.StrEnum):
+    boore_2011 = "boore_2011"
+    boore_2004 = "boore_2004"    
+
+cpt_correlation = CPTCorrelation.andrus_2007
+vs30_correlation = Vs30Correlation.boore_2011
 
 record_names_in_old_dataset = pd.read_csv("/home/arr65/data/nzgd/resources/record_names_in_old_dataset.csv")["record_names_in_old_dataset"].to_list()
 
@@ -16,35 +30,61 @@ info = pygmt.grdinfo(grid=geotiff_file)
 ## Downsample the GeoTIFF using grdsample to a lower resolution for easier plotting
 downsampled_grid = pygmt.grdsample(grid=geotiff_file, spacing=1000)
 
-vs30_df = pd.read_csv("/home/arr65/data/nzgd/processed_data/cpt/metadata/vs30_from_data_and_model.csv")
+metadata_dir = Path("/home/arr65/data/nzgd/processed_data/cpt/metadata")
 
-vs30_df.drop_duplicates(subset=["record_name"],keep='first',inplace=True)
-vs30_df = vs30_df[~vs30_df["record_name"].isin(record_names_in_old_dataset)]
+output_dir = metadata_dir / "residual_plots" / f"{cpt_correlation}_{vs30_correlation}"
+output_dir.mkdir(exist_ok=True, parents=True)
 
-vs30_latlon = vs30_df[["latitude","longitude"]].to_numpy()
+data_vs30_df = pd.read_csv(metadata_dir / "vs30_calculations.csv")
+
+data_vs30_df = data_vs30_df[(data_vs30_df["cpt_vs_correlation"] == cpt_correlation) &
+                            (data_vs30_df["vs30_correlation"] == vs30_correlation)]
+
+
+model_vs30_df = pd.read_csv(metadata_dir / "matched_vs30_from_model.csv")
+
+vs30_from_data_and_model_df = data_vs30_df.merge(model_vs30_df,left_on = "record_name", right_on="record_name_from_data", how="left")
+
+vs30_from_data_and_model_df.loc[:,"ln_data_vs30_minus_ln_model_vs30"] = np.log(vs30_from_data_and_model_df["vs30"]) - np.log(vs30_from_data_and_model_df["model_vs30"])
+
+##################################
+### Calculate coordinates in NZTM
+
+vs30_latlon = vs30_from_data_and_model_df[["latitude","longitude"]].to_numpy()
 
 vs30_nztm = coordinates.wgs_depth_to_nztm(vs30_latlon)
-vs30_df.loc[:,"nztm_y"] = vs30_nztm[:, 0]
-vs30_df.loc[:,"nztm_x"] = vs30_nztm[:, 1]
-vs30_df.loc[:,"ln_cptvs30_minus_modelvs30"] = np.log(vs30_df["vs30"]) - np.log(vs30_df["model_vs30"])
+vs30_from_data_and_model_df.loc[:,"nztm_y"] = vs30_nztm[:, 0]
+vs30_from_data_and_model_df.loc[:,"nztm_x"] = vs30_nztm[:, 1]
 
-## Make a histogram of vs30 residual distribution and set limits for the colorbar
-resid_no_nan = vs30_df["ln_cptvs30_minus_modelvs30"].dropna()
-colorbar_percent_extreme_to_exclude = 3
-resid_max = np.percentile(resid_no_nan, 100-colorbar_percent_extreme_to_exclude/2)
-resid_min = np.percentile(resid_no_nan, colorbar_percent_extreme_to_exclude/2)
+############################
 
-counts, bins, patches = plt.hist(vs30_df["ln_cptvs30_minus_modelvs30"], bins=30)
-plt.xlabel("ln(CPT Vs30) - ln(Model Vs30)")
+
+
+## drop rows with NaN values in the residuals
+vs30_from_data_and_model_df = vs30_from_data_and_model_df.dropna(subset=["ln_data_vs30_minus_ln_model_vs30"])
+
+exclude_highest_and_lowest_percentile = 1
+
+resid_colorbar_min = np.percentile(vs30_from_data_and_model_df["ln_data_vs30_minus_ln_model_vs30"], exclude_highest_and_lowest_percentile)
+resid_colorbar_max = np.percentile(vs30_from_data_and_model_df["ln_data_vs30_minus_ln_model_vs30"], 100-exclude_highest_and_lowest_percentile)
+
+## Make a histogram of ln_residual to inform the limits of the colorbar
+counts, bins, patches = plt.hist(vs30_from_data_and_model_df["ln_data_vs30_minus_ln_model_vs30"], bins=100)
+
+plt.xlabel("ln_residual")
 plt.ylabel("count")
-plt.vlines([resid_min, resid_max],0,np.max(counts),colors="red")
+plt.title("log residuals in Vs30 between Foster model\n"
+            f"and data prediction using {cpt_correlation} and {vs30_correlation}\n"
+            f"for {len(vs30_from_data_and_model_df)} records. "
+            f"Median = {np.median(vs30_from_data_and_model_df['ln_data_vs30_minus_ln_model_vs30']):.3f}.",
+          fontsize=10)
 
-plt.savefig("/home/arr65/data/nzgd/plots/vs30_residual_histogram.png",dpi=500)
+plt.vlines([resid_colorbar_min, resid_colorbar_max],0,np.max(counts),colors="red",linestyles="dashed",
+label=f"colorbar limits on map\n(excluding highest and lowest {exclude_highest_and_lowest_percentile}% of values)")
+plt.legend(fontsize=8)
 
-resid_no_nan = vs30_df["ln_cptvs30_minus_modelvs30"].dropna()
-colorbar_percent_extreme_to_exclude = 3
-resid_max = np.percentile(resid_no_nan, 100-colorbar_percent_extreme_to_exclude/2)
-resid_min = np.percentile(resid_no_nan, colorbar_percent_extreme_to_exclude/2)
+plt.savefig(output_dir / "ln_residual_histogram.png",dpi=500)
+plt.close()
 
 # Plot the GeoTIFF in the background
 fig = pygmt.Figure()
@@ -56,15 +96,40 @@ fig.grdimage(
     frame=True,                  # Add frame to the map
 )
 fig.colorbar(frame='af+lBackground Vs30 model (m/s)')  # Label the color bar as needed
-pygmt.makecpt(cmap="haxby", series=[resid_min, resid_max])
+pygmt.makecpt(cmap="haxby", series=[resid_colorbar_min, resid_colorbar_max])
 
 fig.plot(
-    x=vs30_df["nztm_x"],
-    y=vs30_df["nztm_y"],
-    fill=vs30_df["ln_cptvs30_minus_modelvs30"],
+    x=vs30_from_data_and_model_df["nztm_x"],
+    y=vs30_from_data_and_model_df["nztm_y"],
+    fill=vs30_from_data_and_model_df["ln_data_vs30_minus_ln_model_vs30"],
     cmap=True,
     style="c0.08c",
     pen="black")
 
-fig.colorbar(frame="a0.1+lln(CPT Vs30) - ln(Model Vs30) (discrete points)",position="JML+o2c/0c")
-fig.savefig(Path("/home/arr65/data/nzgd/plots") / "vs30_from_geotiff.png", dpi=500)
+map_text1 = f"Showing residuals for {len(vs30_from_data_and_model_df)} records."
+map_text2 = f"Using {cpt_correlation} and {vs30_correlation}"
+map_text3 = "to estimate Vs30 from data."
+map_text4 = f"Median residual = {np.median(vs30_from_data_and_model_df['ln_data_vs30_minus_ln_model_vs30']):.3f}."
+
+def plot_text_line_on_pygmt(y_position, text):
+
+    fig.text(
+        text=text,
+        x=1.1e6,  # X position
+        y=y_position,  # Y position
+        font="8p,Helvetica-Bold,white",  # Font size, type, and color
+        justify="TL",  # Text alignment (top left)
+        #pen="1p,black"  # Border of the text box
+    )
+
+plot_text_line_on_pygmt(6.1e6, map_text1)
+plot_text_line_on_pygmt(6.05e6, map_text2)
+plot_text_line_on_pygmt(6.0e6, map_text3)
+plot_text_line_on_pygmt(5.95e6, map_text4)
+
+# 6.1e6
+
+fig.colorbar(frame="a0.1+lln(Data Vs30) - ln(Model Vs30) (discrete points)",position="JML+o2c/0c")
+fig.savefig(output_dir / "residuals_map.png", dpi=500)
+
+print()

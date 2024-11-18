@@ -148,17 +148,17 @@ def calc_all_closest_cpt_dist(
     lon_lat_to_consider_df: pd.DataFrame, all_lon_lat_df: pd.DataFrame, n_procs: Optional[int] = 1
 ) -> pd.DataFrame:
     """
-    For each CPT in the list, calculates the distance between the CPT and its closest neighbour.
+    For each record in `lon_lat_to_consider_df`, finds the closest record in `all_lon_lat_df`.
 
     Parameters
     ----------
     lon_lat_to_consider_df : pd.DataFrame
-        A DataFrame containing the record name, longitude and latitude of all the CPTs
-        that should have the distance to their nearest neighbour calculated.
+        DataFrame containing records for which the closest record in `all_lon_lat_df` should be found.
+        Has columns record_name, longitude, and latitude.
 
     all_lon_lat_df : pd.DataFrame
-        A DataFrame containing the record name, longitude and latitude of all the CPTs from which the closest neighbour
-        to each CPT in lon_lat_to_consider_df should be found.
+        DataFrame containing the records from which to find the closest record to each record in
+        `lon_lat_to_consider_df`.
     n_procs : int
         The number of processes to use for the calculation
 
@@ -166,7 +166,7 @@ def calc_all_closest_cpt_dist(
     -------
     pd.DataFrame
            A DataFrame with the following columns:
-            - cpt_name: the name of the CPT
+            - record_name: the name of the record
             - distance_to_closest_cpt_km: the distance to the closest CPT in km
             - closest_cpt_name: the name of the closest CPT
             - lon: the longitude of the CPT
@@ -178,11 +178,11 @@ def calc_all_closest_cpt_dist(
     list_of_rows_as_series = []
     for index, row in lon_lat_to_consider_df.iterrows():
         list_of_rows_as_series.append(row)
-    with multiprocessing.Pool(processes=n_procs) as pool:
 
-        closest_cpt_df_list = pool.map(
-            functools.partial(calc_dist_to_closest_cpt, all_long_lat_df=all_lon_lat_df),
-            list_of_rows_as_series,
-        )
+    with multiprocessing.Pool(processes=n_procs) as pool:
+        closest_cpt_df_list = list(tqdm(
+            pool.imap(functools.partial(calc_dist_to_closest_cpt, all_long_lat_df=all_lon_lat_df), list_of_rows_as_series),
+            total=len(list_of_rows_as_series)
+        ))
 
     return pd.concat(closest_cpt_df_list, ignore_index=True)

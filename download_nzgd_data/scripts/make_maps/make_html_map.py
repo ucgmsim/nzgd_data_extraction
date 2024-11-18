@@ -3,11 +3,10 @@ This script generates the html.index file for the NZGD HTTP server on Hypocentre
 """
 
 import folium
-from folium.plugins import MarkerCluster, Search
+from folium.plugins import MarkerCluster
 import pandas as pd
 from pathlib import Path
 from tqdm import tqdm
-from download_nzgd_data.lib import map
 import branca
 
 import time
@@ -51,14 +50,14 @@ if max_num_records:
 date_of_last_nzgd_retrieval = Path("/home/arr65/data/nzgd/hypocentre_mirror/nzgd/date_of_last_nzgd_retrieval.txt").read_text().strip("\n")
 
 raw_nzgd_files = map.get_files_with_relative_paths(processed_files=False,
-                           file_root_directory=hypo_base_dir / "raw_from_nzgd",
-                           relative_to = hypo_base_dir,
-                           max_num_records=max_num_records)
+                                                   file_root_directory=hypo_base_dir / "raw_from_nzgd",
+                                                   relative_to = hypo_base_dir,
+                                                   max_num_records=max_num_records)
 
 processed_files = map.get_files_with_relative_paths(processed_files=True,
-                            file_root_directory=hypo_base_dir / "processed",
-                            relative_to = hypo_base_dir,
-                            max_num_records=max_num_records)
+                                                    file_root_directory=hypo_base_dir / "processed",
+                                                    relative_to = hypo_base_dir,
+                                                    max_num_records=max_num_records)
 
 processed_metadata = map.get_processed_metadata(
     file_root_directory=hypo_base_dir / "processed",

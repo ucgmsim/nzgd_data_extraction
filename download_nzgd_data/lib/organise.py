@@ -61,6 +61,7 @@ def find_regions(
     district_shapefile_path: Path,
     suburbs_shapefile_path: Path,
     region_classification_output_dir: Path,
+    num_procs: int
 ) -> pd.DataFrame:
     """
     Finds the region for each point in the NZGD index and outputs the results to a CSV file.
@@ -73,8 +74,10 @@ def find_regions(
         Path to the district shapefile.
     suburbs_shapefile_path : Path
         Path to the suburbs shapefile.
-    region_classification_output_dir : Optional[Union[str, Path]]
-        Directory to save the output CSV file. If None, the file is not saved.
+    region_classification_output_dir : Path
+        Directory to save the output CSV file.
+    num_procs : int
+        Number of processes to use for parallel processing.
 
     Returns
     -------
@@ -109,9 +112,9 @@ def find_regions(
     )
     df_rows_as_list = [row for index, row in nzgd_index_df.iterrows()]
 
-    with multiprocessing.Pool(processes=6) as pool:
+    with multiprocessing.Pool(processes=num_procs) as pool:
         found_suburbs_df = pd.concat(
-            pool.map(find_regions_partial, df_rows_as_list), ignore_index=True
+            list(tqdm(pool.imap(find_regions_partial, df_rows_as_list), total=len(df_rows_as_list))), ignore_index=True
         )
 
     ## Blank fields get values of np.nan so they are replaced with "unclassified"

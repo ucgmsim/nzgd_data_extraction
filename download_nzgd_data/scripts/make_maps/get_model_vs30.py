@@ -12,9 +12,14 @@ start_time = time.time()
 
 vs30_model_dir = Path("/home/arr65/data/nzgd/resources/vs30_map_resampled_from_Sung")
 metadata_dir = Path("/home/arr65/data/nzgd/processed_data/cpt/metadata")
-vs30_from_data_df = pd.read_csv(metadata_dir / "vs30_calculations.csv",usecols=["record_name","latitude","longitude","vs30_correlation"])
+vs30_from_data_df = pd.read_csv(metadata_dir / "vs30_estimates_from_data.csv")
 
-vs30_from_data_df = vs30_from_data_df.loc[vs30_from_data_df["vs30_correlation"] == "boore_2011"]
+#vs30_from_data_df = vs30_from_data_df.loc[vs30_from_data_df["vs30_correlation"] == "boore_2011"]
+vs30_from_data_df = vs30_from_data_df.loc[vs30_from_data_df["vs30_correlation"] == "boore_2004"]
+
+### Only keep rows that do not have an exception
+vs30_from_data_df = vs30_from_data_df[vs30_from_data_df["exception"].isna()]
+
 vs30_from_data_df.drop_duplicates(subset=["record_name"],keep='first',inplace=True)
 
 num_procs = 8

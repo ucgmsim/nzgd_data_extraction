@@ -114,7 +114,7 @@ for data_subset in [DataSubset.only_old, DataSubset.new_and_old,  DataSubset.onl
     # Plot the GeoTIFF in the background
     fig = pygmt.Figure()
 
-    # viridis, cubhelix
+    # viridis, cubhelix, viridis
     fig.grdimage(
         grid=downsampled_grid,          # Path to the GeoTIFF file
         cmap="viridis",             # Color map for the data

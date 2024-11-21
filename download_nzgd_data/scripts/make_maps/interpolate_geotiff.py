@@ -3,11 +3,14 @@ from rasterio.sample import sample_gen
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+from pathlib import Path
+from tqdm import tqdm
 
 from qcore import coordinates
 
 
 vs30_from_data = pd.read_csv("/home/arr65/data/nzgd/processed_data/cpt/metadata/vs30_estimates_from_data.csv")
+
 data_latlon = vs30_from_data[["latitude", "longitude"]].to_numpy()
 
 
@@ -24,15 +27,16 @@ vs30_from_data.loc[:, "nztm_x"] = vs30_nztm[:, 1]
 
 #vs30_from_data = vs30_from_data.iloc[0:10]
 
-y = 5.181262e+06
-x = 1.576467e+06
-
-
 # Path to the GeoTIFF file
-geotiff_path = '/home/arr65/data/nzgd/resources/vs30map_data_2023_geotiff/vs30map_data/combined.tif'
+geotiff_path = Path("/home/arr65/data/nzgd/resources/NSHM2022_NoG6G13")
+file_name = "combined.tif"
+
+xy_iterable = []
+for i in range(vs30_from_data.shape[0]):
+    xy_iterable.append((vs30_from_data["nztm_x"][i], vs30_from_data["nztm_y"][i]))
 
 # Open the GeoTIFF file
-with rasterio.open(geotiff_path) as dataset:
+with rasterio.open(geotiff_path / file_name) as dataset:
     # Read the dataset's metadata
     metadata = dataset.meta
     print("Metadata:", metadata)
@@ -41,7 +45,32 @@ with rasterio.open(geotiff_path) as dataset:
     num_bands = dataset.count
     print(f"Number of bands: {num_bands}")
 
-    interp_vs30 = np.array(list(sample_gen(dataset, vs30_from_data[["nztm_x", "nztm_y"]].to_numpy(), indexes=1))).flatten()
+    ## Print descriptions of each band
+    for i in range(1, num_bands + 1):
+        band_description = dataset.descriptions[i - 1]
+        print(f"Band {i} description: {band_description}")
+
+    ## Interpolate the value at the given coordinates
+    progress_bar = tqdm(total=len(xy_iterable))
+    interpolated_values = []
+    for val in sample_gen(dataset, xy_iterable):
+        interpolated_values.append(val)
+        progress_bar.update(1)
+
+vs30_vs30std = np.array(interpolated_values)
+
+vs30_from_data.loc[:, "vs30"] = vs30_vs30std[:, 0]
+vs30_from_data.loc[:, "vs30_std"] = vs30_vs30std[:, 1]
+
+vs30_from_model = vs30_from_data[["record_name", "nztm_x", "nztm_y", "vs30", "vs30_std"]]
+vs30_from_model.to_csv("/home/arr65/data/nzgd/processed_data/cpt/metadata/vs30_from_model.csv", index=False)
+
+print()
+
+        # print()
+        # print(f"Interpolated value at ({x}, {y}): {val}")
+
+    # interp_vs30 = np.array(list(sample_gen(dataset, vs30_from_data[["nztm_x", "nztm_y"]].to_numpy(), indexes=1))).flatten()
 
     # band1 = dataset.read(1)
     # # Plot the map

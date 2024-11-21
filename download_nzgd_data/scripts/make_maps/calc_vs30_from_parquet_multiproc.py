@@ -100,18 +100,23 @@ if __name__ == "__main__":
     parquet_dir = Path("/home/arr65/data/nzgd/processed_data/cpt/data")
     metadata_dir = parquet_dir.parent / "metadata"
 
-    if Path(metadata_dir / "record_ids_sufficient_depth.csv").exists():
-        record_ids = natsort.natsorted(pd.read_csv(metadata_dir / "record_ids_sufficient_depth.csv")["record_name_sufficient_depth"].to_list())
-        file_paths = [parquet_dir / f"{record_id}.parquet" for record_id in record_ids]
-    else:
-        file_paths = list(parquet_dir.glob("*.parquet"))
-        file_paths = filter_out_files_with_insufficient_depth(file_paths, metadata_dir)
+    # if Path(metadata_dir / "record_ids_sufficient_depth.csv").exists():
+    #     record_ids = natsort.natsorted(pd.read_csv(metadata_dir / "record_ids_sufficient_depth.csv")["record_name_sufficient_depth"].to_list())
+    #     file_paths = [parquet_dir / f"{record_id}.parquet" for record_id in record_ids]
+    # else:
+    #     file_paths = list(parquet_dir.glob("*.parquet"))
+    #     file_paths = filter_out_files_with_insufficient_depth(file_paths, metadata_dir)
 
-    cpt_vs_correlations = list(vs_calc.cpt_vs_correlations.CPT_CORRELATIONS.keys())
-    vs30_correlations = list(vs_calc.vs30_correlations.VS30_CORRELATIONS.keys())
+    file_paths = list(parquet_dir.glob("*.parquet"))
+
+    # cpt_vs_correlations = list(vs_calc.cpt_vs_correlations.CPT_CORRELATIONS.keys())
+    # vs30_correlations = list(vs_calc.vs30_correlations.VS30_CORRELATIONS.keys())
 
     # cpt_vs_correlations = cpt_vs_correlations[0:1]
     # vs30_correlations = vs30_correlations[1:]
+
+    cpt_vs_correlations = ["andrus_2007_pleistocene"]
+    vs30_correlations = ["boore_2004"]
 
     results = []
     for vs30_correlation in vs30_correlations:
@@ -129,7 +134,7 @@ if __name__ == "__main__":
                 results.extend(list(tqdm(pool.imap(calc_vs30_from_filename_partial, file_paths),
                                     total=len(file_paths))))
 
-    pd.concat(results, ignore_index=True).to_csv(metadata_dir / f"vs30_estimates_from_data.csv", index=False)
+    pd.concat(results, ignore_index=True).to_csv(metadata_dir / f"vs30_estimates_from_data_andrus_pleistocene.csv", index=False)
 
     print()
     print(f"Total time taken: {(time.time() - start_time)/3600} hours")

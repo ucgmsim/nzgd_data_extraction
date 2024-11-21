@@ -9,19 +9,17 @@ from tqdm import tqdm
 from qcore import coordinates
 
 
-vs30_from_data = pd.read_csv("/home/arr65/data/nzgd/processed_data/cpt/metadata/vs30_estimates_from_data.csv")
+nzgd_index_df = pd.read_csv("/home/arr65/data/nzgd/nzgd_index_files/csv_files/NZGD_Investigation_Report_08112024_1017.csv")
 
-data_latlon = vs30_from_data[["latitude", "longitude"]].to_numpy()
+data_latlon = nzgd_index_df[["Latitude", "Longitude"]].to_numpy()
 
 
 ##################################
 ### Calculate coordinates in NZTM
 
-vs30_latlon = vs30_from_data[["latitude", "longitude"]].to_numpy()
-
-vs30_nztm = coordinates.wgs_depth_to_nztm(vs30_latlon)
-vs30_from_data.loc[:, "nztm_y"] = vs30_nztm[:, 0]
-vs30_from_data.loc[:, "nztm_x"] = vs30_nztm[:, 1]
+nzgd_nztm = coordinates.wgs_depth_to_nztm(data_latlon)
+nzgd_index_df.loc[:, "nztm_y"] = nzgd_nztm[:, 0]
+nzgd_index_df.loc[:, "nztm_x"] = nzgd_nztm[:, 1]
 
 ############################
 
@@ -32,8 +30,8 @@ geotiff_path = Path("/home/arr65/data/nzgd/resources/NSHM2022_NoG6G13")
 file_name = "combined.tif"
 
 xy_iterable = []
-for i in range(vs30_from_data.shape[0]):
-    xy_iterable.append((vs30_from_data["nztm_x"][i], vs30_from_data["nztm_y"][i]))
+for i in range(nzgd_index_df.shape[0]):
+    xy_iterable.append((nzgd_index_df["nztm_x"][i], nzgd_index_df["nztm_y"][i]))
 
 # Open the GeoTIFF file
 with rasterio.open(geotiff_path / file_name) as dataset:
@@ -59,11 +57,10 @@ with rasterio.open(geotiff_path / file_name) as dataset:
 
 vs30_vs30std = np.array(interpolated_values)
 
-vs30_from_data.loc[:, "vs30"] = vs30_vs30std[:, 0]
-vs30_from_data.loc[:, "vs30_std"] = vs30_vs30std[:, 1]
+nzgd_index_df.loc[:, "vs30"] = vs30_vs30std[:, 0]
+nzgd_index_df.loc[:, "vs30_std"] = vs30_vs30std[:, 1]
 
-vs30_from_model = vs30_from_data[["record_name", "nztm_x", "nztm_y", "vs30", "vs30_std"]]
-vs30_from_model.to_csv("/home/arr65/data/nzgd/processed_data/cpt/metadata/vs30_from_model.csv", index=False)
+nzgd_index_df.to_csv("/home/arr65/data/nzgd/processed_data/cpt/metadata/foster_vs30_at_nzgd_locations.csv", index=False)
 
 print()
 

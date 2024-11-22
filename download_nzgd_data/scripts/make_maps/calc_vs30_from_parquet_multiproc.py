@@ -115,7 +115,7 @@ if __name__ == "__main__":
     # cpt_vs_correlations = cpt_vs_correlations[0:1]
     # vs30_correlations = vs30_correlations[1:]
 
-    cpt_vs_correlations = ["andrus_2007_pleistocene"]
+    cpt_vs_correlations = ["andrus_2007_pleistocene", "andrus_2007_holocene"]
     vs30_correlations = ["boore_2004"]
 
     results = []
@@ -129,12 +129,12 @@ if __name__ == "__main__":
                                                       cpt_vs_correlation=cpt_vs_correlation,
                                                       vs30_correlation=vs30_correlation)
             #num_workers = mp.cpu_count() - 1
-            num_workers = 6
+            num_workers = 8
             with mp.Pool(processes=num_workers) as pool:
                 results.extend(list(tqdm(pool.imap(calc_vs30_from_filename_partial, file_paths),
                                     total=len(file_paths))))
 
-    pd.concat(results, ignore_index=True).to_csv(metadata_dir / f"vs30_estimates_from_data_andrus_pleistocene.csv", index=False)
+    pd.concat(results, ignore_index=True).to_csv(metadata_dir / f"vs30_estimates_from_data_andrus.csv", index=False)
 
     print()
     print(f"Total time taken: {(time.time() - start_time)/3600} hours")

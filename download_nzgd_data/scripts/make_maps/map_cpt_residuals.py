@@ -26,10 +26,12 @@ class DataSubset(enum.StrEnum):
     only_old = "only_old"
     only_new = "only_new"
 
-cpt_correlation = CPTCorrelation.andrus_2007_pleistocene
+#cpt_correlation = CPTCorrelation.andrus_2007_pleistocene
+cpt_correlation = CPTCorrelation.andrus_2007_holocene
+
 vs30_correlation = Vs30Correlation.boore_2004
 data_subset = DataSubset.new_and_old
-min_acceptable_max_depth_m = 20
+min_acceptable_max_depth_m = 10
 
 metadata_dir = Path("/home/arr65/data/nzgd/processed_data/cpt/metadata")
 output_dir = metadata_dir / "residual_plots" / str(date.today()) / f"{cpt_correlation}_{vs30_correlation}_{data_subset}_data_min_max_depth_{min_acceptable_max_depth_m}m"
@@ -44,11 +46,10 @@ vs30_from_model.rename(columns={"vs30": "vs30_from_model"}, inplace=True)
 vs30_from_model.rename(columns={"vs30_std": "vs30_std_from_model"}, inplace=True)
 
 
-vs30_from_data2 = vs30_from_data[vs30_from_data["cpt_vs_correlation"] == cpt_correlation]
-print()
+vs30_from_data = vs30_from_data[vs30_from_data["cpt_vs_correlation"] == cpt_correlation]
 vs30_from_data = vs30_from_data[vs30_from_data["max_depth_m"] > min_acceptable_max_depth_m]
 vs30_from_data = vs30_from_data.dropna(subset=["vs30_from_data", "vs30_std_from_data"])
-print()
+
 ## Check if all rows in column record_name of vs30_from_data are unique
 if vs30_from_data["record_name"].nunique() != vs30_from_data.shape[0]:
     raise ValueError("Some record_names in vs30_from_data are not unique. Please filter out duplicate record_names"
@@ -109,6 +110,13 @@ plt.close()
 
 ######################################################################################
 
+map_text = f"""Log residuals for {data_subset} data with 
+a minimum acceptable maximum depth of {min_acceptable_max_depth_m} m
+(total of {len(vs30_df)} records).
+CPT-inferred Vs30 values based on 
+{cpt_correlation} and {vs30_correlation}.
+Median log residual = {np.median(vs30_df['ln_cpt_vs30_minus_ln_foster_vs30']):.3f}."""
+
 geotiff_path = Path("/home/arr65/data/nzgd/resources/NSHM2022_NoG6G13")
 file_name = "combined.tif"
 with rasterio.open(geotiff_path / file_name) as dataset:
@@ -125,9 +133,10 @@ fig, ax = plt.subplots(figsize=(12,10))
 ax.set_xticklabels([])
 ax.set_yticklabels([])
 
+
 cax = ax.imshow(band1, cmap=custom_cmap, extent=extent,
                 vmin=100, vmax=800)
-fig.colorbar(cax, ax=ax, label=r'Foster et al. (2019) Vs$_{30}$ (ms$^{-1}$)')
+fig.colorbar(cax, ax=ax, label=r'Foster et al. (2019) Vs$_{30}$ (m/s)')
 
 # seismic
 cax2 = ax.scatter(
@@ -144,6 +153,9 @@ cax2 = ax.scatter(
 
 )
 cbar2 = fig.colorbar(cax2, ax=ax, location='left', label=r'log(residual) [$\ln(CPT_{vs30} - \ln(\mathrm{Foster}_{vs30})$] (discrete points)')
+
+ax.text(1.1e6, 6e6, map_text, fontsize=10, color='white')
+
 
 plt.subplots_adjust(left=0.01, right=0.99, top=0.99, bottom=0.01)
 

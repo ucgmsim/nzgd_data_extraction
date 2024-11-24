@@ -540,7 +540,8 @@ def nth_highest_value(array, n):
         The nth highest value in the array.
     """
 
-    sorted_array = np.sort(array)
+    ## Filter out any nan depth values (such as at the end of a file) and sort the array
+    sorted_array = np.sort(array[np.isfinite(array)])
 
     return sorted_array[-n]
 

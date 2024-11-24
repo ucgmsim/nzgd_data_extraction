@@ -588,13 +588,13 @@ def infer_wrong_units(df: pd.DataFrame,
         inferred_unit_conversions.append(f"{list(column_descriptions)[0]} was converted from cm to m")
     if nth_highest_value(df[list(column_descriptions)[1]].values, nth_highest) > qc_kpa_threshold:
         df[list(column_descriptions)[1]] /= 1000
-        inferred_unit_conversions.append(f"{list(column_descriptions)[0]} was converted from kPa to MPa")
+        inferred_unit_conversions.append(f"{list(column_descriptions)[1]} was converted from kPa to MPa")
     if nth_highest_value(df[list(column_descriptions)[2]].values, nth_highest) > fs_kpa_threshold:
         df[list(column_descriptions)[2]] /= 1000
-        inferred_unit_conversions.append(f"{list(column_descriptions)[0]} was converted from kPa to MPa")
+        inferred_unit_conversions.append(f"{list(column_descriptions)[2]} was converted from kPa to MPa")
     if nth_highest_value(df[list(column_descriptions)[3]].values, nth_highest) > u_kpa_threshold:
         df[list(column_descriptions)[3]] /= 1000
-        inferred_unit_conversions.append(f"{list(column_descriptions)[0]} was converted from kPa to MPa")
+        inferred_unit_conversions.append(f"{list(column_descriptions)[3]} was converted from kPa to MPa")
 
     df.attrs["inferred_unit_conversions"] = ", ".join(inferred_unit_conversions)
 

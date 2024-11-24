@@ -309,6 +309,14 @@ def load_cpt_spreadsheet_file(file_path: Path) -> list[pd.DataFrame]:
         df.attrs["header_row_index_in_original_file"] = float(header_row_index)
         df.reset_index(inplace=True, drop=True)
         df, final_col_names = processing_helpers.get_column_names(df)
+
+        ## Check if the identified "Depth" column is actually an index rather than a measurement in metres.
+        if final_col_names[0] is not None:
+            if (df[final_col_names[0]] == df[final_col_names[0]].astype(int)).all():
+                raise processing_helpers.FileProcessingError(
+                    f"depth_is_index - sheet ({sheet.replace('-', '_')}) has its depth column as an index "
+                    f"rather than a depth measurement")
+
         df = processing_helpers.convert_explicit_indications_of_cm_and_kpa(df, final_col_names)
 
         final_col_names_without_none = [col for col in final_col_names if col is not None]

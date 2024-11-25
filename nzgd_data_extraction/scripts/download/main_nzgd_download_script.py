@@ -10,11 +10,11 @@ from pathlib import Path
 import pandas as pd
 
 import enum
-import download_nzgd_data.download.download_config as cfg
+import nzgd_data_extraction.download.download_config as cfg
 
 config = cfg.Config()
 
-import download_nzgd_data.download.nzgd_download_helper_functions as nzgd_download_helper_functions
+import nzgd_data_extraction.download.nzgd_download_helper_functions as nzgd_download_helper_functions
 
 class DownloadMode(enum.StrEnum):
 

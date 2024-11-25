@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt
 
 
 #import download_nzgd_data.validation.load_sql_db as load_sql_db
-import download_nzgd_data.validation.helpers as helpers
+import nzgd_data_extraction.validation.helpers as helpers
 
 import numpy as np
 from tqdm import tqdm

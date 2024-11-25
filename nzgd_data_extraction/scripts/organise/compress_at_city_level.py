@@ -7,7 +7,7 @@ from pathlib import Path
 
 from tqdm import tqdm
 
-from download_nzgd_data.lib import organise
+from nzgd_data_extraction.lib import organise
 
 hypocentre_mirror_dir = Path("/home/arr65/data/nzgd/hypocentre_mirror")
 dropbox_mirror_dir = Path("/home/arr65/data/nzgd/dropbox_mirror")

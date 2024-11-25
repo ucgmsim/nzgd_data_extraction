@@ -5,7 +5,7 @@ structure based on geographical regions.
 
 from pathlib import Path
 
-from download_nzgd_data.lib import organise
+from nzgd_data_extraction.lib import organise
 
 region_df = organise.find_regions(
     nzgd_index_path=Path(

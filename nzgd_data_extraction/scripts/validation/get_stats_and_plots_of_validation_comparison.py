@@ -15,7 +15,7 @@ from tqdm import tqdm
 
 import time
 
-import download_nzgd_data.validation.helpers as helpers
+import nzgd_data_extraction.validation.helpers as helpers
 
 
 start_time = time.time()

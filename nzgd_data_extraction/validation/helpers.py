@@ -7,11 +7,12 @@ import pandas as pd
 from scipy import interpolate
 import numpy as np
 from pathlib import Path
-import download_nzgd_data.validation.load_sql_db as load_sql_db
 from tqdm import tqdm
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 import matplotlib.pyplot as plt
+
+import nzgd_data_extraction.validation.load_sql_db as load_sql_db
 
 def get_residual(record_name: str, old_data_ffp: Path, new_data_ffp: Path) -> pd.DataFrame:
 

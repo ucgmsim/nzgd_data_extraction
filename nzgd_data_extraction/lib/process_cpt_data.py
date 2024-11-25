@@ -9,11 +9,11 @@ import pandas as pd
 import numpy as np
 import pandas
 
-import download_nzgd_data.lib.processing_helpers as processing_helpers
+import nzgd_data_extraction.lib.processing_helpers as processing_helpers
 
 import toml
 
-from download_nzgd_data.lib.processing_helpers import FileProcessingError
+from nzgd_data_extraction.lib.processing_helpers import FileProcessingError
 
 
 def find_missing_cols_for_best_sheet(missing_cols_per_sheet: list[list]) -> list:

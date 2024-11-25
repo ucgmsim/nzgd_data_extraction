@@ -8,9 +8,9 @@ import pandas as pd
 import functools
 from tqdm import tqdm
 import xlrd
-from download_nzgd_data.lib.processing_helpers import FileProcessingError
+from nzgd_data_extraction.lib.processing_helpers import FileProcessingError
 
-from download_nzgd_data.lib import process_cpt_data, processing_helpers
+from nzgd_data_extraction.lib import process_cpt_data, processing_helpers
 
 investigation_type = processing_helpers.InvestigationType.cpt
 

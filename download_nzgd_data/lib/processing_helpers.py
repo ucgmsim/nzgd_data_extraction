@@ -546,7 +546,8 @@ def nth_highest_value(array, n):
     return sorted_array[-n]
 
 def infer_wrong_units(df: pd.DataFrame,
-                                                    cm_threshold = 50,
+                                                    cm_threshold = 99,
+                                                    mm_threshold = 999,
                                                     qc_kpa_threshold: float = 150,
                                                     fs_kpa_threshold: float = 10,
                                                     u_kpa_threshold: float = 3,
@@ -563,6 +564,8 @@ def infer_wrong_units(df: pd.DataFrame,
         The input DataFrame containing the data to be checked.
     cm_threshold : int, optional
         An nth highest value over this threshold indicates that depth is in cm. Default is 50.
+    mm_threshold : int, optional
+        An nth highest value over this threshold indicates that depth is in mm. Default is 500.
     qc_kpa_threshold : float, optional
         An nth highest value over this threshold indicates that qc is in kPa. Default is 80.
     fs_kpa_threshold : float, optional
@@ -583,9 +586,17 @@ def infer_wrong_units(df: pd.DataFrame,
 
     inferred_unit_conversions = []
 
-    if nth_highest_value(df[list(column_descriptions)[0]].values, nth_highest) > cm_threshold:
+    print()
+
+    if cm_threshold < nth_highest_value(df[list(column_descriptions)[0]].values, nth_highest) < mm_threshold:
+        ## depth values are likely in cm
         df[list(column_descriptions)[0]] /= 100
         inferred_unit_conversions.append(f"{list(column_descriptions)[0]} was converted from cm to m")
+    elif nth_highest_value(df[list(column_descriptions)[0]].values, nth_highest) > mm_threshold:
+        ## depth values are likely in mm
+        df[list(column_descriptions)[0]] /= 1000
+        inferred_unit_conversions.append(f"{list(column_descriptions)[0]} was converted from mm to m")
+
     if nth_highest_value(df[list(column_descriptions)[1]].values, nth_highest) > qc_kpa_threshold:
         df[list(column_descriptions)[1]] /= 1000
         inferred_unit_conversions.append(f"{list(column_descriptions)[1]} was converted from kPa to MPa")

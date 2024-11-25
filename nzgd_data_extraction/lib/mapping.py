@@ -118,13 +118,13 @@ def calc_dist_to_closest_cpt(long_lat_to_consider_df: pd.DataFrame, all_long_lat
             - closest_cpt_lat: the latitude of the closest CPT
     """
 
-    all_cpt_names = all_long_lat_df["model_grid_point_name"].values
+    all_cpt_names = all_long_lat_df["model_grid_point_name_closest_point"].values
     # If the CPT to consider is among the CPTs from which to find the closest neighbour, filter it out
     all_bool_mask = all_cpt_names != long_lat_to_consider_df["record_name"]
 
     needed_rows_long_lat_df = all_long_lat_df[all_bool_mask]
 
-    nd_array_lon_lat = needed_rows_long_lat_df[["model_longitude","model_latitude"]].to_numpy()
+    nd_array_lon_lat = needed_rows_long_lat_df[["model_longitude_closest_point","model_latitude_closest_point"]].to_numpy()
     idx, d = geo.closest_location(
         locations=nd_array_lon_lat, lon=long_lat_to_consider_df["longitude"], lat=long_lat_to_consider_df["latitude"]
     )

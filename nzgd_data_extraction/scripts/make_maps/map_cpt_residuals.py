@@ -26,8 +26,14 @@ class DataSubset(enum.StrEnum):
     only_old = "only_old"
     only_new = "only_new"
 
-cpt_correlation = CPTCorrelation.andrus_2007_pleistocene
-#cpt_correlation = CPTCorrelation.andrus_2007_holocene
+def get_num_surviving(max_depths_arr, vs30_from_data):
+    num_surviving = np.zeros_like(max_depths_arr)
+    for i, max_depth in enumerate(max_depths_arr):
+        num_surviving[i] = vs30_from_data[vs30_from_data["max_depth_m"] > max_depth].shape[0]
+    return num_surviving
+
+#cpt_correlation = CPTCorrelation.andrus_2007_pleistocene
+cpt_correlation = CPTCorrelation.andrus_2007_holocene
 
 vs30_correlation = Vs30Correlation.boore_2004
 #data_subset = DataSubset.new_and_old
@@ -52,40 +58,58 @@ vs30_from_data = vs30_from_data[vs30_from_data["cpt_vs_correlation"] == cpt_corr
 vs30_from_data = vs30_from_data[vs30_from_data["vs30_correlation"] == vs30_correlation]
 vs30_from_data = vs30_from_data.dropna(subset=["vs30_from_data"])
 
-if data_subset == DataSubset.only_old:
-    vs30_from_data = vs30_from_data[vs30_from_data["record_name"].isin(record_names_in_old_dataset)]
-elif data_subset == DataSubset.only_new:
-    vs30_from_data = vs30_from_data[~vs30_from_data["record_name"].isin(record_names_in_old_dataset)]
+# print()
+# if data_subset == DataSubset.only_old:
+#     vs30_from_data = vs30_from_data[vs30_from_data["record_name"].isin(record_names_in_old_dataset)]
+# elif data_subset == DataSubset.only_new:
+#     vs30_from_data = vs30_from_data[~vs30_from_data["record_name"].isin(record_names_in_old_dataset)]
 
+vs30_from_data = vs30_from_data[vs30_from_data["max_depth_m"] < 100]
 vs30_from_data_all_max_depths = vs30_from_data.copy()
 
-#######################################################################
+## Filter out records with a maximum depth less than min_acceptable_max_depth_m
+vs30_from_data = vs30_from_data[vs30_from_data["max_depth_m"] > min_acceptable_max_depth_m]
+
+# Merge the dataframes on the matching columns
+vs30_df = pd.merge(vs30_from_data, vs30_from_model, how="inner", left_on="record_name", right_on="ID")
+vs30_df.loc[:,"ln_cpt_vs30_minus_ln_foster_vs30"] = np.log(vs30_df["vs30_from_data"]) - np.log(vs30_df["vs30_from_model"])
+vs30_df = vs30_df.dropna(subset=["ln_cpt_vs30_minus_ln_foster_vs30"])
+
+vs30_df_only_new = vs30_df[~vs30_df["record_name"].isin(record_names_in_old_dataset)].copy()
+vs30_df_only_old = vs30_df[vs30_df["record_name"].isin(record_names_in_old_dataset)].copy()
+vs30_df_new_and_old = vs30_df.copy()
 
 max_depths_arr = np.linspace(10,50,100)
-num_surviving = np.zeros_like(max_depths_arr)
+num_surviving_only_new = get_num_surviving(max_depths_arr, vs30_df_only_new)
+num_surviving_only_old = get_num_surviving(max_depths_arr, vs30_df_only_old)
+num_surviving_new_and_old = get_num_surviving(max_depths_arr, vs30_df_new_and_old)
 
-for i, max_depth in enumerate(max_depths_arr):
-    num_surviving[i] = vs30_from_data[vs30_from_data["max_depth_m"] > max_depth].shape[0]
+## Check if all rows in column record_name of vs30_from_data are unique
+if vs30_df_new_and_old["record_name"].nunique() != vs30_df_new_and_old.shape[0]:
+    raise ValueError("Some record_names in vs30_from_data are not unique. Please filter out duplicate record_names"
+                     "and try again.")
 
-plt.semilogy(max_depths_arr, num_surviving,linestyle='-', marker='.')
-plt.xlabel("Minimum required maximum depth (m)")
-plt.ylabel("Number of records surviving")
-# put grid lines on the plot
-plt.grid(which='both', linestyle='--', linewidth=0.5)
-plt.title(f"{data_subset}_dataset")
-plt.savefig(output_dir / f"num_surviving_vs_max_depth_{data_subset}_dataset.png", dpi=500)
+hist_data = [vs30_df_only_new["ln_cpt_vs30_minus_ln_foster_vs30"].values,
+                vs30_df_only_old["ln_cpt_vs30_minus_ln_foster_vs30"].values,
+                vs30_df_new_and_old["ln_cpt_vs30_minus_ln_foster_vs30"].values]
+
+hist_labels = [f"Only new records\nnum points={len(hist_data[0])},median={np.median(hist_data[0]):.2f}",
+               f"Only old records\nnum points={len(hist_data[1])}, median={np.median(hist_data[1]):.2f}",
+               f"New and old records\nnum points={len(hist_data[2])}, median={np.median(hist_data[2]):.2f}"]
+
+##############################################################################################3
+
+plt.hist(hist_data, bins=30, label=hist_labels, histtype='step',
+         stacked=False, fill=False)
+plt.legend(fontsize=8)
+plt.xlabel("log residual")
+plt.ylabel("count")
+plt.xlim(-2,2)
+
+plt.savefig(output_dir / f"hist_all_data_subsets.png", dpi=500)
 plt.close()
 print()
 
-#######################################################################
-
-
-vs30_from_data = vs30_from_data[vs30_from_data["max_depth_m"] < 100]
-
-## Check if all rows in column record_name of vs30_from_data are unique
-if vs30_from_data["record_name"].nunique() != vs30_from_data.shape[0]:
-    raise ValueError("Some record_names in vs30_from_data are not unique. Please filter out duplicate record_names"
-                     "and try again.")
 
 # make a histogram of the maximum depth values
 plt.hist(vs30_from_data["max_depth_m"], bins=100)
@@ -95,24 +119,30 @@ plt.title("Histogram of maximum depth values in the CPT dataset")
 plt.savefig(output_dir / f"max_depth_histogram_{data_subset}_dataset.png", dpi=500)
 plt.close()
 
-print()
+### Plot number of records surviving vs minimum required maximum depth
+plt.semilogy(max_depths_arr, num_surviving_only_new,linestyle='-', marker='.',label="Only new records")
+plt.semilogy(max_depths_arr, num_surviving_only_old,linestyle='-', marker='.',label="Only old records")
+plt.semilogy(max_depths_arr, num_surviving_new_and_old,linestyle='-', marker='.',label="New and old records")
+plt.xlabel("Minimum required maximum depth (m)")
+plt.ylabel("Number of records surviving")
+# put grid lines on the plot
+plt.grid(which='both', linestyle='--', linewidth=0.5)
+plt.legend()
+plt.savefig(output_dir / f"log_plot_num_surviving_vs_max_depth_{data_subset}_dataset.png", dpi=500)
+plt.close()
 
-## Filter out records with a maximum depth less than min_acceptable_max_depth_m
-vs30_from_data = vs30_from_data[vs30_from_data["max_depth_m"] > min_acceptable_max_depth_m]
+plt.plot(max_depths_arr, num_surviving_only_new,linestyle='-', marker='.',label="Only new records")
+plt.plot(max_depths_arr, num_surviving_only_old,linestyle='-', marker='.',label="Only old records")
+plt.plot(max_depths_arr, num_surviving_new_and_old,linestyle='-', marker='.',label="New and old records")
+plt.xlabel("Minimum required maximum depth (m)")
+plt.ylabel("Number of records surviving")
+# put grid lines on the plot
+plt.grid(which='both', linestyle='--', linewidth=0.5)
+plt.legend()
+plt.savefig(output_dir / f"num_surviving_vs_max_depth_{data_subset}_dataset.png", dpi=500)
+plt.close()
 
-print()
-
-# Merge the dataframes on the matching columns
-vs30_df = pd.merge(vs30_from_data, vs30_from_model, how="inner", left_on="record_name", right_on="ID")
-vs30_df.loc[:,"ln_cpt_vs30_minus_ln_foster_vs30"] = np.log(vs30_df["vs30_from_data"]) - np.log(vs30_df["vs30_from_model"])
-
-
-
-#####################################################################################
-
-vs30_df = vs30_df.dropna(subset=["ln_cpt_vs30_minus_ln_foster_vs30"])
-
-exclude_highest_and_lowest_percentile = 1
+######################################################################################################
 
 ## Make a histogram of Vs30 values
 counts, bins, patches = plt.hist(vs30_df[["vs30_from_data", "vs30_from_model"]], bins=250,
@@ -130,8 +160,7 @@ plt.close()
 #######################################################################################
 ########################################################################################
 
-
-
+exclude_highest_and_lowest_percentile = 1
 resid_colorbar_min = np.percentile(vs30_df["ln_cpt_vs30_minus_ln_foster_vs30"],
                                    exclude_highest_and_lowest_percentile)
 resid_colorbar_max = np.percentile(vs30_df["ln_cpt_vs30_minus_ln_foster_vs30"],
@@ -183,7 +212,7 @@ ax.set_yticklabels([])
 
 cax = ax.imshow(band1, cmap=custom_cmap, extent=extent,
                 vmin=100, vmax=800)
-fig.colorbar(cax, ax=ax, label=r'Foster et al. (2019) Vs$_{30}$ (m/s)')
+fig.colorbar(cax, ax=ax, label=r'Foster et al. (2019) Vs$_{30}$ (m/s) (background map)')
 
 # seismic
 cax2 = ax.scatter(
@@ -209,75 +238,3 @@ plt.subplots_adjust(left=0.01, right=0.99, top=0.99, bottom=0.01)
 fig.savefig(output_dir / f"residual_map_{data_subset}_dataset.png", dpi=500)
 plt.close()
 
-print()
-#
-
-
-
-
-
-#vs30_df.to_csv(metadata_dir / "matched_vs30_from_model.csv", index=False)
-
-## Match vs30_from_data dataframe column record_name with vs30_from_model dataframe column ID and keep only rows of vs30_from_model that have a match in vs30_from_data
-
-
-
-
-
-
-print()
-#
-#
-#     # Plot the map
-#     fig, ax = plt.subplots(figsize=(10, 10))
-#     cax = ax.imshow(band1, cmap='viridis', extent=(dataset.bounds.left, dataset.bounds.right, dataset.bounds.bottom, dataset.bounds.top))
-#     fig.colorbar(cax, ax=ax, label='Band 1 Values')
-#
-#     # Plot the points
-#     ax.scatter(vs30_from_data["nztm_x"], vs30_from_data["nztm_y"], color='red', marker='o', label='Interpolated Points')
-#     ax.legend()
-#
-#     plt.xlabel('NZTM X')
-#     plt.ylabel('NZTM Y')
-#     plt.title('Map with Interpolated Points')
-#
-#     subset_xrange = np.max(vs30_from_data["nztm_x"]) - np.min(vs30_from_data["nztm_x"])
-#     subset_yrange = np.max(vs30_from_data["nztm_y"]) - np.min(vs30_from_data["nztm_y"])
-#
-#     range_scaling_factor = 0.5
-#
-#     dx = range_scaling_factor * subset_xrange
-#     dy = range_scaling_factor * subset_yrange
-#
-#
-#     plt.xlim([np.min(vs30_from_data["nztm_x"])-dx, np.max(vs30_from_data["nztm_x"])+dx])
-#     plt.ylim([np.min(vs30_from_data["nztm_y"])-dy, np.max(vs30_from_data["nztm_y"])+dy])
-#
-#     plt.show()
-#
-#     print()
-#
-# # Create a plt
-#
-#
-#     # Print descriptions of each band
-#     for i in range(1, num_bands + 1):
-#         band_description = dataset.descriptions[i - 1]
-#         print(f"Band {i} description: {band_description}")
-#
-#
-#     # Read the first band of the dataset
-#     band1 = dataset.read(1)
-#     print("Band 1 data:", band1)
-#
-#     # Interpolate the value at the given coordinates
-#     for val in sample_gen(dataset, [(x, y)]):
-#         print(f"Interpolated value at ({x}, {y}): {val}")
-#
-#
-#
-# print()
-# band_number = 1
-# # Interpolate the value at the given coordinates for the specified band
-# for val in sample_gen(dataset, [(x, y)], indexes=band_number):
-#     print(f"Interpolated value at ({x}, {y}) for band {band_number}: {val}")

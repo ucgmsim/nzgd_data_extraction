@@ -586,8 +586,6 @@ def infer_wrong_units(df: pd.DataFrame,
 
     inferred_unit_conversions = []
 
-    print()
-
     if cm_threshold < nth_highest_value(df[list(column_descriptions)[0]].values, nth_highest) < mm_threshold:
         ## depth values are likely in cm
         df[list(column_descriptions)[0]] /= 100

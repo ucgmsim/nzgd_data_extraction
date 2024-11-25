@@ -1,4 +1,4 @@
-For downloading and processing data from the New Zealand Geotechnical Database (NZGD).
+For extracting data from the New Zealand Geotechnical Database (NZGD).
 
 For organising NZGD records by region, city, and suburb, we used shapefiles from 
 Land Information New Zealand (LINZ). The highest level comes from 

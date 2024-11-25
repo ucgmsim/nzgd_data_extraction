@@ -46,8 +46,12 @@ metadata_dir = Path("/home/arr65/data/nzgd/processed_data/cpt/metadata")
 output_dir = metadata_dir / "residual_plots" / str(date.today()) / f"{cpt_correlation}_{vs30_correlation}_{data_subset}_data_min_max_depth_{min_acceptable_max_depth_m}m"
 output_dir.mkdir(parents=True, exist_ok=True)
 
-vs30_from_model = pd.read_csv(metadata_dir / "foster_vs30_at_nzgd_locations.csv")
-vs30_from_model.rename(columns={"vs30": "vs30_from_model"}, inplace=True)
+# vs30_from_model = pd.read_csv(metadata_dir / "foster_vs30_at_nzgd_locations.csv")
+# vs30_from_model.rename(columns={"vs30": "vs30_from_model"}, inplace=True)
+# vs30_from_model.rename(columns={"vs30_std": "vs30_std_from_model"}, inplace=True)
+
+vs30_from_model = pd.read_csv(metadata_dir / "vs30_from_Foster_geotiff_and_sung_resampled_txt.csv")
+vs30_from_model.rename(columns={"model_vs30_from_closest_point": "vs30_from_model"}, inplace=True)
 vs30_from_model.rename(columns={"vs30_std": "vs30_std_from_model"}, inplace=True)
 
 vs30_from_data = pd.read_csv(metadata_dir / "vs30_estimates_from_cpt.csv")

@@ -12,6 +12,7 @@ from pathlib import Path
 
 from sqlalchemy import column
 from tqdm import tqdm
+from datetime import datetime
 
 import time
 
@@ -20,11 +21,15 @@ import nzgd_data_extraction.validation.helpers as helpers
 
 start_time = time.time()
 
+current_date = datetime.now().date()
+
+# Convert the date to a string
+current_date_str = current_date.strftime("%Y-%m-%d")
 
 old_data_dir = Path("/home/arr65/vs30_data_input_data/parquet/data")
 new_data_dir = Path("/home/arr65/data/nzgd/processed_data/cpt/data")
 
-data_validation_check_output_dir = Path("/home/arr65/data/nzgd/validation_checks/processed_data")
+data_validation_check_output_dir = Path(f"/home/arr65/data/nzgd/validation_checks/{current_date_str}/processed_data")
 
 plot_output_dir = data_validation_check_output_dir / "plots"
 plot_output_dir.mkdir(parents=True, exist_ok=True)

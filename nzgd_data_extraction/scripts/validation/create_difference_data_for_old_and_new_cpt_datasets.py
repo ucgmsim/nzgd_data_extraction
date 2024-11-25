@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 # import scipy
 # import random
+from datetime import datetime
 
 from pathlib import Path
 # from sqlalchemy import create_engine
@@ -26,28 +27,34 @@ import functools
 
 start_time = time.time()
 
+current_date = datetime.now().date()
+
+# Convert the date to a string
+current_date_str = current_date.strftime("%Y-%m-%d")
 
 old_data_dir = Path("/home/arr65/vs30_data_input_data/parquet/data")
 new_data_dir = Path("/home/arr65/data/nzgd/processed_data/cpt/data")
 
-check_output_dir = Path("/home/arr65/data/nzgd/validation_checks/processed_data")
+check_output_dir = Path(f"/home/arr65/data/nzgd/validation_checks/{current_date_str}/processed_data")
 check_output_dir.mkdir(parents=True, exist_ok=True)
 
 print("getting record names")
 
 ### Find the record_ids that are in both the old and new data directories
-# old_ids = natsort.natsorted([file.stem for file in old_data_dir.glob("*.parquet")])
-# new_ids = natsort.natsorted([file.stem for file in new_data_dir.glob("*.parquet")])
-# ids_in_both_old_and_new_datasets = [id for id in new_ids if id in old_ids]
+old_ids = natsort.natsorted([file.stem for file in old_data_dir.glob("*.parquet")])
+new_ids = natsort.natsorted([file.stem for file in new_data_dir.glob("*.parquet")])
+ids_in_both_old_and_new_datasets = [id for id in new_ids if id in old_ids]
 
 ### To output the record_names that are in both the old and new datasets
 #ids_to_check_df = pd.DataFrame({"record_names_in_old_and_new_datasets":ids_in_both_old_and_new_datasets})
 #ids_to_check_df.to_csv(Path("/home/arr65/data/nzgd/resources") / "record_names_in_old_and_new_datasets.csv",index=False)
-ids_to_check_df = pd.read_csv(Path("/home/arr65/data/nzgd/resources") / "record_names_in_old_and_new_datasets.csv")
-ids_in_both_old_and_new_datasets = ids_to_check_df["record_names_in_old_and_new_datasets"].to_list()
+# ids_to_check_df = pd.read_csv(Path("/home/arr65/data/nzgd/resources") / "record_names_in_old_and_new_datasets.csv")
+# ids_in_both_old_and_new_datasets = ids_to_check_df["record_names_in_old_and_new_datasets"].to_list()
 
 num_points_in_new = []
 num_points_in_old = []
+
+print("starting comparison")
 
 for id in tqdm(ids_in_both_old_and_new_datasets):
     new_df = pd.read_parquet(new_data_dir / f"{id}.parquet")

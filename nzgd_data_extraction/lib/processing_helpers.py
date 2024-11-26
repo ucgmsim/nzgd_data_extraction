@@ -133,6 +133,7 @@ def search_line_for_cell(line, characters, substrings):
     return candidates_idx
 
 def search_line_for_all_needed_cells(
+
         line,
         output_all_candidates=False,
         characters1=["m","w","h","r","cf"],
@@ -192,7 +193,6 @@ def find_one_header_row_from_column_names(iterable):
     # as it is most likely to contain the column names. This will reduce the chance of accidentally choosing the
     # wrong row because it coincidentally contained the key words
     check_rows = np.roll(np.arange(0, len(iterable)-1), -np.argmax(text_surplus_per_line))
-
     best_partial_header_row = np.nan
     num_cols_in_best_possible_row = 0
 
@@ -260,7 +260,21 @@ def get_number_of_x_cells_per_line(iterable:Union[pd.Series, list], x: NumOrText
     return num_x_cells_per_line
 
 
-def find_all_header_rows(iterable):
+def find_index_of_each_header_row(iterable: Union[pd.DataFrame, list]):
+
+    """
+    Find the index of each header row in the given list or DataFrame.
+
+    Parameters
+    ----------
+    iterable : Union[pd.DataFrame, list]
+        The input list or DataFrame to search.
+
+    Returns
+    -------
+    np.ndarray
+        An array containing the index of each header row.
+    """
 
     if isinstance(iterable, pd.DataFrame):
         iterable = [iterable.iloc[i].to_list() for i in range(len(iterable))]
@@ -293,7 +307,6 @@ def find_all_header_rows(iterable):
         current_row_idx += 1
 
     return np.array(sorted(header_rows))
-
 
 
 def get_xls_sheet_names(file_path):
@@ -436,10 +449,30 @@ def load_csv_or_txt(file_path, sheet="0", col_data_types=np.array(["Depth",
                                                                  "fs",
                                                                  "u"])):
 
+    """"
+    Load a .csv or .txt file and return a DataFrame with the required columns.
+
+    Parameters
+    ----------
+    file_path : Path
+        The path to the file to load.
+
+    sheet : str, optional
+        A placeholder value to output a consistent format with xls files which have multiple sheets per file.
+        Default is "0".
+    col_data_types : np.array, optional
+        The required column types for the DataFrame. Default is ["Depth", "qc", "fs", "u"].
+
+    Returns
+    -------
+    pd.DataFrame
+        A DataFrame containing the required columns from the file.
+    """
+
     sep = r"," if file_path.suffix.lower() == ".csv" else r"\s+"
     file_encoding = find_encoding(file_path)
     split_readlines_iterable = get_csv_or_txt_split_readlines(file_path, file_encoding)
-    header_lines_in_csv_or_txt_file = find_all_header_rows(split_readlines_iterable)
+    header_lines_in_csv_or_txt_file = find_index_of_each_header_row(split_readlines_iterable)
 
     # csv and txt files do not have multiple sheets so just raise an error immediately if no header rows were found
     if len(header_lines_in_csv_or_txt_file) == 0:
@@ -449,9 +482,11 @@ def load_csv_or_txt(file_path, sheet="0", col_data_types=np.array(["Depth",
         multi_row_header_array = np.zeros((len(header_lines_in_csv_or_txt_file), 4), dtype=float)
         multi_row_header_array[:] = np.nan
         for header_line_idx, header_line in enumerate(header_lines_in_csv_or_txt_file):
+            print()
             multi_row_header_array[header_line_idx, :] = search_line_for_all_needed_cells(
                 split_readlines_iterable[header_line])
         col_data_type_indices = np.nansum(multi_row_header_array, axis=0)
+        print()
     else:
         col_data_type_indices = search_line_for_all_needed_cells(
             split_readlines_iterable[header_lines_in_csv_or_txt_file[0]])
@@ -464,7 +499,7 @@ def load_csv_or_txt(file_path, sheet="0", col_data_types=np.array(["Depth",
     needed_col_indices_with_nans = search_line_for_all_needed_cells(
         split_readlines_iterable[header_lines_in_csv_or_txt_file[0]])
     needed_col_indices = [int(col_idx) for col_idx in needed_col_indices_with_nans if np.isfinite(col_idx)]
-
+    print()
     df = pd.read_csv(file_path, header=None, encoding=file_encoding, sep=sep,
                      skiprows=header_lines_in_csv_or_txt_file[0], usecols=needed_col_indices).map(
         convert_num_as_str_to_float)

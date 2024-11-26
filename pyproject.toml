@@ -3,7 +3,7 @@ requires = ["setuptools", "setuptools-scm"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "PACKAGE NAME HERE"
+name = "nzgd_data_extraction"
 authors = [
     {name = "QuakeCoRE" },
 ]

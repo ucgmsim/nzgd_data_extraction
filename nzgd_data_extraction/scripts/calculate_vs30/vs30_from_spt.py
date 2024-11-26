@@ -23,7 +23,8 @@ output_dir = Path("/home/arr65/data/nzgd/processed_data/spt")
 unique_nzgd_ids = all_spt_df["NZGD_ID"].unique()
 
 spt_vs30_df = pd.DataFrame(columns=["record_name", "error", "Vs30", "Vs30_sd", "spt_vs_correlation", "vs30_correlation",
-                                    "used_soil_info", "hammer_type","borehole_diameter"])
+                                    "used_soil_info", "hammer_type","borehole_diameter", "min_depth", "max_depth",
+                                    "depth_span", "num_depth_levels"])
 
 progress_bar = tqdm(total=len(unique_nzgd_ids)*len(spt_vs_correlations)*len(vs30_correlations)*len(hammer_types))
 
@@ -86,7 +87,12 @@ for spt_vs_correlation in spt_vs_correlations:
                                                     "vs30_correlation": vs30_correlation,
                                                     "used_soil_info" : used_soil_info,
                                                     "hammer_type": hammer_type.name,
-                                                    "borehole_diameter": borehole_diameter},
+                                                    "borehole_diameter": borehole_diameter,
+                                                    "min_depth": spt_df["Depth"].min(),
+                                                    "max_depth": spt_df["Depth"].max(),
+                                                    "depth_span": spt_df["Depth"].max() - spt_df["Depth"].min(),
+                                                    "num_depth_levels": spt_df["Depth"].size
+                                              },
                                              index=[0])], ignore_index=True)
                 progress_bar.update(1)
 

@@ -57,18 +57,19 @@ def find_region(
 
 
 def find_regions(
-    nzgd_index_path: Path,
+    latest_nzgd_index_file_path: Path,
     district_shapefile_path: Path,
     suburbs_shapefile_path: Path,
     region_classification_output_dir: Path,
-    num_procs: int
+    num_procs: int,
+    previous_region_file_path: Optional[Path] = None
 ) -> pd.DataFrame:
     """
     Finds the region for each point in the NZGD index and outputs the results to a CSV file.
 
     Parameters
     ----------
-    nzgd_index_path : Path
+    latest_nzgd_index_file_path : Path
         Path to the NZGD index CSV file.
     district_shapefile_path : Path
         Path to the district shapefile.
@@ -78,6 +79,8 @@ def find_regions(
         Directory to save the output CSV file.
     num_procs : int
         Number of processes to use for parallel processing.
+    previous_region_file_path : Path, optional
+        If a path to a previous region classification file is provided, the regions will be found for the new points only.
 
     Returns
     -------
@@ -90,19 +93,23 @@ def find_regions(
     region_classification_output_dir.mkdir(exist_ok=True, parents=True)
 
     region_file = (
-        region_classification_output_dir / f"regions_{nzgd_index_path.stem}.csv"
+        region_classification_output_dir / f"regions_{latest_nzgd_index_file_path.stem}.csv"
     )
     if region_file.exists():
         print("Region file already exists. Loading existing file.")
         return pd.read_csv(region_file)
 
-    nzgd_index_df = pd.read_csv(nzgd_index_path)
-    nzgd_index_df = nzgd_index_df[
-        (nzgd_index_df["Type"] == "CPT")
-        | (nzgd_index_df["Type"] == "SCPT")
-        | (nzgd_index_df["Type"] == "Borehole")
-        | (nzgd_index_df["Type"] == "VsVp")
+    latest_nzgd_index_df = pd.read_csv(latest_nzgd_index_file_path)
+    latest_nzgd_index_df = latest_nzgd_index_df[
+        (latest_nzgd_index_df["Type"] == "CPT")
+        | (latest_nzgd_index_df["Type"] == "SCPT")
+        | (latest_nzgd_index_df["Type"] == "Borehole")
+        | (latest_nzgd_index_df["Type"] == "VsVp")
     ]
+
+    if previous_region_file_path:
+        previous_region_file = pd.read_csv(previous_region_file_path)
+        latest_nzgd_index_df = latest_nzgd_index_df[~latest_nzgd_index_df["ID"].isin(previous_region_file["record_id"])]
 
     district_gdf = gpd.read_file(district_shapefile_path)
     suburbs_gdf = gpd.read_file(suburbs_shapefile_path)
@@ -110,7 +117,7 @@ def find_regions(
     find_regions_partial = functools.partial(
         find_region, district_gdf=district_gdf, suburbs_gdf=suburbs_gdf
     )
-    df_rows_as_list = [row for index, row in nzgd_index_df.iterrows()]
+    df_rows_as_list = [row for index, row in latest_nzgd_index_df.iterrows()]
 
     with multiprocessing.Pool(processes=num_procs) as pool:
         found_suburbs_df = pd.concat(
@@ -119,9 +126,14 @@ def find_regions(
 
     ## Blank fields get values of np.nan so they are replaced with "unclassified"
     found_suburbs_df.fillna("unclassified", inplace=True)
+
+    ## Combine with the previous region classification file if it exists
+    if previous_region_file_path:
+        found_suburbs_df = pd.concat([previous_region_file, found_suburbs_df])
+
     if region_classification_output_dir:
         found_suburbs_df.to_csv(
-            region_classification_output_dir / f"regions_{nzgd_index_path.stem}.csv"
+            region_classification_output_dir / f"regions_{latest_nzgd_index_file_path.stem}.csv"
         )
 
     end_time = time.time()

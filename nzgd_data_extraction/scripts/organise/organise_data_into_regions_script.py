@@ -8,7 +8,7 @@ from pathlib import Path
 from nzgd_data_extraction.lib import organise
 
 region_df = organise.find_regions(
-    nzgd_index_path=Path(
+    latest_nzgd_index_file_path=Path(
         "/home/arr65/data/nzgd/nzgd_index_files/csv_files/NZGD_Investigation_Report_08112024_1017.csv"
     ),
     district_shapefile_path=Path(
@@ -20,7 +20,8 @@ region_df = organise.find_regions(
     region_classification_output_dir=Path(
         "/home/arr65/data/nzgd/region_classification"
     ),
-    num_procs = 8
+    num_procs = 8,
+    previous_region_file_path=Path("/home/arr65/data/nzgd/region_classification/regions_NZGD_Investigation_Report_23102024_1042.csv")
 )
 
 

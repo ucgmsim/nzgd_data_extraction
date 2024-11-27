@@ -7,42 +7,14 @@ import enum
 from datetime import date
 
 
+output_dir = Path("/home/arr65/data/nzgd/vs30_plots")
+output_file_name = "vs30_residuals.png"
 
-class CPTCorrelation(enum.StrEnum):
-    andrus_2007_holocene = "andrus_2007_holocene"
-    andrus_2007_pleistocene = "andrus_2007_pleistocene"
-    andrus_2007_tertiary_age_cooper_marl = "andrus_2007_tertiary_age_cooper_marl"
-    robertson_2009 = "robertson_2009"
-    hegazy_2006 = "hegazy_2006"
-    mcgann_2015 = "mcgann_2015"
-    mcgann_2018 = "mcgann_2018"
 
-class Vs30Correlation(enum.StrEnum):
-    boore_2011 = "boore_2011"
-    boore_2004 = "boore_2004"
 
-class DataSubset(enum.StrEnum):
-    new_and_old = "new_and_old"
-    only_old = "only_old"
-    only_new = "only_new"
 
-def get_num_surviving(max_depths_arr, vs30_from_data):
-    num_surviving = np.zeros_like(max_depths_arr)
-    for i, max_depth in enumerate(max_depths_arr):
-        num_surviving[i] = vs30_from_data[vs30_from_data["max_depth_m"] > max_depth].shape[0]
-    return num_surviving
 
-#cpt_correlation = CPTCorrelation.andrus_2007_pleistocene
-cpt_correlation = CPTCorrelation.andrus_2007_holocene
 
-vs30_correlation = Vs30Correlation.boore_2004
-#data_subset = DataSubset.new_and_old
-data_subset = DataSubset.only_new
-min_acceptable_max_depth_m = 10
-
-record_names_in_old_dataset = pd.read_csv("/home/arr65/data/nzgd/resources/record_names_in_old_dataset.csv")["record_names_in_old_dataset"].to_list()
-
-metadata_dir = Path("/home/arr65/data/nzgd/processed_data/cpt/metadata")
 output_dir = metadata_dir / "residual_plots" / str(date.today()) / f"{cpt_correlation}_{vs30_correlation}_{data_subset}_data_min_max_depth_{min_acceptable_max_depth_m}m"
 output_dir.mkdir(parents=True, exist_ok=True)
 

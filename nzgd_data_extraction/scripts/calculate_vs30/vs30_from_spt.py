@@ -9,15 +9,21 @@ sys.path.append(str(vs_calc_path))
 
 import vs_calc
 
-spt_vs_correlations = vs_calc.spt_vs_correlations.SPT_CORRELATIONS
-vs30_correlations = list(vs_calc.vs30_correlations.VS30_CORRELATIONS.keys())
+# spt_vs_correlations = vs_calc.spt_vs_correlations.SPT_CORRELATIONS
+# vs30_correlations = list(vs_calc.vs30_correlations.VS30_CORRELATIONS.keys())
+#
+# hammer_types = [vs_calc.constants.HammerType.Auto, vs_calc.constants.HammerType.Safety,
+#                 vs_calc.constants.HammerType.Standard]
 
-hammer_types = [vs_calc.constants.HammerType.Auto, vs_calc.constants.HammerType.Safety,
-                vs_calc.constants.HammerType.Standard]
+spt_vs_correlations = ["brandenberg_2010"]
+vs30_correlations = ["boore_2004"]
+hammer_types = [vs_calc.constants.HammerType.Auto]
+
 borehole_diameter = 150
 
-all_spt_df = pd.read_parquet("/home/arr65/data/nzgd/processed_data/spt/spts.parquet")
 output_dir = Path("/home/arr65/data/nzgd/processed_data/spt")
+all_spt_df = pd.read_parquet("/home/arr65/data/nzgd/processed_data/spt/out.parquet")
+all_spt_df = all_spt_df.reset_index()
 
 ## Get unique values of the column "NZGD_ID" in all_spt_df
 unique_nzgd_ids = all_spt_df["NZGD_ID"].unique()

@@ -9,10 +9,11 @@ from tqdm import tqdm
 from qcore import coordinates
 
 
-nzgd_index_df = pd.read_csv("/home/arr65/data/nzgd/nzgd_index_files/csv_files/NZGD_Investigation_Report_08112024_1017.csv")
+nzgd_index_file_path = Path("/home/arr65/data/nzgd/resources/nzgd_index_files/csv_files/NZGD_Investigation_Report_08112024_1017.csv")
+nzgd_index_df = pd.read_csv(nzgd_index_file_path)
+output_dir = Path("/home/arr65/data/nzgd/resources/metadata_from_nzgd_location")
 
 data_latlon = nzgd_index_df[["Latitude", "Longitude"]].to_numpy()
-
 
 ##################################
 ### Calculate coordinates in NZTM
@@ -60,4 +61,6 @@ vs30_vs30std = np.array(interpolated_values)
 nzgd_index_df.loc[:, "vs30"] = vs30_vs30std[:, 0]
 nzgd_index_df.loc[:, "vs30_std"] = vs30_vs30std[:, 1]
 
-nzgd_index_df.to_csv("/home/arr65/data/nzgd/processed_data/cpt/metadata/foster_vs30_at_nzgd_locations.csv", index=False)
+nzgd_index_df = nzgd_index_df[["ID","vs30", "vs30_std"]]
+
+nzgd_index_df.to_csv(output_dir / f"foster_vs30_at_nzgd_locations_{nzgd_index_file_path.stem}.csv", index=False)

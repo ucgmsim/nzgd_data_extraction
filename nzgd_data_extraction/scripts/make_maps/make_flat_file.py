@@ -51,7 +51,9 @@ merged_df = pd.merge(merged_df, spt_vs30_df, on="record_name")
 ## Make a new column that is the concatenation of strings in columns 'spt_vs_correlation' and 'vs30_correlation'
 merged_df["spt_vs_correlation_and_vs30_correlation"] = merged_df["spt_vs_correlation"] + "_" + merged_df["vs30_correlation"]
 
-merged_df["log_vs30_from_data_minus_log_vs30_from_foster_2019"] = np.log(merged_df["vs30_from_data"]) - np.log(merged_df["foster_2019_vs30"])
+#merged_df["log_vs30_from_data_minus_log_vs30_from_foster_2019"] = np.log(merged_df["vs30_from_data"]) - np.log(merged_df["foster_2019_vs30"])
+merged_df["vs30_log_residual"] = np.log(merged_df["vs30_from_data"]) - np.log(merged_df["foster_2019_vs30"])
+
 
 merged_df.to_parquet(Path("/home/arr65/src/nzgd_map_from_webplate/instance/spt_vs30.parquet"))
 

@@ -133,7 +133,8 @@ def find_regions(
 
     if region_classification_output_dir:
         found_suburbs_df.to_csv(
-            region_classification_output_dir / f"regions_{latest_nzgd_index_file_path.stem}.csv"
+            region_classification_output_dir / f"regions_{latest_nzgd_index_file_path.stem}.csv",
+            index=False
         )
 
     end_time = time.time()
@@ -202,6 +203,9 @@ def organise_records_into_regions(
         "VsVp": "vsvp",
     }
 
+    paths_to_already_organized_files = list(organised_root_dir_to_copy_to.rglob("*"))
+    already_organized_records = [record_dir.parent.name for record_dir in paths_to_already_organized_files if record_dir.is_file()]
+
     # Regular expression to replace " " (space), ' (apostrophe), "," (comma), and "/" (forward slash) characters
     chars_to_replace = r"[ ',/]"
 
@@ -219,8 +223,10 @@ def organise_records_into_regions(
             unorganised_root_dir_to_copy_from
         )
         record_ids_to_copy = [
-            record_dir.name for record_dir in paths_to_records_to_copy
-        ]
+            record_dir.name for record_dir in paths_to_records_to_copy]
+
+    ## Only copy records that have not already been organised
+    record_ids_to_copy = list(set(record_ids_to_copy) - set(already_organized_records))
 
     # Create a dictionary mapping record IDs to their paths
     downloaded_record_dict = dict(zip(record_ids_to_copy, paths_to_records_to_copy))

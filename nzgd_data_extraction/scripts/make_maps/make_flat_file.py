@@ -8,6 +8,25 @@ def replace_chars(old_string):
     chars_to_replace = r"[ ',/]"
     return re.sub(chars_to_replace, "_", old_string)
 
+########################################
+
+### Get all the borehole pdf links
+
+borehole_hypocentre_mirror = Path("/home/arr65/data/nzgd/hypocentre_mirror/nzgd/raw_from_nzgd/borehole")
+all_borehole_pdf_files = list(borehole_hypocentre_mirror.rglob("*.pdf"))
+relative_to_dir = Path("/home/arr65/data/nzgd/hypocentre_mirror/nzgd/")
+all_borehole_pdf_files = [file.relative_to(relative_to_dir) for file in all_borehole_pdf_files]
+
+borehole_pdf_df = pd.DataFrame(columns=["record_name","link_to_pdf"])
+
+for file in all_borehole_pdf_files:
+    borehole_pdf_df = pd.concat([borehole_pdf_df,
+        pd.DataFrame({"record_name": file.parent.name, "link_to_pdf": str(file)},index=[0])],
+                              ignore_index=True)
+
+
+#####################
+
 nzgd_df = pd.read_csv("/home/arr65/data/nzgd/resources/nzgd_index_files/csv_files/NZGD_Investigation_Report_08112024_1017.csv")
 # drop columns X and Y
 nzgd_df.drop(columns=["X","Y", "Coordinate System"], inplace=True)
@@ -46,7 +65,7 @@ spt_vs30_df.rename(columns={'ID': 'record_name',
 merged_df = pd.merge(nzgd_df, region_df, on="record_name")
 merged_df = pd.merge(merged_df, foster_vs30_df, on="record_name")
 merged_df = pd.merge(merged_df, spt_vs30_df, on="record_name")
-
+merged_df = pd.merge(merged_df, borehole_pdf_df, on="record_name")
 
 ## Make a new column that is the concatenation of strings in columns 'spt_vs_correlation' and 'vs30_correlation'
 merged_df["spt_vs_correlation_and_vs30_correlation"] = merged_df["spt_vs_correlation"] + "_" + merged_df["vs30_correlation"]

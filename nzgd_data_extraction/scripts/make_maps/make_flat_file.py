@@ -8,24 +8,35 @@ def replace_chars(old_string):
     chars_to_replace = r"[ ',/]"
     return re.sub(chars_to_replace, "_", old_string)
 
-########################################
-
-### Get all the borehole pdf links
-
-borehole_hypocentre_mirror = Path("/home/arr65/data/nzgd/hypocentre_mirror/nzgd/raw_from_nzgd/borehole")
-all_borehole_pdf_files = list(borehole_hypocentre_mirror.rglob("*.pdf"))
-relative_to_dir = Path("/home/arr65/data/nzgd/hypocentre_mirror/nzgd/")
-all_borehole_pdf_files = [file.relative_to(relative_to_dir) for file in all_borehole_pdf_files]
-
-borehole_pdf_df = pd.DataFrame(columns=["record_name","link_to_pdf"])
-
-for file in all_borehole_pdf_files:
-    borehole_pdf_df = pd.concat([borehole_pdf_df,
-        pd.DataFrame({"record_name": file.parent.name, "link_to_pdf": str(file)},index=[0])],
-                              ignore_index=True)
+##############################
+### Testing
 
 
-#####################
+# instance_path = Path("/home/arr65/src/nzgd_map_from_webplate/instance")
+#
+# record_name = "BH_229546"
+# vs30_df_all_records = pd.read_parquet(instance_path / "spt_vs30.parquet").reset_index()
+#
+# vs30_df_all_records["link_to_pdf_with_prefix"] = vs30_df_all_records["link_to_pdf"].apply(lambda x: str(link_to_pdf_prefix / x))
+
+# record_details_df = vs30_df_all_records[vs30_df_all_records["record_name"] == record_name]
+# record_details = record_details_df.to_dict(orient="records")
+
+# vs30_df = pd.read_parquet(instance_path / "spt_vs30.parquet").reset_index()
+#
+# #vs30_df = spt_vs30_df
+# record_name = "BH_229546"
+#
+# default_correlation = "brandenberg_2010_boore_2004"
+# default_hammer_type = "Auto" ## hammer_types = ["Auto", "Safety", "Standard"]
+# record_details_df = vs30_df[(vs30_df["record_name"] == record_name) &
+#                          (vs30_df["spt_vs_correlation_and_vs30_correlation"] == default_correlation) &
+#                          (vs30_df["hammer_type"] == default_hammer_type)]
+#
+# record_details = record_details_df.to_dict(orient="records")[0]
+
+#####################################
+
 
 nzgd_df = pd.read_csv("/home/arr65/data/nzgd/resources/nzgd_index_files/csv_files/NZGD_Investigation_Report_08112024_1017.csv")
 # drop columns X and Y
@@ -60,6 +71,31 @@ spt_vs30_df.rename(columns={'ID': 'record_name',
                             "error":"error_from_data",
                             "Vs30":"vs30_from_data",
                             "Vs30_sd":"vs30_std_from_data"}, inplace=True)
+## Make a new column that is the concatenation of strings in columns 'spt_vs_correlation' and 'vs30_correlation'
+spt_vs30_df["spt_vs_correlation_and_vs30_correlation"] = spt_vs30_df["spt_vs_correlation"] + "_" + spt_vs30_df["vs30_correlation"]
+
+########################################
+### Get all the borehole pdf links
+
+
+
+
+borehole_hypocentre_mirror = Path("/home/arr65/data/nzgd/hypocentre_mirror/nzgd/raw_from_nzgd/borehole")
+all_borehole_pdf_files = list(borehole_hypocentre_mirror.rglob("*.pdf"))
+relative_to_dir = Path("/home/arr65/data/nzgd/hypocentre_mirror/nzgd/")
+link_to_pdf_prefix = Path("https://quakecoresoft.canterbury.ac.nz")
+all_borehole_pdf_files = [link_to_pdf_prefix / file.relative_to(relative_to_dir) for file in all_borehole_pdf_files]
+
+
+
+borehole_pdf_df = pd.DataFrame(columns=["record_name","link_to_pdf"])
+
+for file in all_borehole_pdf_files:
+    borehole_pdf_df = pd.concat([borehole_pdf_df,
+        pd.DataFrame({"record_name": file.parent.name, "link_to_pdf": str(file)},index=[0])],
+                              ignore_index=True)
+#####################
+
 
 # Merge DataFrames
 merged_df = pd.merge(nzgd_df, region_df, on="record_name")
@@ -67,12 +103,7 @@ merged_df = pd.merge(merged_df, foster_vs30_df, on="record_name")
 merged_df = pd.merge(merged_df, spt_vs30_df, on="record_name")
 merged_df = pd.merge(merged_df, borehole_pdf_df, on="record_name")
 
-## Make a new column that is the concatenation of strings in columns 'spt_vs_correlation' and 'vs30_correlation'
-merged_df["spt_vs_correlation_and_vs30_correlation"] = merged_df["spt_vs_correlation"] + "_" + merged_df["vs30_correlation"]
-
 #merged_df["log_vs30_from_data_minus_log_vs30_from_foster_2019"] = np.log(merged_df["vs30_from_data"]) - np.log(merged_df["foster_2019_vs30"])
 merged_df["vs30_log_residual"] = np.log(merged_df["vs30_from_data"]) - np.log(merged_df["foster_2019_vs30"])
-
-
 merged_df.to_parquet(Path("/home/arr65/src/nzgd_map_from_webplate/instance/spt_vs30.parquet"))
 

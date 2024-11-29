@@ -14,7 +14,7 @@ from nzgd_data_extraction.lib import process_cpt_data, processing_helpers
 
 investigation_type = processing_helpers.InvestigationType.cpt
 
-nzgd_index_df = pd.read_csv(Path("/home/arr65/data/nzgd/nzgd_index_files/csv_files/"
+nzgd_index_df = pd.read_csv(Path("/home/arr65/data/nzgd/resources/nzgd_index_files/csv_files/"
                                  "NZGD_Investigation_Report_08112024_1017.csv"))
 
 output_dir = Path(f"/home/arr65/data/nzgd/testing_processed_data/{investigation_type}")

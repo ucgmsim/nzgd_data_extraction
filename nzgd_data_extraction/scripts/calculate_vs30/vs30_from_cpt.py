@@ -109,14 +109,14 @@ if __name__ == "__main__":
 
     file_paths = list(parquet_dir.glob("*.parquet"))
 
-    cpt_vs_correlations = list(vs_calc.cpt_vs_correlations.CPT_CORRELATIONS.keys())
-    vs30_correlations = list(vs_calc.vs30_correlations.VS30_CORRELATIONS.keys())
+    # cpt_vs_correlations = list(vs_calc.cpt_vs_correlations.CPT_CORRELATIONS.keys())
+    # vs30_correlations = list(vs_calc.vs30_correlations.VS30_CORRELATIONS.keys())
 
     # cpt_vs_correlations = cpt_vs_correlations[0:1]
     # vs30_correlations = vs30_correlations[1:]
 
-    # cpt_vs_correlations = ["andrus_2007_pleistocene", "andrus_2007_holocene"]
-    # vs30_correlations = ["boore_2004"]
+    cpt_vs_correlations = ["andrus_2007_pleistocene", "andrus_2007_holocene"]
+    vs30_correlations = ["boore_2004"]
 
     results = []
     for vs30_correlation in vs30_correlations:
@@ -129,7 +129,7 @@ if __name__ == "__main__":
                                                       cpt_vs_correlation=cpt_vs_correlation,
                                                       vs30_correlation=vs30_correlation)
             #num_workers = mp.cpu_count() - 1
-            num_workers = 4
+            num_workers = 8
             with mp.Pool(processes=num_workers) as pool:
                 results.extend(list(tqdm(pool.imap(calc_vs30_from_filename_partial, file_paths),
                                     total=len(file_paths))))

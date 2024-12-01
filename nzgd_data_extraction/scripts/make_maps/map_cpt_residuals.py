@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import rasterio
 import enum
 from datetime import date
+from qcore import coordinates
 
 
 
@@ -32,8 +33,8 @@ def get_num_surviving(max_depths_arr, vs30_from_data):
         num_surviving[i] = vs30_from_data[vs30_from_data["max_depth_m"] > max_depth].shape[0]
     return num_surviving
 
-#cpt_correlation = CPTCorrelation.andrus_2007_pleistocene
-cpt_correlation = CPTCorrelation.andrus_2007_holocene
+cpt_correlation = CPTCorrelation.andrus_2007_pleistocene
+#cpt_correlation = CPTCorrelation.andrus_2007_holocene
 
 vs30_correlation = Vs30Correlation.boore_2004
 #data_subset = DataSubset.new_and_old
@@ -46,17 +47,31 @@ metadata_dir = Path("/home/arr65/data/nzgd/processed_data/cpt/metadata")
 output_dir = metadata_dir / "residual_plots" / str(date.today()) / f"{cpt_correlation}_{vs30_correlation}_{data_subset}_data_min_max_depth_{min_acceptable_max_depth_m}m"
 output_dir.mkdir(parents=True, exist_ok=True)
 
-# vs30_from_model = pd.read_csv(metadata_dir / "foster_vs30_at_nzgd_locations.csv")
-# vs30_from_model.rename(columns={"vs30": "vs30_from_model"}, inplace=True)
-# vs30_from_model.rename(columns={"vs30_std": "vs30_std_from_model"}, inplace=True)
-
-vs30_from_model = pd.read_csv(metadata_dir / "vs30_from_Foster_geotiff_and_sung_resampled_txt.csv")
-vs30_from_model.rename(columns={"model_vs30_from_closest_point": "vs30_from_model"}, inplace=True)
+vs30_from_model = pd.read_csv(Path("/home/arr65/data/nzgd/resources/metadata_from_nzgd_location") /
+                              "foster_vs30_at_nzgd_locations_NZGD_Investigation_Report_08112024_1017.csv")
+vs30_from_model.rename(columns={"vs30": "vs30_from_model"}, inplace=True)
 vs30_from_model.rename(columns={"vs30_std": "vs30_std_from_model"}, inplace=True)
+
+# vs30_from_model = pd.read_csv(metadata_dir / "vs30_from_Foster_geotiff_and_sung_resampled_txt.csv")
+# vs30_from_model.rename(columns={"model_vs30_from_closest_point": "vs30_from_model"}, inplace=True)
+# vs30_from_model.rename(columns={"vs30_std": "vs30_std_from_model"}, inplace=True)
 
 vs30_from_data = pd.read_csv(metadata_dir / "vs30_estimates_from_cpt.csv")
 vs30_from_data.rename(columns={"vs30": "vs30_from_data"}, inplace=True)
 vs30_from_data.rename(columns={"vs30_sd": "vs30_std_from_data"}, inplace=True)
+
+##########################################
+
+data_latlon = vs30_from_data[["latitude", "longitude"]].to_numpy()
+
+##################################
+### Calculate coordinates in NZTM
+
+nzgd_nztm = coordinates.wgs_depth_to_nztm(data_latlon)
+vs30_from_data.loc[:, "nztm_y"] = nzgd_nztm[:, 0]
+vs30_from_data.loc[:, "nztm_x"] = nzgd_nztm[:, 1]
+
+###########################################
 
 vs30_from_data = vs30_from_data[vs30_from_data["cpt_vs_correlation"] == cpt_correlation]
 vs30_from_data = vs30_from_data[vs30_from_data["vs30_correlation"] == vs30_correlation]
@@ -68,8 +83,9 @@ vs30_from_data = vs30_from_data.dropna(subset=["vs30_from_data"])
 # elif data_subset == DataSubset.only_new:
 #     vs30_from_data = vs30_from_data[~vs30_from_data["record_name"].isin(record_names_in_old_dataset)]
 
-vs30_from_data = vs30_from_data[vs30_from_data["max_depth_m"] < 100]
-vs30_from_data_all_max_depths = vs30_from_data.copy()
+# vs30_from_data = vs30_from_data[vs30_from_data["max_depth_m"] < 100]
+# vs30_from_data_all_max_depths = vs30_from_data.copy()
+# print()
 
 ## Filter out records with a maximum depth less than min_acceptable_max_depth_m
 vs30_from_data = vs30_from_data[vs30_from_data["max_depth_m"] > min_acceptable_max_depth_m]

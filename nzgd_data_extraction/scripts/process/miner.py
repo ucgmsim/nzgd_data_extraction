@@ -252,11 +252,50 @@ def process_borehole(report: Path) -> pd.DataFrame:
 
 
 def interval_intersects(a: float, b: float, c: float, d: float) -> bool:
+    """Check if the interval [a, b] intersects the interval [c, d].
+
+    Parameters
+    ----------
+    a : float
+        The left bound of the first interval.
+    b : float
+        The right bound of the first interval.
+    c : float
+        The left bound of the second interval.
+    d : float
+        The right bound of the second interval.
+
+
+    Returns
+    -------
+    bool
+        True if the intersection of the interval [a, b] with [c, d] is non-trivial.
+    """
     return not (b < c or d < a)
 
 
 def invalid_scale(scale: list[float]) -> bool:
-    return all(scale[i] - scale[i - 1] > 0 for i in range(1, len(scale)))
+    """Detect if a depth scale is invalid.
+
+    A depth scale is a list of depth values extracted from the PDF.
+    The depth scale is considered invalid if it is not strictly
+    increasing and non-negative, i.e.
+
+        scale[i] > scale[i - 1] and
+        scale[0] >= 0.
+
+    Parameters
+    ----------
+    scale : list[float]
+        The list of depth values to check.
+
+
+    Returns
+    -------
+    bool
+        True if the depth scale is strictly increasing.
+    """
+    return all(scale[i] > scale[i - 1] for i in range(1, len(scale))) and scale[0] >= 0
 
 
 def extract_depth_scale(
@@ -265,6 +304,70 @@ def extract_depth_scale(
     eps_max: float = 5,
     max_iterations: int = 10,
 ) -> npt.NDArray[np.float64]:
+    """Extracts the depth scaling parameters for a given depth column by iteratively
+    refining the search space to identify valid depth values.
+
+    Parameters
+    ----------
+    depth_node : TextObject
+        The text object representing the depth column, with `x0`, `x1`, and `yc`
+        attributes specifying its bounding box and centre.
+    nodes : list[TextObject]
+        A list of text objects containing potential depth values, typically all
+        the text nodes on a page.
+    eps_max : float, optional
+        The maximum allowed horizontal deviation from the centre of the `depth_node`
+        during the search for valid depth values. Default is 5.
+    max_iterations : int, optional
+        The maximum number of iterations to perform when refining the search space.
+        Default is 10.
+
+    Returns
+    -------
+    npt.NDArray[np.float64]
+        A 1D array of two values `[m, c]` representing the depth scale equation:
+        `depth = m * y + c`, where `y` is the PDF y-coordinate of the text object.
+
+    Raises
+    ------
+    ValueError
+        If the function fails to converge to a valid set of depth values within the
+        specified number of iterations.
+
+    Notes
+    -----
+    This function identifies text objects aligned horizontally with the depth column,
+    refines the search bounds using binary search to filter valid depth values, and
+    computes a linear fit.
+
+    The process for extraction is illustrated below:
+
+
+          +-------------------------+         ^
+          |    Depth   Col 1  Col 2 |         | y-axis
+          |                         |         |
+          |       100         -1    |         |
+          |                         |         |
+          |             150         |         |
+          |                         |         |
+          |       200               |         |
+          +-------------------------+         v
+    <-------- eps_max ---------->  (Initial bounds include everything)
+      <------ eps_1 ------>         (Bounds narrowed, some invalid values excluded)
+             <eps_2>               (Bounds too narrow, missing valid values)
+         <--- eps_3 -->      (Final valid bounds after adjustment)
+
+    The diagram illustrates:
+    - `eps_max` starts as the widest range.
+    - Iterative refinement adjusts the bounds (`eps_1`, `eps_2`, `eps_3`) using binary search.
+    - Extra numbers (e.g., `-1` and `150` in `Col 2`) are excluded from the depth column.
+
+    If the search bounds accidentally shrink too far (as in `eps_1` ->
+    `eps_2`), the algorithm expands the bounds again to include valid
+    depth values. A successful result is achieved when the process
+    converges to the smallest possible epsilon that collects a valid
+    depth scale.
+    """
     eps_max += (depth_node.x1 - depth_node.x0) / 2
     eps_low = 0.0
     eps_high = eps_max
@@ -309,7 +412,7 @@ def extract_depth_scale(
 def _analyze_text_objects(
     text_objects: list[list[TextObject]], report: Path
 ) -> pd.DataFrame:
-    """Analyze extracted text objects to extract borehole data.
+    """Analyse extracted text objects to extract borehole data.
 
     Parameters
     ----------

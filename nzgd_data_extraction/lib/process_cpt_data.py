@@ -269,10 +269,9 @@ def load_cpt_spreadsheet_file(file_path: Path) -> list[pd.DataFrame]:
         numeric_surplus_per_row = np.nansum(df_for_counting_num_of_num, axis=1) - np.nansum(df_for_counting_str_per_row, axis=1)
 
         header_row_indices = []
-        print()
         header_row_from_col_names = processing_helpers.find_one_header_row_from_column_names(df)
         if np.isfinite(header_row_from_col_names):
-            header_row_indices = processing_helpers.find_index_of_each_header_row(df)
+            header_row_indices = processing_helpers.find_row_indices_of_header_lines(df)
 
         ## Check the dataframe for various issues
         if df.shape == (0,0):

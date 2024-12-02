@@ -57,7 +57,7 @@ records_to_skip = []
 #     ## Remove the records that have been removed from the list of records to process
 #     records_to_process = [record_dir for record_dir in records_to_process if record_dir.name not in records_that_have_been_removed]
 
-records_to_process = [Path("/home/arr65/data/nzgd/downloads_and_metadata/unorganised_raw_from_nzgd/cpt/CPT_358")]
+records_to_process = [Path("/home/arr65/data/nzgd/downloads_and_metadata/unorganised_raw_from_nzgd/cpt/CPT_663")]
 
 ## Create dataframes to store metadata
 spreadsheet_format_description = pd.DataFrame()

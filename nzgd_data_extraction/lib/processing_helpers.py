@@ -1,6 +1,7 @@
 import enum
 
 import numpy as np
+import numpy.typing as npt
 import xlrd
 import pandas as pd
 import re
@@ -192,6 +193,7 @@ def find_one_header_row_from_column_names(iterable):
     # roll the array such that the first row to be checked is the one with the highest number of text cells
     # as it is most likely to contain the column names. This will reduce the chance of accidentally choosing the
     # wrong row because it coincidentally contained the key words
+
     check_rows = np.roll(np.arange(0, len(iterable)-1), -np.argmax(text_surplus_per_line))
     best_partial_header_row = np.nan
     num_cols_in_best_possible_row = 0
@@ -260,46 +262,48 @@ def get_number_of_x_cells_per_line(iterable:Union[pd.Series, list], x: NumOrText
     return num_x_cells_per_line
 
 
-def find_index_of_each_header_row(iterable: Union[pd.DataFrame, list]):
+def find_row_indices_of_header_lines(lines_and_cells_iterable: Union[pd.DataFrame, list[list[str]]]) -> npt.ArrayLike:
 
     """
-    Find the index of each header row in the given list or DataFrame.
+    Find the row indices of the header lines.
 
     Parameters
     ----------
-    iterable : Union[pd.DataFrame, list]
-        The input list or DataFrame to search.
+    lines_and_cells_iterable : Union[pd.DataFrame, list]
+        The input data as a list of list of strings or a DataFrame.
 
     Returns
     -------
     np.ndarray
-        An array containing the index of each header row.
+        An array containing the row index of each header row.
     """
 
-    if isinstance(iterable, pd.DataFrame):
-        iterable = [iterable.iloc[i].to_list() for i in range(len(iterable))]
+    if isinstance(lines_and_cells_iterable, pd.DataFrame):
+        lines_and_cells_iterable = [lines_and_cells_iterable.iloc[i].to_list() for i in range(len(lines_and_cells_iterable))]
 
-    num_text_cells_per_line = get_number_of_x_cells_per_line(iterable, NumOrText.TEXT)
-    num_numeric_cells_per_line = get_number_of_x_cells_per_line(iterable, NumOrText.NUMERIC)
+    num_text_cells_per_line = get_number_of_x_cells_per_line(lines_and_cells_iterable, NumOrText.TEXT)
+    num_numeric_cells_per_line = get_number_of_x_cells_per_line(lines_and_cells_iterable, NumOrText.NUMERIC)
     text_surplus_per_line = num_text_cells_per_line - num_numeric_cells_per_line
-
-    header_rows = [find_one_header_row_from_column_names(iterable)]
+    header_rows = [find_one_header_row_from_column_names(lines_and_cells_iterable)]
     if (len(header_rows) == 1) & (np.isnan(header_rows[0])):
         return np.array([])
 
-    # see if there are any header rows above the initially identified header row
+    ## Check for header rows above the one first identified
     num_str_cells_in_header = num_numeric_cells_per_line[header_rows[0]]
     current_row_idx = header_rows[0] - 1
     while current_row_idx > 0:
-        if len(iterable[current_row_idx]) != num_str_cells_in_header:
+        ## break the while loop if the number of text cells in the current row is 0 or the number of text cells in
+        ## the current row is not equal to the number of text cells in the header
+        if ((len(lines_and_cells_iterable[current_row_idx]) != num_str_cells_in_header) or
+                (text_surplus_per_line[current_row_idx] == 0)):
             break
         else:
             header_rows.append(current_row_idx)
         current_row_idx -= 1
 
-    # check rows below
+    ## Check for header rows below the one first identified
     current_row_idx = header_rows[0]+1
-    while current_row_idx < len(iterable)-1:
+    while current_row_idx < len(lines_and_cells_iterable)-1:
         if text_surplus_per_line[current_row_idx] > 0:
             header_rows.append(current_row_idx)
         else:
@@ -340,7 +344,25 @@ def get_xls_sheet_names(file_path):
 
 
 
-def find_encoding(file_path, encodings = ['utf-8', 'latin1', 'iso-8859-1', 'cp1252']):
+def find_encoding(file_path: Path, encodings: tuple[str] = ('utf-8', 'latin1', 'iso-8859-1', 'cp1252')) -> str:
+    """
+    Determine the encoding of a text file from a list of possible encodings.
+
+    This function attempts to open and read the file using each encoding in the provided list.
+    If the file can be read without a UnicodeDecodeError, the encoding is returned.
+
+    Parameters
+    ----------
+    file_path : Path
+        The path to the text file whose encoding is to be determined.
+    encodings : tuple[str], optional
+        A list of possible encodings to try. Default is ('utf-8', 'latin1', 'iso-8859-1', 'cp1252').
+
+    Returns
+    -------
+    str
+        The encoding that successfully reads the file without errors.
+    """
 
     for encoding in encodings:
         try:
@@ -352,8 +374,30 @@ def find_encoding(file_path, encodings = ['utf-8', 'latin1', 'iso-8859-1', 'cp12
         except UnicodeDecodeError:
             continue
 
-def get_csv_or_txt_split_readlines(file_path, encoding):
+def get_csv_or_txt_split_readlines(file_path: Path, encoding: str) -> list[list[str]]:
+    """
 
+    Loads a csv or txt file as a list of lists of strings. Each list represents a line in the file. Each item in the
+    list represents a cell in the line.
+
+    Parameters
+    ----------
+    file_path : Path
+        The path to the file to be read.
+    encoding : str
+        The encoding to use when reading the file.
+
+    Returns
+    -------
+    list[list[str]]
+        A list of list of strings. Each list represents a line in the file. Each item in the list represents a cell in
+        the line.
+
+    Raises
+    ------
+    FileProcessingError
+        If the file contains only one line.
+    """
     with open(file_path, 'r', encoding=encoding) as file:
         lines = file.readlines()
 
@@ -448,7 +492,6 @@ def load_csv_or_txt(file_path, sheet="0", col_data_types=np.array(["Depth",
                                                                  "qc",
                                                                  "fs",
                                                                  "u"])):
-
     """"
     Load a .csv or .txt file and return a DataFrame with the required columns.
 
@@ -471,9 +514,8 @@ def load_csv_or_txt(file_path, sheet="0", col_data_types=np.array(["Depth",
 
     sep = r"," if file_path.suffix.lower() == ".csv" else r"\s+"
     file_encoding = find_encoding(file_path)
-    split_readlines_iterable = get_csv_or_txt_split_readlines(file_path, file_encoding)
-    header_lines_in_csv_or_txt_file = find_index_of_each_header_row(split_readlines_iterable)
-
+    lines_and_cells_iterable = get_csv_or_txt_split_readlines(file_path, file_encoding)
+    header_lines_in_csv_or_txt_file = find_row_indices_of_header_lines(lines_and_cells_iterable)
     # csv and txt files do not have multiple sheets so just raise an error immediately if no header rows were found
     if len(header_lines_in_csv_or_txt_file) == 0:
         raise FileProcessingError(f"no_header_row - sheet ({sheet.replace("-", "_")}) has no header row")
@@ -482,14 +524,12 @@ def load_csv_or_txt(file_path, sheet="0", col_data_types=np.array(["Depth",
         multi_row_header_array = np.zeros((len(header_lines_in_csv_or_txt_file), 4), dtype=float)
         multi_row_header_array[:] = np.nan
         for header_line_idx, header_line in enumerate(header_lines_in_csv_or_txt_file):
-            print()
             multi_row_header_array[header_line_idx, :] = search_line_for_all_needed_cells(
-                split_readlines_iterable[header_line])
+                lines_and_cells_iterable[header_line])
         col_data_type_indices = np.nansum(multi_row_header_array, axis=0)
-        print()
     else:
         col_data_type_indices = search_line_for_all_needed_cells(
-            split_readlines_iterable[header_lines_in_csv_or_txt_file[0]])
+            lines_and_cells_iterable[header_lines_in_csv_or_txt_file[0]])
     missing_cols = list(col_data_types[~np.isfinite(col_data_type_indices)])
 
     if len(missing_cols) > 0:
@@ -497,9 +537,8 @@ def load_csv_or_txt(file_path, sheet="0", col_data_types=np.array(["Depth",
             f"missing_columns - sheet ({sheet.replace('-', '_')}) is missing [{' & '.join(missing_cols)}]")
 
     needed_col_indices_with_nans = search_line_for_all_needed_cells(
-        split_readlines_iterable[header_lines_in_csv_or_txt_file[0]])
+        lines_and_cells_iterable[header_lines_in_csv_or_txt_file[0]])
     needed_col_indices = [int(col_idx) for col_idx in needed_col_indices_with_nans if np.isfinite(col_idx)]
-    print()
     df = pd.read_csv(file_path, header=None, encoding=file_encoding, sep=sep,
                      skiprows=header_lines_in_csv_or_txt_file[0], usecols=needed_col_indices).map(
         convert_num_as_str_to_float)

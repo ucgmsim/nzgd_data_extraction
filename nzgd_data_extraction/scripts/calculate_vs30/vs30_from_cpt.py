@@ -136,5 +136,4 @@ if __name__ == "__main__":
 
     pd.concat(results, ignore_index=True).to_csv(metadata_dir / f"vs30_estimates_from_cpt.csv", index=False)
 
-    print()
     print(f"Total time taken: {(time.time() - start_time)/3600} hours")

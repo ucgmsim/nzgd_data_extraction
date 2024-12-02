@@ -2,22 +2,22 @@
 Functions for loading data from the New Zealand Geotechnical Database (NZGD).
 """
 
-from python_ags4 import AGS4
-from typing import Union
 from pathlib import Path
-import pandas as pd
+from typing import Union
+
 import numpy as np
 import pandas
+import pandas as pd
+import toml
+from python_ags4 import AGS4
 
 import nzgd_data_extraction.lib.processing_helpers as processing_helpers
-
-import toml
-
-from nzgd_data_extraction.lib.processing_helpers import FileProcessingError
+from nzgd_data_extraction.lib.processing_helpers import (
+    FileProcessingError,
+)
 
 
 def find_missing_cols_for_best_sheet(missing_cols_per_sheet: list[list]) -> list:
-
     """
     Find the sheet with the fewest missing columns.
 
@@ -41,13 +41,12 @@ def find_missing_cols_for_best_sheet(missing_cols_per_sheet: list[list]) -> list
     return final_missing_cols
 
 
-
-
-def find_col_name_from_substring(df:pd.DataFrame,
-                                 substrings:list[str],
-                                 remaining_cols_to_search:list[str],
-                                 target_column_name:str) -> tuple[str, pd.DataFrame, list[str]]:
-
+def find_col_name_from_substring(
+    df: pd.DataFrame,
+    substrings: list[str],
+    remaining_cols_to_search: list[str],
+    target_column_name: str,
+) -> tuple[str, pd.DataFrame, list[str]]:
     """
     Find a column name containing a substring in a DataFrame.
 
@@ -87,12 +86,15 @@ def find_col_name_from_substring(df:pd.DataFrame,
             for candidate_name in candidate_col_names:
                 ## some "clean" columns are full of nans (no data) so also check that the number of nans
                 ## in the "clean" column is less than or equal to the number of nans in the current column
-                if (("clean" in candidate_name.lower()) and
-                        (np.sum(pd.isnull(df[candidate_name])) <= np.sum(pd.isnull(df[col])))):
+                if ("clean" in candidate_name.lower()) and (
+                    np.sum(pd.isnull(df[candidate_name])) <= np.sum(pd.isnull(df[col]))
+                ):
                     col = candidate_name
                     break
 
-        df.attrs[f"candidate_{target_column_name}_column_names_in_original_file"] = candidate_col_names
+        df.attrs[f"candidate_{target_column_name}_column_names_in_original_file"] = (
+            candidate_col_names
+        )
         df.attrs[f"adopted_{target_column_name}_column_name_in_original_file"] = col
         remaining_cols_to_search.remove(col)
 
@@ -116,7 +118,9 @@ def find_col_name_from_substring(df:pd.DataFrame,
     return col, df, remaining_cols_to_search
 
 
-def load_ags(file_path: Path, investigation_type: processing_helpers.InvestigationType) -> pd.DataFrame:
+def load_ags(
+    file_path: Path, investigation_type: processing_helpers.InvestigationType
+) -> pd.DataFrame:
     """
     Load an AGS file.
 
@@ -131,40 +135,55 @@ def load_ags(file_path: Path, investigation_type: processing_helpers.Investigati
         The CPT data from the AGS file.
     """
 
-    with open(Path(__file__).parent.parent / "resources" / "cpt_column_name_descriptions.toml", "r") as toml_file:
+    with open(
+        Path(__file__).parent.parent
+        / "resources"
+        / "cpt_column_name_descriptions.toml",
+        "r",
+    ) as toml_file:
         column_descriptions = toml.load(toml_file)
 
     try:
         tables, headings = AGS4.AGS4_to_dataframe(file_path)
     except UnboundLocalError:
         ## Found the meaning of this UnboundLocalError by uploading one of these files to the AGS file conversion tool on https://agsapi.bgs.ac.uk
-        raise FileProcessingError("ags_duplicate_headers - AGS file contains duplicate headers")
+        raise FileProcessingError(
+            "ags_duplicate_headers - AGS file contains duplicate headers"
+        )
 
     if len(tables) == 0:
-        raise FileProcessingError("no_ags_data_tables - no data tables found in the AGS file")
+        raise FileProcessingError(
+            "no_ags_data_tables - no data tables found in the AGS file"
+        )
 
-    required_ags_column_names = ["SCPT_DPTH", "SCPT_RES","SCPT_FRES","SCPT_PWP2"]
+    required_ags_column_names = ["SCPT_DPTH", "SCPT_RES", "SCPT_FRES", "SCPT_PWP2"]
     # if investigation_type == processing_helpers.InvestigationType.scpt:
     #     required_ags_column_names.extend(["SCPT_SWV","SCPT_PWV"])
 
     ## Check if any required columns are completely missing from the ags file
     for required_column_name in required_ags_column_names:
         if required_column_name not in tables["SCPT"].columns:
-            raise FileProcessingError(f"ags_missing_columns - AGS file is missing {required_column_name} (and possibly other) columns")
+            raise FileProcessingError(
+                f"ags_missing_columns - AGS file is missing {required_column_name} (and possibly other) columns"
+            )
 
-    loaded_data_df = pd.DataFrame({
-        list(column_descriptions)[0]: tables["SCPT"]["SCPT_DPTH"],
-        list(column_descriptions)[1]: tables["SCPT"]["SCPT_RES"],
-        list(column_descriptions)[2]: tables["SCPT"]["SCPT_FRES"],
-        list(column_descriptions)[3]: tables["SCPT"]["SCPT_PWP2"]
-    })
+    loaded_data_df = pd.DataFrame(
+        {
+            list(column_descriptions)[0]: tables["SCPT"]["SCPT_DPTH"],
+            list(column_descriptions)[1]: tables["SCPT"]["SCPT_RES"],
+            list(column_descriptions)[2]: tables["SCPT"]["SCPT_FRES"],
+            list(column_descriptions)[3]: tables["SCPT"]["SCPT_PWP2"],
+        }
+    )
 
-    if ((investigation_type == processing_helpers.InvestigationType.scpt) &
-        ("SCPT_SWV" in tables["SCPT"].columns)):
+    if (investigation_type == processing_helpers.InvestigationType.scpt) & (
+        "SCPT_SWV" in tables["SCPT"].columns
+    ):
         loaded_data_df[list(column_descriptions)[4]] = tables["SCPT"]["SCPT_SWV"]
 
-    if ((investigation_type == processing_helpers.InvestigationType.scpt) &
-        ("SCPT_PWV" in tables["SCPT"].columns)):
+    if (investigation_type == processing_helpers.InvestigationType.scpt) & (
+        "SCPT_PWV" in tables["SCPT"].columns
+    ):
         loaded_data_df[list(column_descriptions)[5]] = tables["SCPT"]["SCPT_PWV"]
 
     ## The first two data rows are skipped as they contain units and the number of decimal places for each column.
@@ -173,23 +192,31 @@ def load_ags(file_path: Path, investigation_type: processing_helpers.Investigati
     # 0       m     MPa     MPa  MPa
     # 1     2DP     3DP     4DP  4DP
     loaded_data_df = loaded_data_df.iloc[2:]
-    num_numerical_vals = loaded_data_df.map(processing_helpers.can_convert_str_to_float).sum()
+    num_numerical_vals = loaded_data_df.map(
+        processing_helpers.can_convert_str_to_float
+    ).sum()
     zero_value_columns = num_numerical_vals[num_numerical_vals == 0].index.tolist()
     if len(zero_value_columns) > 0:
-        raise FileProcessingError(f"ags_lacking_numeric_data - AGS file has no numeric data in columns [{" ".join(zero_value_columns)}]")
+        raise FileProcessingError(
+            f"ags_lacking_numeric_data - AGS file has no numeric data in columns [{" ".join(zero_value_columns)}]"
+        )
 
     ## Convert all data to numeric values (dropping rows that contain non-numeric data)
-    loaded_data_df = loaded_data_df.apply(pd.to_numeric, errors='coerce').dropna()
+    loaded_data_df = loaded_data_df.apply(pd.to_numeric, errors="coerce").dropna()
 
     ### If the values are unrealistically large in MPa, they are likely in kPa so convert to MPa.
     ### Similarly, unrealistically large depth values may be in cm so convert to m.
     loaded_data_df = processing_helpers.infer_wrong_units(loaded_data_df)
 
     ### Ensure that the depth column has positive values and that qc and fs are greater than 0
-    loaded_data_df = processing_helpers.ensure_positive_depth_and_qc_fs_gtr_0(loaded_data_df)
+    loaded_data_df = processing_helpers.ensure_positive_depth_and_qc_fs_gtr_0(
+        loaded_data_df
+    )
 
     if loaded_data_df.empty:
-        raise FileProcessingError("ags_tried_to_save_empty - Tried to save an empty DataFrame")
+        raise FileProcessingError(
+            "ags_tried_to_save_empty - Tried to save an empty DataFrame"
+        )
     return loaded_data_df
 
 
@@ -214,10 +241,17 @@ def load_cpt_spreadsheet_file(file_path: Path) -> list[pd.DataFrame]:
         If the required columns are not found in any sheet of the Excel file.
     """
 
-    with open(Path(__file__).parent.parent / "resources" / "cpt_column_name_descriptions.toml", "r") as toml_file:
+    with open(
+        Path(__file__).parent.parent
+        / "resources"
+        / "cpt_column_name_descriptions.toml",
+        "r",
+    ) as toml_file:
         column_descriptions = toml.load(toml_file)
 
-    known_special_cases = toml.load(Path(__file__).parent.parent / "resources" / "cpt_column_name_descriptions.toml")
+    known_special_cases = toml.load(
+        Path(__file__).parent.parent / "resources" / "cpt_column_name_descriptions.toml"
+    )
     record_id = f"{file_path.name.split("_")[0]}_{file_path.name.split("_")[1]}"
     if record_id in known_special_cases.keys():
         raise processing_helpers.FileProcessingError(known_special_cases[record_id])
@@ -226,7 +260,9 @@ def load_cpt_spreadsheet_file(file_path: Path) -> list[pd.DataFrame]:
         sheet_names, engine = processing_helpers.get_xls_sheet_names(file_path)
 
         if len(sheet_names) == 0:
-            raise processing_helpers.FileProcessingError(f"corrupt_file - cannot detect sheets in file {file_path.name}")
+            raise processing_helpers.FileProcessingError(
+                f"corrupt_file - cannot detect sheets in file {file_path.name}"
+            )
 
     else:
         # A dummy sheet name as .txt and .csv files do not have sheet names
@@ -244,7 +280,13 @@ def load_cpt_spreadsheet_file(file_path: Path) -> list[pd.DataFrame]:
             df = processing_helpers.load_csv_or_txt(file_path)
             print()
         else:
-            df = pd.read_excel(file_path, sheet_name=sheet, header=None, engine=engine, parse_dates=False)
+            df = pd.read_excel(
+                file_path,
+                sheet_name=sheet,
+                header=None,
+                engine=engine,
+                parse_dates=False,
+            )
 
         ####################################################################################################################
         ####################################################################################################################
@@ -257,57 +299,83 @@ def load_cpt_spreadsheet_file(file_path: Path) -> list[pd.DataFrame]:
         df.attrs["inferred_unit_conversions"] = []
         df.attrs["depth_originally_defined_as_negative"] = False
 
-        df_for_counting_str_per_row = df.map(lambda x: 1.0 if isinstance(x, (str)) else 0)
+        df_for_counting_str_per_row = df.map(
+            lambda x: 1.0 if isinstance(x, (str)) else 0
+        )
 
         df_nan_to_str = df.fillna("nan")
-        df_for_counting_num_of_num = df_nan_to_str.map(lambda x:1.0 if isinstance(x, (int, float)) else 0)
+        df_for_counting_num_of_num = df_nan_to_str.map(
+            lambda x: 1.0 if isinstance(x, (int, float)) else 0
+        )
 
-        numeric_surplus_per_col = np.nansum(df_for_counting_num_of_num, axis=0) - np.nansum(df_for_counting_str_per_row, axis=0)
+        numeric_surplus_per_col = np.nansum(
+            df_for_counting_num_of_num, axis=0
+        ) - np.nansum(df_for_counting_str_per_row, axis=0)
 
         # Drop any columns that have more text than numeric data
         df = df.iloc[:, numeric_surplus_per_col >= 0]
-        numeric_surplus_per_row = np.nansum(df_for_counting_num_of_num, axis=1) - np.nansum(df_for_counting_str_per_row, axis=1)
+        numeric_surplus_per_row = np.nansum(
+            df_for_counting_num_of_num, axis=1
+        ) - np.nansum(df_for_counting_str_per_row, axis=1)
 
         header_row_indices = []
-        header_row_from_col_names = processing_helpers.find_one_header_row_from_column_names(df)
+        header_row_from_col_names = (
+            processing_helpers.find_one_header_row_index_from_column_names(df)
+        )
         if np.isfinite(header_row_from_col_names):
             header_row_indices = processing_helpers.find_row_indices_of_header_lines(df)
 
         ## Check the dataframe for various issues
-        if df.shape == (0,0):
-            error_text.append(f"empty_file - sheet ({sheet.replace('-', '_')}) has size (0,0)")
+        if df.shape == (0, 0):
+            error_text.append(
+                f"empty_file - sheet ({sheet.replace('-', '_')}) has size (0,0)"
+            )
             continue
 
         if df.shape[0] == 1:
-            error_text.append(f"only_one_line - sheet ({sheet.replace('-', '_')}) has only one line with first cell of {df.iloc[0][0]}")
+            error_text.append(
+                f"only_one_line - sheet ({sheet.replace('-', '_')}) has only one line with first cell of {df.iloc[0][0]}"
+            )
             continue
 
         if np.sum(df_for_counting_num_of_num.values) == 0:
-            error_text.append(f"no_numeric_data - sheet ({sheet.replace('-', '_')}) has no numeric data")
+            error_text.append(
+                f"no_numeric_data - sheet ({sheet.replace('-', '_')}) has no numeric data"
+            )
             continue
 
         if all(numeric_surplus_per_col < 2):
             error_text.append(
-                f"no_data_columns - all columns in sheet ({sheet.replace('-', '_')}) have more text cells than numeric cells")
+                f"no_data_columns - all columns in sheet ({sheet.replace('-', '_')}) have more text cells than numeric cells"
+            )
             continue
 
         if all(numeric_surplus_per_row < 2):
             error_text.append(
-                f"no_data_rows - all rows in sheet ({sheet.replace('-', '_')}) have more text cells than numeric cells")
+                f"no_data_rows - all rows in sheet ({sheet.replace('-', '_')}) have more text cells than numeric cells"
+            )
             continue
 
         if len(header_row_indices) == 0:
-            error_text.append(f"no_header_row - sheet ({sheet.replace('-', '_')}) has no header row")
+            error_text.append(
+                f"no_header_row - sheet ({sheet.replace('-', '_')}) has no header row"
+            )
             continue
 
-        df, header_row_index = processing_helpers.combine_multiple_header_rows(df, header_row_indices)
+        df, header_row_index = processing_helpers.combine_multiple_header_rows(
+            df, header_row_indices
+        )
         # set dataframe's headers/column names. Note that .values is used so that the row's index is not included in the header
         df.columns = df.iloc[header_row_index].values
         # Skip the rows that originally contained the column names as they are now stored as the dataframe header
-        df = df.iloc[header_row_index+1:]
-        df = df.apply(pd.to_numeric, errors='coerce').astype(float)
+        df = df.iloc[header_row_index + 1 :]
+        df = df.apply(pd.to_numeric, errors="coerce").astype(float)
 
-        header_row_index = header_row_indices[0] if file_path.suffix.lower() in [".csv", ".txt"] else header_row_index
+        header_row_index = (
+            header_row_indices[0]
+            if file_path.suffix.lower() in [".csv", ".txt"]
+            else header_row_index
+        )
         df.attrs["header_row_index_in_original_file"] = float(header_row_index)
         df.reset_index(inplace=True, drop=True)
         df, final_col_names = processing_helpers.get_column_names(df)
@@ -317,19 +385,39 @@ def load_cpt_spreadsheet_file(file_path: Path) -> list[pd.DataFrame]:
             if (df[final_col_names[0]] == df[final_col_names[0]].astype(int)).all():
                 raise processing_helpers.FileProcessingError(
                     f"depth_is_index - sheet ({sheet.replace('-', '_')}) has its depth column as an index "
-                    f"rather than a depth measurement")
+                    f"rather than a depth measurement"
+                )
 
-        df = processing_helpers.convert_explicit_indications_of_cm_and_kpa(df, final_col_names)
+        df = processing_helpers.convert_explicit_indications_of_cm_and_kpa(
+            df, final_col_names
+        )
 
-        final_col_names_without_none = [col for col in final_col_names if col is not None]
-        if all(i is not None for i in final_col_names) & (len(np.unique(final_col_names_without_none)) == len(final_col_names_without_none)):
+        final_col_names_without_none = [
+            col for col in final_col_names if col is not None
+        ]
+        if all(i is not None for i in final_col_names) & (
+            len(np.unique(final_col_names_without_none))
+            == len(final_col_names_without_none)
+        ):
 
             # Return the DataFrame with only the relevant columns
-            df = (df[[final_col_names[0], final_col_names[1], final_col_names[2], final_col_names[3]]].rename(
-                columns={final_col_names[0]:list(column_descriptions)[0],
-                         final_col_names[1]:list(column_descriptions)[1],
-                         final_col_names[2]: list(column_descriptions)[2],
-                         final_col_names[3]: list(column_descriptions)[3]})).apply(pd.to_numeric, errors='coerce')
+            df = (
+                df[
+                    [
+                        final_col_names[0],
+                        final_col_names[1],
+                        final_col_names[2],
+                        final_col_names[3],
+                    ]
+                ].rename(
+                    columns={
+                        final_col_names[0]: list(column_descriptions)[0],
+                        final_col_names[1]: list(column_descriptions)[1],
+                        final_col_names[2]: list(column_descriptions)[2],
+                        final_col_names[3]: list(column_descriptions)[3],
+                    }
+                )
+            ).apply(pd.to_numeric, errors="coerce")
 
             ### If the values are unrealistically large in MPa, they are likely in kPa so convert to MPa.
             ### Similarly, unrealistically large depth values may be in cm so convert to m.
@@ -341,12 +429,22 @@ def load_cpt_spreadsheet_file(file_path: Path) -> list[pd.DataFrame]:
             dataframes_to_return.append(df)
 
         else:
-            if len(np.unique(final_col_names_without_none)) < len(final_col_names_without_none):
-                error_text.append(f"non_unique_cols - in sheet ({sheet.replace('-', '_')}) some column names were selected more than once")
+            if len(np.unique(final_col_names_without_none)) < len(
+                final_col_names_without_none
+            ):
+                error_text.append(
+                    f"non_unique_cols - in sheet ({sheet.replace('-', '_')}) some column names were selected more than once"
+                )
                 continue
 
             else:
-                missing_cols_per_sheet.append([list(column_descriptions)[idx] for idx, col in enumerate(final_col_names) if col is None])
+                missing_cols_per_sheet.append(
+                    [
+                        list(column_descriptions)[idx]
+                        for idx, col in enumerate(final_col_names)
+                        if col is None
+                    ]
+                )
 
     ##################################################
     if len(dataframes_to_return) > 0:
@@ -354,7 +452,9 @@ def load_cpt_spreadsheet_file(file_path: Path) -> list[pd.DataFrame]:
 
     final_missing_cols = find_missing_cols_for_best_sheet(missing_cols_per_sheet)
     if len(final_missing_cols) > 0:
-        raise processing_helpers.FileProcessingError(f"missing_columns - sheet ({sheet.replace('-', '_')}) is missing [{' & '.join(final_missing_cols)}]")
+        raise processing_helpers.FileProcessingError(
+            f"missing_columns - sheet ({sheet.replace('-', '_')}) is missing [{' & '.join(final_missing_cols)}]"
+        )
 
     else:
         raise processing_helpers.FileProcessingError(error_text[0])

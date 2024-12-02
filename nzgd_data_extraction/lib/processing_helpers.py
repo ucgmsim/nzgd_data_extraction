@@ -1,16 +1,19 @@
+"""
+Classes and functions to help process cone penetration test (CPT) data from the New Zealand Geotechnical database (NZGD).
+"""
+
+import copy
 import enum
+import re
+import zipfile
+from pathlib import Path
+from typing import Union
 
 import numpy as np
 import numpy.typing as npt
-import xlrd
 import pandas as pd
-import re
 import toml
-from typing import Union
-import copy
-import zipfile
-from pathlib import Path
-
+import xlrd
 
 
 class FileProcessingError(Exception):
@@ -23,7 +26,9 @@ class FileProcessingError(Exception):
     Attributes:
         Inherits all attributes from the base Exception class.
     """
+
     pass
+
 
 class InvestigationType(enum.StrEnum):
     """
@@ -36,11 +41,12 @@ class InvestigationType(enum.StrEnum):
     scpt : str
         Represents a Seismic Cone Penetration Test (SCPT) investigation type.
     """
+
     cpt = "cpt"
     scpt = "scpt"
 
-def can_convert_str_to_float(value: str) -> bool:
 
+def can_convert_str_to_float(value: str) -> bool:
     """
     Check if a string can be converted to a float.
 
@@ -61,8 +67,8 @@ def can_convert_str_to_float(value: str) -> bool:
     except ValueError:
         return False
 
-def str_cannot_become_float(value: str) -> bool:
 
+def str_cannot_become_float(value: str) -> bool:
     """
     Check if a string cannot be converted to a float.
 
@@ -83,15 +89,49 @@ def str_cannot_become_float(value: str) -> bool:
     except ValueError:
         return True
 
-def convert_num_as_str_to_float(val):
+
+def convert_num_as_str_to_float(val: str) -> Union[float, str]:
+    """
+    Convert a numerical string to a float.
+
+    This function attempts to convert a string to a float. If the conversion fails, it returns the original string.
+
+    Parameters
+    ----------
+    val : str
+        The string to convert.
+
+    Returns
+    -------
+    Union[float, str]
+        The converted float if the string can be converted, otherwise the original string.
+    """
+
     try:
         return float(val)
     except ValueError:
         return val
 
-def find_cell_with_exact_match_in_line(line, character):
-    """Return the index of the first cell containing the given character in the given line."""
 
+def find_cell_with_exact_match_in_line(line: list[str], character: str) -> int:
+    """
+    Find the index of the first cell in a line that exactly matches a given character.
+
+    This function iterates through a list of cells and returns the index of the first cell that exactly matches
+    the specified character, ignoring case.
+
+    Parameters
+    ----------
+    line : list[str]
+        The line of cells to search through.
+    character : str
+        The character to match exactly.
+
+    Returns
+    -------
+    int
+        The index of the first cell that matches the given character, or None if no match is found.
+    """
     for i, cell in enumerate(line):
 
         if isinstance(cell, str):
@@ -99,16 +139,51 @@ def find_cell_with_exact_match_in_line(line, character):
                 return i
 
 
-def find_cell_in_line_that_contains_string(line, string):
-    """Return the index of the first cell containing the given string in the given line."""
+def find_cell_in_line_that_contains_string(line: list[str], string: str) -> int:
+    """
+    Find the index of the first cell in a line that contains a given string.
+
+    This function iterates through a list of cells and returns the index of the first cell that contains
+    the specified string, ignoring case.
+
+    Parameters
+    ----------
+    line : list[str]
+        The line of cells to search through.
+    string : str
+        The string to search for within the cells.
+
+    Returns
+    -------
+    int
+        The index of the first cell that contains the given string, or None if no match is found.
+    """
     for i, cell in enumerate(line):
 
         if isinstance(cell, str):
             if string in cell.lower():
                 return i
 
-def find_cells_in_line_that_contains_string(line, string):
-    """Return the index of the first cell containing the given string in the given line."""
+
+def find_cells_in_line_that_contains_string(line: list[str], string: str) -> list:
+    """
+    Find the indices of all cells in a line that contain a given string.
+
+    This function iterates through a list of cells and returns the indices of all cells that contain
+    the specified string, ignoring case.
+
+    Parameters
+    ----------
+    line : list[str]
+        The line of cells to search through.
+    string : str
+        The string to search for within the cells.
+
+    Returns
+    -------
+    list
+        A list of indices of cells that contain the given string.
+    """
     indices_to_return = []
     for i, cell in enumerate(line):
         if isinstance(cell, str):
@@ -117,35 +192,95 @@ def find_cells_in_line_that_contains_string(line, string):
     return indices_to_return
 
 
-def search_line_for_cell(line, characters, substrings):
+def search_line_for_cell(
+    line: list[str], characters: tuple[str], substrings: tuple[str]
+) -> list[int]:
+    """
+    Search for cells in a line that match given characters or substrings.
 
+    This function searches through the cells in a line and finds the indices of cells that either exactly match any of the
+    given characters or contain any of the given substrings.
+
+    Parameters
+    ----------
+    line : list[str]
+        The line of cells to search through.
+    characters : list[str]
+        The list of characters to match exactly.
+    substrings : list[str]
+        The list of substrings to search for within the cells.
+
+    Returns
+    -------
+    list[int]
+        A list of indices of cells that match the given characters or contain the given substrings.
+    """
     candidates_idx = []
 
     for character in characters:
-         candidates_idx.append(find_cell_with_exact_match_in_line(line, character))
+        candidates_idx.append(find_cell_with_exact_match_in_line(line, character))
 
     for substring in substrings:
         substring_cells = find_cells_in_line_that_contains_string(line, substring)
         candidates_idx.extend(substring_cells)
 
     ## remove None and duplicates
-    candidates_idx = sorted(list(set([candidate for candidate in candidates_idx if candidate is not None])))
+    candidates_idx = sorted(
+        list(set([candidate for candidate in candidates_idx if candidate is not None]))
+    )
 
     return candidates_idx
 
+
 def search_line_for_all_needed_cells(
+    line: list,
+    output_all_candidates: bool = False,
+    characters1: tuple[str] = ("m", "w", "h", "r", "cf"),
+    substrings1: tuple[str] = ("depth", "length", "top", "h "),
+    characters2: tuple[str] = ("q", "mpa"),
+    substrings2: tuple[str] = ("qc", "q_c", "cone", "resistance", "res", "tip"),
+    characters3: tuple[str] = ("mpa",),
+    substrings3: tuple[str] = ("fs", "sleeve", "friction", "local"),
+    characters4: tuple[str] = ("u", "mpa"),
+    substrings4: tuple[str] = ("u2", "u ", "pore", "water", "dynamic"),
+) -> Union[npt.ArrayLike, tuple[npt.ArrayLike]]:
+    """
+    Search an iterable line for all needed cells.
 
-        line,
-        output_all_candidates=False,
-        characters1=["m","w","h","r","cf"],
-        substrings1=["depth", "length", "top", "h "],
-        characters2=["q","mpa"],
-        substrings2 = ["qc", "q_c", "cone", "resistance", "res", "tip"],
-        characters3=['mpa'],
-        substrings3=["fs", "sleeve", "friction","local"],
-        characters4=["u","mpa"],
-        substrings4=["u2", "u ", "pore","water","dynamic"]):
+    This function searches through the cells in a line and finds the indices of cells that either exactly match any
+    of the given characters or contain any of the given substrings. The function returns the indices of the first
+    cell that matches each of the given characters or substrings. If the output_all_candidates parameter is set to
+    True, the function returns all the indices of cells that match the given characters or contain the given substrings.
 
+    Parameters
+    ----------
+    line : list
+        The line of cells to search through.
+    output_all_candidates : bool, optional
+        If True, return all candidate indices. Default is False.
+    characters1 : tuple[str], optional
+        The list of characters to match exactly for the first set of cells. Default is ("m","w","h","r","cf").
+    substrings1 : tuple[str], optional
+        The list of substrings to search for within the cells for the first set of cells. Default is ("depth", "length", "top", "h ").
+    characters2 : tuple[str], optional
+        The list of characters to match exactly for the second set of cells. Default is ("q","mpa").
+    substrings2 : tuple[str], optional
+        The list of substrings to search for within the cells for the second set of cells. Default is ("qc", "q_c", "cone", "resistance", "res", "tip").
+    characters3 : tuple[str], optional
+        The list of characters to match exactly for the third set of cells. Default is ('mpa',).
+    substrings3 : tuple[str], optional
+        The list of substrings to search for within the cells for the third set of cells. Default is ("fs", "sleeve", "friction","local").
+    characters4 : tuple[str], optional
+        The list of characters to match exactly for the fourth set of cells. Default is ("u","mpa").
+    substrings4 : tuple[str], optional
+        The list of substrings to search for within the cells for the fourth set of cells. Default is ("u2", "u ", "pore","water","dynamic").
+
+    Returns
+    -------
+    Union[npt.ArrayLike, tuple[npt.ArrayLike]]
+        The indices of the first cell that matches each of the given characters or substrings,
+        or all candidate indices if output_all_candidates is True.
+    """
 
     col1_search = search_line_for_cell(line, characters1, substrings1)
     col2_search = search_line_for_cell(line, characters2, substrings2)
@@ -154,7 +289,7 @@ def search_line_for_all_needed_cells(
 
     if not output_all_candidates:
 
-        col_idx = np.nan*np.ones(4)
+        col_idx = np.nan * np.ones(4)
 
         if len(col1_search) > 0:
             col_idx[0] = col1_search[0]
@@ -171,42 +306,64 @@ def search_line_for_all_needed_cells(
         return col1_search, col2_search, col3_search, col4_search
 
 
-def check_if_line_is_header(line: Union[pd.Series, list], min_num_) -> bool:
+def find_one_header_row_index_from_column_names(
+    lines_and_cells_iterable: Union[pd.Series, list]
+) -> Union[int, float]:
+    """
+    Find the one header row index from column names in lines_and_cells_iterable.
 
-    search_result = search_line_for_all_needed_cells(line)
+    This function searches for the line (row index) that most likely contains the column names.
 
-    return bool(search_result)
+    Parameters
+    ----------
+    lines_and_cells_iterable : Union[pd.Series, list[list[str]]]
+        The input data as a list of lists or a DataFrame.
 
-def find_one_header_row_from_column_names(iterable):
+    Returns
+    -------
+    float
+        The index of the header row if found, otherwise NaN.
+    """
+    ## make an array of row indices to check and roll the array such the first searched row
+    ## is the one with the highest values of text cells
 
-    # make an array of row indices to check and roll the array such the first searched row 
-    # is the one with the higest values of text cells
+    if isinstance(lines_and_cells_iterable, pd.DataFrame):
+        lines_and_cells_iterable = [
+            lines_and_cells_iterable.iloc[i].to_list()
+            for i in range(len(lines_and_cells_iterable))
+        ]
 
-    if isinstance(iterable, pd.DataFrame):
-        iterable = [iterable.iloc[i].to_list() for i in range(len(iterable))]
-
-    num_text_cells_per_line = get_number_of_x_cells_per_line(iterable, NumOrText.TEXT)
-    num_numerical_cells_per_line = get_number_of_x_cells_per_line(iterable, NumOrText.NUMERIC)
+    num_text_cells_per_line = get_number_of_numeric_or_text_cells_per_line(
+        lines_and_cells_iterable, NumOrText.TEXT
+    )
+    num_numerical_cells_per_line = get_number_of_numeric_or_text_cells_per_line(
+        lines_and_cells_iterable, NumOrText.NUMERIC
+    )
 
     text_surplus_per_line = num_text_cells_per_line - num_numerical_cells_per_line
 
-    # roll the array such that the first row to be checked is the one with the highest number of text cells
-    # as it is most likely to contain the column names. This will reduce the chance of accidentally choosing the
-    # wrong row because it coincidentally contained the key words
+    ## roll the array such that the first row to be checked is the one with the highest number of text cells
+    ## as it is most likely to contain the column names. This will reduce the chance of accidentally choosing the
+    ## wrong row because it coincidentally contained the keywords
 
-    check_rows = np.roll(np.arange(0, len(iterable)-1), -np.argmax(text_surplus_per_line))
+    check_rows = np.roll(
+        np.arange(0, len(lines_and_cells_iterable) - 1),
+        -np.argmax(text_surplus_per_line),
+    )
     best_partial_header_row = np.nan
     num_cols_in_best_possible_row = 0
 
     for check_row in check_rows:
 
-        line_check = search_line_for_all_needed_cells(iterable[check_row])
+        line_check = search_line_for_all_needed_cells(
+            lines_and_cells_iterable[check_row]
+        )
 
-        if (np.sum(np.isfinite(line_check)) >= 4):
+        if np.sum(np.isfinite(line_check)) >= 4:
             # Found all required columns
             return check_row
 
-        elif (np.sum(np.isfinite(line_check)) >= 1):
+        elif np.sum(np.isfinite(line_check)) >= 1:
             num_cols_in_check_row = np.sum(np.isfinite(line_check))
             if num_cols_in_check_row > num_cols_in_best_possible_row:
                 best_partial_header_row = check_row
@@ -219,8 +376,25 @@ def find_one_header_row_from_column_names(iterable):
         return np.nan
 
 
-def convert_numerical_str_cells_to_float(iterable):
+def convert_numerical_str_cells_to_float(
+    iterable: Union[pd.Series, list]
+) -> list[list]:
+    """
+    Convert numerical string cells to float in an iterable.
 
+    This function iterates through each cell in the provided iterable and converts cells that are numerical strings to
+    floats.
+
+    Parameters
+    ----------
+    iterable : Union[pd.Series, list]
+        The input data as a list of lists or a DataFrame.
+
+    Returns
+    -------
+    list[list]
+        The modified iterable with numerical strings converted to floats.
+    """
     if isinstance(iterable, pd.DataFrame):
         iterable = [iterable.iloc[i].to_list() for i in range(len(iterable))]
 
@@ -228,7 +402,7 @@ def convert_numerical_str_cells_to_float(iterable):
 
     for row_idx, line in enumerate(iterable_no_numerical_str):
         for col_idx, cell in enumerate(line):
-            # some cells are read by pd.read_xls() as type datetime so need to convert them to str
+            ## some cells are read by pd.read_xls() as type datetime so they need to be converted to str
             cell = str(cell)
             if can_convert_str_to_float(cell):
                 iterable_no_numerical_str[row_idx][col_idx] = float(cell)
@@ -237,12 +411,43 @@ def convert_numerical_str_cells_to_float(iterable):
 
 
 class NumOrText(enum.StrEnum):
+    """
+    String enumeration for specifying whether cells are numeric (contain floats or ints) or text
+    (contain strings).
+
+    Attributes
+    ----------
+    NUMERIC : auto
+        Represents numeric cells.
+    TEXT : auto
+        Represents text cells.
+    """
+
     NUMERIC = enum.auto()
     TEXT = enum.auto()
 
 
+def get_number_of_numeric_or_text_cells_per_line(
+    iterable: Union[pd.Series, list], numeric_or_text: NumOrText
+) -> npt.ArrayLike:
+    """
+    Get the number of numeric or text cells per line in an iterable.
 
-def get_number_of_x_cells_per_line(iterable:Union[pd.Series, list], x: NumOrText):
+    This function iterates through each line in the provided iterable and counts the number of cells that are either
+    numeric or text, based on the specified type.
+
+    Parameters
+    ----------
+    iterable : Union[pd.Series, list]
+        The input data as a list of lists or a DataFrame.
+    numeric_or_text : NumOrText
+        The type of cells to count (numeric or text).
+
+    Returns
+    -------
+    npt.ArrayLike
+        An array containing the count of numeric or text cells for each line.
+    """
 
     if isinstance(iterable, pd.DataFrame):
         iterable = [iterable.iloc[i].to_list() for i in range(len(iterable))]
@@ -252,18 +457,27 @@ def get_number_of_x_cells_per_line(iterable:Union[pd.Series, list], x: NumOrText
 
     for row_idx, line in enumerate(iterable):
 
-        line = [x for x in line if "nan" not in str(x).lower()]
+        line = [
+            numeric_or_text
+            for numeric_or_text in line
+            if "nan" not in str(numeric_or_text).lower()
+        ]
 
-        if x == NumOrText.TEXT:
-            num_x_cells_per_line[row_idx] = np.sum([isinstance(cell, str) for cell in line])
-        elif x == NumOrText.NUMERIC:
-            num_x_cells_per_line[row_idx] = np.sum([isinstance(cell, (int, float)) for cell in line])
+        if numeric_or_text == NumOrText.TEXT:
+            num_x_cells_per_line[row_idx] = np.sum(
+                [isinstance(cell, str) for cell in line]
+            )
+        elif numeric_or_text == NumOrText.NUMERIC:
+            num_x_cells_per_line[row_idx] = np.sum(
+                [isinstance(cell, (int, float)) for cell in line]
+            )
 
     return num_x_cells_per_line
 
 
-def find_row_indices_of_header_lines(lines_and_cells_iterable: Union[pd.DataFrame, list[list[str]]]) -> npt.ArrayLike:
-
+def find_row_indices_of_header_lines(
+    lines_and_cells_iterable: Union[pd.DataFrame, list[list[str]]]
+) -> npt.NDArray[np.int_]:
     """
     Find the row indices of the header lines.
 
@@ -279,12 +493,21 @@ def find_row_indices_of_header_lines(lines_and_cells_iterable: Union[pd.DataFram
     """
 
     if isinstance(lines_and_cells_iterable, pd.DataFrame):
-        lines_and_cells_iterable = [lines_and_cells_iterable.iloc[i].to_list() for i in range(len(lines_and_cells_iterable))]
+        lines_and_cells_iterable = [
+            lines_and_cells_iterable.iloc[i].to_list()
+            for i in range(len(lines_and_cells_iterable))
+        ]
 
-    num_text_cells_per_line = get_number_of_x_cells_per_line(lines_and_cells_iterable, NumOrText.TEXT)
-    num_numeric_cells_per_line = get_number_of_x_cells_per_line(lines_and_cells_iterable, NumOrText.NUMERIC)
+    num_text_cells_per_line = get_number_of_numeric_or_text_cells_per_line(
+        lines_and_cells_iterable, NumOrText.TEXT
+    )
+    num_numeric_cells_per_line = get_number_of_numeric_or_text_cells_per_line(
+        lines_and_cells_iterable, NumOrText.NUMERIC
+    )
     text_surplus_per_line = num_text_cells_per_line - num_numeric_cells_per_line
-    header_rows = [find_one_header_row_from_column_names(lines_and_cells_iterable)]
+    header_rows = [
+        find_one_header_row_index_from_column_names(lines_and_cells_iterable)
+    ]
     if (len(header_rows) == 1) & (np.isnan(header_rows[0])):
         return np.array([])
 
@@ -294,16 +517,17 @@ def find_row_indices_of_header_lines(lines_and_cells_iterable: Union[pd.DataFram
     while current_row_idx > 0:
         ## break the while loop if the number of text cells in the current row is 0 or the number of text cells in
         ## the current row is not equal to the number of text cells in the header
-        if ((len(lines_and_cells_iterable[current_row_idx]) != num_str_cells_in_header) or
-                (text_surplus_per_line[current_row_idx] == 0)):
+        if (
+            len(lines_and_cells_iterable[current_row_idx]) != num_str_cells_in_header
+        ) or (text_surplus_per_line[current_row_idx] == 0):
             break
         else:
             header_rows.append(current_row_idx)
         current_row_idx -= 1
 
     ## Check for header rows below the one first identified
-    current_row_idx = header_rows[0]+1
-    while current_row_idx < len(lines_and_cells_iterable)-1:
+    current_row_idx = header_rows[0] + 1
+    while current_row_idx < len(lines_and_cells_iterable) - 1:
         if text_surplus_per_line[current_row_idx] > 0:
             header_rows.append(current_row_idx)
         else:
@@ -313,8 +537,28 @@ def find_row_indices_of_header_lines(lines_and_cells_iterable: Union[pd.DataFram
     return np.array(sorted(header_rows))
 
 
-def get_xls_sheet_names(file_path):
+def get_xls_sheet_names(file_path: Path) -> tuple[list[str], str]:
+    """
+    Get the sheet names from an Excel file and determine the engine used to read the file.
 
+    This function attempts to read the sheet names from an Excel file using the xlrd and openpyxl engines.
+    If the file is not a valid .xls or .xlsx file, it raises a FileProcessingError.
+
+    Parameters
+    ----------
+    file_path : Path
+        The path to the Excel file.
+
+    Returns
+    -------
+    tuple[list[str], str]
+        A tuple containing a list of sheet names and the engine used to read the file.
+
+    Raises
+    ------
+    FileProcessingError
+        If the file is not a valid .xls or .xlsx file.
+    """
     if file_path.suffix.lower() == ".xls":
         engine = "xlrd"
     else:
@@ -337,14 +581,19 @@ def get_xls_sheet_names(file_path):
         return sheet_names, engine
 
     except zipfile.BadZipFile:
-        raise FileProcessingError(f"bad_zip_file - file {file_path.name} is not a valid xls or xlsx file")
+        raise FileProcessingError(
+            f"bad_zip_file - file {file_path.name} is not a valid xls or xlsx file"
+        )
 
     except xlrd.compdoc.CompDocError:
-        raise FileProcessingError(f"corrupt_file - file {file_path.name} has MSAT extension corruption")
+        raise FileProcessingError(
+            f"corrupt_file - file {file_path.name} has MSAT extension corruption"
+        )
 
 
-
-def find_encoding(file_path: Path, encodings: tuple[str] = ('utf-8', 'latin1', 'iso-8859-1', 'cp1252')) -> str:
+def find_encoding(
+    file_path: Path, encodings: tuple[str] = ("utf-8", "latin1", "iso-8859-1", "cp1252")
+) -> str:
     """
     Determine the encoding of a text file from a list of possible encodings.
 
@@ -367,12 +616,13 @@ def find_encoding(file_path: Path, encodings: tuple[str] = ('utf-8', 'latin1', '
     for encoding in encodings:
         try:
             # open the text file
-            with open(file_path, 'r', encoding=encoding) as file:
+            with open(file_path, "r", encoding=encoding) as file:
                 # Check that the file can be read with this encoding
-                lines = file.readlines()
+                _ = file.readlines()
             return encoding
         except UnicodeDecodeError:
             continue
+
 
 def get_csv_or_txt_split_readlines(file_path: Path, encoding: str) -> list[list[str]]:
     """
@@ -398,11 +648,13 @@ def get_csv_or_txt_split_readlines(file_path: Path, encoding: str) -> list[list[
     FileProcessingError
         If the file contains only one line.
     """
-    with open(file_path, 'r', encoding=encoding) as file:
+    with open(file_path, "r", encoding=encoding) as file:
         lines = file.readlines()
 
         if len(lines) == 1:
-            raise FileProcessingError(f"only_one_line - sheet (0) has only one line with first cell of {lines[0]}")
+            raise FileProcessingError(
+                f"only_one_line - sheet (0) has only one line with first cell of {lines[0]}"
+            )
 
     sep = r"," if file_path.suffix.lower() == ".csv" else r"\s+"
 
@@ -413,59 +665,126 @@ def get_csv_or_txt_split_readlines(file_path: Path, encoding: str) -> list[list[
 
     return split_lines
 
-def get_column_names(df):
 
-    known_false_positive_col_names = toml.load(Path(__file__).parent.parent / "resources" / "known_false_positive_column_names.toml")
+def get_column_names(loaded_data_df: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
+    """
+    Finds names of the required columns in the DataFrame.
 
-    col_index_to_name = {0:"Depth",1:"qc",2:"fs", 3:"u"}
+    Parameters
+    ----------
+    loaded_data_df : pd.DataFrame
+        The DataFrame containing the data with potential column names.
 
-    all_possible_col_indices = search_line_for_all_needed_cells(df.columns,
-                                                                output_all_candidates=True)
+    Returns
+    -------
+    tuple[pd.DataFrame, list[str]]
+        A tuple containing the DataFrame with updated attributes and a list of final column names.
+
+    Raises
+    ------
+    FileProcessingError
+        If a column name is repeated or if a known false positive column name is used.
+    """
+
+    known_false_positive_col_names = toml.load(
+        Path(__file__).parent.parent
+        / "resources"
+        / "known_false_positive_column_names.toml"
+    )
+
+    col_index_to_name = {0: "Depth", 1: "qc", 2: "fs", 3: "u"}
+
+    all_possible_col_indices = search_line_for_all_needed_cells(
+        loaded_data_df.columns, output_all_candidates=True
+    )
     final_col_names = []
     for possible_col_idx, possible_col_indices in enumerate(all_possible_col_indices):
         if len(possible_col_indices) == 0:
             final_col_names.append(None)
 
-            if "missing_columns" not in df.attrs:
-                df.attrs["missing_columns"] = [col_index_to_name[possible_col_idx]]
+            if "missing_columns" not in loaded_data_df.attrs:
+                loaded_data_df.attrs["missing_columns"] = [
+                    col_index_to_name[possible_col_idx]
+                ]
             else:
-                df.attrs["missing_columns"].append(col_index_to_name[possible_col_idx])
+                loaded_data_df.attrs["missing_columns"].append(
+                    col_index_to_name[possible_col_idx]
+                )
 
         else:
-            possible_col_names = [df.columns[int(idx)] for idx in possible_col_indices]
+            possible_col_names = [
+                loaded_data_df.columns[int(idx)] for idx in possible_col_indices
+            ]
             candidate_col_name = possible_col_names[0]
 
-            # see if the selected column name is used more than once in the original file
-            if len(df[candidate_col_name].shape) > 1:
-                raise FileProcessingError(f"repeated_col_names_in_source - sheet has multiple columns with the name {candidate_col_name}")
+            ## Check that the selected column name is used only once
+            if len(loaded_data_df[candidate_col_name].shape) > 1:
+                raise FileProcessingError(
+                    f"repeated_col_names_in_source - sheet has multiple columns with the name {candidate_col_name}"
+                )
 
-            num_finite_per_col = np.array([np.sum(np.isfinite(df[col_name])) for col_name in possible_col_names])
-            valid_possible_col_names = np.array(possible_col_names)[num_finite_per_col > 0]
+            num_finite_per_col = np.array(
+                [
+                    np.sum(np.isfinite(loaded_data_df[col_name]))
+                    for col_name in possible_col_names
+                ]
+            )
+            valid_possible_col_names = np.array(possible_col_names)[
+                num_finite_per_col > 0
+            ]
 
-            ### Initially set the column name to the first valid column name
+            ## Initially set the column name to the first valid column name
             col_name = valid_possible_col_names[0]
 
             for possible_col_name in valid_possible_col_names:
-                ### If another valid column name does not include "clean" or "corrected" then use that column name
-                ### instead as the "clean" or "corrected" columns may have been processed such that the
-                ### correlations are no longer valid
-                if ("clean" not in possible_col_name.lower()) & ("corrected" not in possible_col_name.lower()):
+                ## If another valid column name does not include "clean" or "corrected" then use that column name
+                ## instead as the "clean" or "corrected" columns may have been processed such that the
+                ## correlations are no longer valid
+                if ("clean" not in possible_col_name.lower()) & (
+                    "corrected" not in possible_col_name.lower()
+                ):
                     col_name = possible_col_name
                     break
 
             final_col_names.append(col_name)
 
-            df.attrs[f"candidate_{col_index_to_name[possible_col_idx]}_column_names_in_original_file"] = list(valid_possible_col_names)
-            df.attrs[f"adopted_{col_index_to_name[possible_col_idx]}_column_name_in_original_file"] = col_name
+            loaded_data_df.attrs[
+                f"candidate_{col_index_to_name[possible_col_idx]}_column_names_in_original_file"
+            ] = list(valid_possible_col_names)
+            loaded_data_df.attrs[
+                f"adopted_{col_index_to_name[possible_col_idx]}_column_name_in_original_file"
+            ] = col_name
+
     ## Check if any of the identified column names are known false positives
     for col_name in final_col_names:
         if col_name in known_false_positive_col_names:
-            raise FileProcessingError(f"false_positive_column_name - Using a column named [{col_name}] which is a known "
-                                      f"false positive for column [{known_false_positive_col_names[col_name]}]")
+            raise FileProcessingError(
+                f"false_positive_column_name - Using a column named [{col_name}] which is a known "
+                f"false positive for column [{known_false_positive_col_names[col_name]}]"
+            )
 
-    return df, final_col_names
+    return loaded_data_df, final_col_names
 
-def convert_explicit_indications_of_cm_and_kpa(df, col_names):
+
+def convert_explicit_indications_of_cm_and_kpa(
+    loaded_data_df: pd.DataFrame, col_names: list
+) -> pd.DataFrame:
+    """
+    Convert explicit indications of cm and kPa in column names to m and MPa, respectively.
+
+    Parameters
+    ----------
+    loaded_data_df : pd.DataFrame
+        The DataFrame containing the loaded data.
+    col_names : list
+        A list of column names to check for unit indications.
+
+    Returns
+    -------
+    pd.DataFrame
+        The DataFrame with converted units and updated attributes indicating the conversions performed.
+    """
+
     explicit_unit_conversions = []
 
     for col_index, col_name in enumerate(col_names):
@@ -473,26 +792,32 @@ def convert_explicit_indications_of_cm_and_kpa(df, col_names):
         if col_name is not None:
 
             if col_index == 0:
-                # checking the depth column
+                ## checking the depth column
                 if "cm" in col_name.lower():
-                    df.loc[:, col_name] /= 100
-                    explicit_unit_conversions.append(f"{col_name} was converted from cm to m")
+                    loaded_data_df.loc[:, col_name] /= 100
+                    explicit_unit_conversions.append(
+                        f"{col_name} was converted from cm to m"
+                    )
 
             else:
-                # checking the other columns
+                ## checking the other columns
                 if "kpa" in col_name.lower():
-                    df.loc[:, col_name] /= 1000
-                    explicit_unit_conversions.append(f"{col_name} was converted from kPa to MPa")
+                    loaded_data_df.loc[:, col_name] /= 1000
+                    explicit_unit_conversions.append(
+                        f"{col_name} was converted from kPa to MPa"
+                    )
 
-    df.attrs["explicit_unit_conversions"] = ", ".join(explicit_unit_conversions)
+    loaded_data_df.attrs["explicit_unit_conversions"] = ", ".join(
+        explicit_unit_conversions
+    )
 
-    return df
+    return loaded_data_df
 
-def load_csv_or_txt(file_path, sheet="0", col_data_types=np.array(["Depth",
-                                                                 "qc",
-                                                                 "fs",
-                                                                 "u"])):
-    """"
+
+def load_csv_or_txt(
+    file_path, sheet="0", col_data_types=np.array(["Depth", "qc", "fs", "u"])
+):
+    """ "
     Load a .csv or .txt file and return a DataFrame with the required columns.
 
     Parameters
@@ -503,7 +828,7 @@ def load_csv_or_txt(file_path, sheet="0", col_data_types=np.array(["Depth",
     sheet : str, optional
         A placeholder value to output a consistent format with xls files which have multiple sheets per file.
         Default is "0".
-    col_data_types : np.array, optional
+    col_data_types : np.ArrayLike, optional
         The required column types for the DataFrame. Default is ["Depth", "qc", "fs", "u"].
 
     Returns
@@ -515,98 +840,197 @@ def load_csv_or_txt(file_path, sheet="0", col_data_types=np.array(["Depth",
     sep = r"," if file_path.suffix.lower() == ".csv" else r"\s+"
     file_encoding = find_encoding(file_path)
     lines_and_cells_iterable = get_csv_or_txt_split_readlines(file_path, file_encoding)
-    header_lines_in_csv_or_txt_file = find_row_indices_of_header_lines(lines_and_cells_iterable)
+    header_lines_in_csv_or_txt_file = find_row_indices_of_header_lines(
+        lines_and_cells_iterable
+    )
     # csv and txt files do not have multiple sheets so just raise an error immediately if no header rows were found
     if len(header_lines_in_csv_or_txt_file) == 0:
-        raise FileProcessingError(f"no_header_row - sheet ({sheet.replace("-", "_")}) has no header row")
+        raise FileProcessingError(
+            f"no_header_row - sheet ({sheet.replace("-", "_")}) has no header row"
+        )
 
     if len(header_lines_in_csv_or_txt_file) > 1:
-        multi_row_header_array = np.zeros((len(header_lines_in_csv_or_txt_file), 4), dtype=float)
+        multi_row_header_array = np.zeros(
+            (len(header_lines_in_csv_or_txt_file), 4), dtype=float
+        )
         multi_row_header_array[:] = np.nan
-        for header_line_idx, header_line in enumerate(header_lines_in_csv_or_txt_file):
-            multi_row_header_array[header_line_idx, :] = search_line_for_all_needed_cells(
-                lines_and_cells_iterable[header_line])
+        for header_line_counter, header_row_index in enumerate(header_lines_in_csv_or_txt_file):
+            multi_row_header_array[header_line_counter, :] = (
+                search_line_for_all_needed_cells(lines_and_cells_iterable[header_row_index])
+            )
+            print()
         col_data_type_indices = np.nansum(multi_row_header_array, axis=0)
     else:
         col_data_type_indices = search_line_for_all_needed_cells(
-            lines_and_cells_iterable[header_lines_in_csv_or_txt_file[0]])
+            lines_and_cells_iterable[header_lines_in_csv_or_txt_file[0]]
+        )
     missing_cols = list(col_data_types[~np.isfinite(col_data_type_indices)])
 
     if len(missing_cols) > 0:
         raise FileProcessingError(
-            f"missing_columns - sheet ({sheet.replace('-', '_')}) is missing [{' & '.join(missing_cols)}]")
+            f"missing_columns - sheet ({sheet.replace('-', '_')}) is missing [{' & '.join(missing_cols)}]"
+        )
 
     needed_col_indices_with_nans = search_line_for_all_needed_cells(
-        lines_and_cells_iterable[header_lines_in_csv_or_txt_file[0]])
-    needed_col_indices = [int(col_idx) for col_idx in needed_col_indices_with_nans if np.isfinite(col_idx)]
-    df = pd.read_csv(file_path, header=None, encoding=file_encoding, sep=sep,
-                     skiprows=header_lines_in_csv_or_txt_file[0], usecols=needed_col_indices).map(
-        convert_num_as_str_to_float)
+        lines_and_cells_iterable[header_lines_in_csv_or_txt_file[0]]
+    )
+    needed_col_indices = [
+        int(col_idx) for col_idx in needed_col_indices_with_nans if np.isfinite(col_idx)
+    ]
+    df = pd.read_csv(
+        file_path,
+        header=None,
+        encoding=file_encoding,
+        sep=sep,
+        skiprows=header_lines_in_csv_or_txt_file[0],
+        usecols=needed_col_indices,
+    ).map(convert_num_as_str_to_float)
 
     return df
 
-def combine_multiple_header_rows(df, header_row_indices):
 
-    # take the header_row_index as the maximum of the header_row_indices
-    # which is the lowest row in the spreadsheet
+def combine_multiple_header_rows(
+    loaded_data_df: pd.DataFrame, header_row_indices: npt.ArrayLike
+) -> tuple[pd.DataFrame, int]:
+    """
+    Combine multiple header rows into a single header row in a DataFrame.
+
+    Parameters
+    ----------
+    loaded_data_df : pd.DataFrame
+        The DataFrame containing the data with multiple header rows.
+    header_row_indices : npt.ArrayLike
+        An array of indices representing the header rows to be combined.
+
+    Returns
+    -------
+    tuple[pd.DataFrame, int]
+        A tuple containing the DataFrame with combined header rows and the index of the final header row.
+    """
+
+    ## take the header_row_index as the maximum of the header_row_indices
+    ## which is the lowest row in the spreadsheet
     header_row_index = np.max(header_row_indices)
 
-    # copy the column names from the rows above the lowest header row
-    df2 = df.copy()
+    ## copy the column names from the rows above the lowest header row
+    loaded_data_df_with_combined_header_rows = loaded_data_df.copy()
     for row_idx in header_row_indices:
-        for col_idx in range(df.shape[1]):
+        for col_idx in range(loaded_data_df.shape[1]):
             if row_idx != header_row_index:
-                df2.iloc[header_row_index, col_idx] = str(df.iloc[header_row_index, col_idx]) + " " + str(
-                    df.iloc[row_idx, col_idx])
+                loaded_data_df_with_combined_header_rows.iloc[
+                    header_row_index, col_idx
+                ] = (
+                    str(loaded_data_df.iloc[header_row_index, col_idx])
+                    + " "
+                    + str(loaded_data_df.iloc[row_idx, col_idx])
+                )
 
-    return df2, header_row_index
+    return loaded_data_df_with_combined_header_rows, header_row_index
 
-def change_exception_for_last_sheet(error_category, description, sheet_idx, sheet, sheet_names, final_missing_cols):
 
-    if ((sheet_idx == len(sheet_names) - 1) & len(final_missing_cols) > 0):
-        raise FileProcessingError(
-            f"missing_columns - sheet ({sheet.replace('-', '_')}) is missing [{' & '.join(final_missing_cols)}]")
-    elif ((sheet_idx == len(sheet_names) - 1) & len(final_missing_cols) == 0):
-        raise FileProcessingError(f"{error_category} - sheet ({sheet.replace("-", "_")}) {description}")
+def make_summary_df(
+    summary_df: pd.DataFrame,
+    record_dir_name: str,
+    file_was_loaded: bool,
+    loaded_file_type: str,
+    loaded_file_name: str,
+    pdf_file_list: list,
+    cpt_file_list: list,
+    ags_file_list: list,
+    xls_file_list: list,
+    xlsx_file_list: list,
+    csv_file_list: list,
+    txt_file_list: list,
+    unknown_list: list,
+):
+    """
+    Create a summary DataFrame with information about the loaded files.
 
-def make_summary_df(summary_df, record_dir_name, file_was_loaded, loaded_file_type,
-                      loaded_file_name, pdf_file_list, cpt_file_list, ags_file_list, xls_file_list,
-                      xlsx_file_list, csv_file_list, txt_file_list, unknown_list):
-    if ((len(pdf_file_list) > 0) & (len(cpt_file_list) == 0) &
-            (len(ags_file_list) == 0) & (len(xls_file_list) == 0) &
-            (len(xlsx_file_list) == 0) & (len(csv_file_list) == 0) &
-            (len(txt_file_list) == 0) & (len(unknown_list) == 0)):
+    Parameters
+    ----------
+    summary_df : pd.DataFrame
+        The existing summary DataFrame to which new information will be added.
+    record_dir_name : str
+        The name of the record directory.
+    file_was_loaded : bool
+        A flag indicating whether a file was successfully loaded.
+    loaded_file_type : str
+        The type of the loaded file.
+    loaded_file_name : str
+        The name of the loaded file.
+    pdf_file_list : list
+        A list of PDF files.
+    cpt_file_list : list
+        A list of CPT files.
+    ags_file_list : list
+        A list of AGS files.
+    xls_file_list : list
+        A list of XLS files.
+    xlsx_file_list : list
+        A list of XLSX files.
+    csv_file_list : list
+        A list of CSV files.
+    txt_file_list : list
+        A list of TXT files.
+    unknown_list : list
+        A list of files with unknown types.
+
+    Returns
+    -------
+    pd.DataFrame
+        The concatenated summary DataFrame with the new information added.
+    """
+
+    if (
+        (len(pdf_file_list) > 0)
+        & (len(cpt_file_list) == 0)
+        & (len(ags_file_list) == 0)
+        & (len(xls_file_list) == 0)
+        & (len(xlsx_file_list) == 0)
+        & (len(csv_file_list) == 0)
+        & (len(txt_file_list) == 0)
+        & (len(unknown_list) == 0)
+    ):
         has_only_pdf = True
     else:
         has_only_pdf = False
 
-    concat_df = pd.concat([summary_df,
-                           pd.DataFrame({"record_name": [record_dir_name],
-                                         "file_was_loaded": [file_was_loaded],
-                                         "loaded_file_type": [loaded_file_type],
-                                         "loaded_file_name": [loaded_file_name],
-                                         "only_has_pdf" : [has_only_pdf],
-                                         "num_pdf_files": [len(pdf_file_list)],
-                                         "num_cpt_files": [len(cpt_file_list)],
-                                         "num_ags_files": [len(ags_file_list)],
-                                         "num_xls_files": [len(xls_file_list)],
-                                         "num_xlsx_files": [len(xlsx_file_list)],
-                                         "num_csv_files": [len(csv_file_list)],
-                                         "num_txt_files": [len(txt_file_list)],
-                                         "num_other_files": [len(unknown_list)]})],
-                          ignore_index=True)
+    concat_df = pd.concat(
+        [
+            summary_df,
+            pd.DataFrame(
+                {
+                    "record_name": [record_dir_name],
+                    "file_was_loaded": [file_was_loaded],
+                    "loaded_file_type": [loaded_file_type],
+                    "loaded_file_name": [loaded_file_name],
+                    "only_has_pdf": [has_only_pdf],
+                    "num_pdf_files": [len(pdf_file_list)],
+                    "num_cpt_files": [len(cpt_file_list)],
+                    "num_ags_files": [len(ags_file_list)],
+                    "num_xls_files": [len(xls_file_list)],
+                    "num_xlsx_files": [len(xlsx_file_list)],
+                    "num_csv_files": [len(csv_file_list)],
+                    "num_txt_files": [len(txt_file_list)],
+                    "num_other_files": [len(unknown_list)],
+                }
+            ),
+        ],
+        ignore_index=True,
+    )
     return concat_df
 
-def nth_highest_value(array, n):
+
+def nth_highest_value(array: npt.NDArray, n: int) -> float:
     """
     Find the nth highest value in an array.
 
     Parameters
     ----------
-    array : np.array
+    array : npt.ArrayLike
         The input array.
     n : int
-        The value of n.
+        The value of n to select the nth highest value.
 
     Returns
     -------
@@ -616,32 +1040,34 @@ def nth_highest_value(array, n):
 
     ## Filter out any nan depth values (such as at the end of a file) and sort the array
     sorted_array = np.sort(array[np.isfinite(array)])
+    neg_n = -n
+    nth_highest = sorted_array[neg_n]
 
-    return sorted_array[-n]
+    return nth_highest
 
-def infer_wrong_units(df: pd.DataFrame,
-                                                    cm_threshold = 99,
-                                                    mm_threshold = 999,
-                                                    qc_kpa_threshold: float = 150,
-                                                    fs_kpa_threshold: float = 10,
-                                                    u_kpa_threshold: float = 3,
-                                                    nth_highest: int = 5) -> pd.DataFrame:
+
+def infer_wrong_units(
+    loaded_data_df: pd.DataFrame,
+    cm_threshold: float = 99,
+    mm_threshold: float = 999,
+    qc_kpa_threshold: float = 150,
+    fs_kpa_threshold: float = 10,
+    u_kpa_threshold: float = 3,
+    nth_highest: int = 5,
+) -> pd.DataFrame:
     """
-    Perform final checks on a DataFrame to correct units and remove negative values.
-
-    This function checks for incorrect units in the columns of the DataFrame and converts them if necessary.
-    It also ensures that the depth column has positive values and removes rows with negative values in specific columns.
+    Infer the use of cm, mm, or kPa from the numerical values and convert to m and MPa where necessary.
 
     Parameters
     ----------
-    df : pd.DataFrame
+    loaded_data_df : pd.DataFrame
         The input DataFrame containing the data to be checked.
     cm_threshold : int, optional
-        An nth highest value over this threshold indicates that depth is in cm. Default is 50.
+        An nth highest value over this threshold indicates that depth is in cm. Default is 99.
     mm_threshold : int, optional
-        An nth highest value over this threshold indicates that depth is in mm. Default is 500.
+        An nth highest value over this threshold indicates that depth is in mm. Default is 999.
     qc_kpa_threshold : float, optional
-        An nth highest value over this threshold indicates that qc is in kPa. Default is 80.
+        An nth highest value over this threshold indicates that qc is in kPa. Default is 150.
     fs_kpa_threshold : float, optional
         An nth highest value over this threshold indicates that fs is in kPa. Default is 10.
     u_kpa_threshold : float, optional
@@ -652,44 +1078,88 @@ def infer_wrong_units(df: pd.DataFrame,
     Returns
     -------
     pd.DataFrame
-        The corrected DataFrame with appropriate units and no negative values in specified columns.
+        The corrected DataFrame with inferred unit conversions and updated attributes.
     """
 
-    with open(Path(__file__).parent.parent / "resources" / "cpt_column_name_descriptions.toml", "r") as toml_file:
+    with open(
+        Path(__file__).parent.parent
+        / "resources"
+        / "cpt_column_name_descriptions.toml",
+        "r",
+    ) as toml_file:
         column_descriptions = toml.load(toml_file)
 
     inferred_unit_conversions = []
 
-    if cm_threshold < nth_highest_value(df[list(column_descriptions)[0]].values, nth_highest) < mm_threshold:
+    if (
+        cm_threshold
+        < nth_highest_value(
+            loaded_data_df[list(column_descriptions)[0]].values, nth_highest
+        )
+        < mm_threshold
+    ):
         ## depth values are likely in cm
-        df[list(column_descriptions)[0]] /= 100
-        inferred_unit_conversions.append(f"{list(column_descriptions)[0]} was converted from cm to m")
-    elif nth_highest_value(df[list(column_descriptions)[0]].values, nth_highest) > mm_threshold:
+        loaded_data_df[list(column_descriptions)[0]] /= 100
+        inferred_unit_conversions.append(
+            f"{list(column_descriptions)[0]} was converted from cm to m"
+        )
+    elif (
+        nth_highest_value(
+            loaded_data_df[list(column_descriptions)[0]].values, nth_highest
+        )
+        > mm_threshold
+    ):
         ## depth values are likely in mm
-        df[list(column_descriptions)[0]] /= 1000
-        inferred_unit_conversions.append(f"{list(column_descriptions)[0]} was converted from mm to m")
+        loaded_data_df[list(column_descriptions)[0]] /= 1000
+        inferred_unit_conversions.append(
+            f"{list(column_descriptions)[0]} was converted from mm to m"
+        )
 
-    if nth_highest_value(df[list(column_descriptions)[1]].values, nth_highest) > qc_kpa_threshold:
-        df[list(column_descriptions)[1]] /= 1000
-        inferred_unit_conversions.append(f"{list(column_descriptions)[1]} was converted from kPa to MPa")
-    if nth_highest_value(df[list(column_descriptions)[2]].values, nth_highest) > fs_kpa_threshold:
-        df[list(column_descriptions)[2]] /= 1000
-        inferred_unit_conversions.append(f"{list(column_descriptions)[2]} was converted from kPa to MPa")
-    if nth_highest_value(df[list(column_descriptions)[3]].values, nth_highest) > u_kpa_threshold:
-        df[list(column_descriptions)[3]] /= 1000
-        inferred_unit_conversions.append(f"{list(column_descriptions)[3]} was converted from kPa to MPa")
+    if (
+        nth_highest_value(
+            loaded_data_df[list(column_descriptions)[1]].values, nth_highest
+        )
+        > qc_kpa_threshold
+    ):
+        loaded_data_df[list(column_descriptions)[1]] /= 1000
+        inferred_unit_conversions.append(
+            f"{list(column_descriptions)[1]} was converted from kPa to MPa"
+        )
+    if (
+        nth_highest_value(
+            loaded_data_df[list(column_descriptions)[2]].values, nth_highest
+        )
+        > fs_kpa_threshold
+    ):
+        loaded_data_df[list(column_descriptions)[2]] /= 1000
+        inferred_unit_conversions.append(
+            f"{list(column_descriptions)[2]} was converted from kPa to MPa"
+        )
+    if (
+        nth_highest_value(
+            loaded_data_df[list(column_descriptions)[3]].values, nth_highest
+        )
+        > u_kpa_threshold
+    ):
+        loaded_data_df[list(column_descriptions)[3]] /= 1000
+        inferred_unit_conversions.append(
+            f"{list(column_descriptions)[3]} was converted from kPa to MPa"
+        )
 
-    df.attrs["inferred_unit_conversions"] = ", ".join(inferred_unit_conversions)
+    loaded_data_df.attrs["inferred_unit_conversions"] = ", ".join(
+        inferred_unit_conversions
+    )
 
-    return df
+    return loaded_data_df
 
-def ensure_positive_depth_and_qc_fs_gtr_0(df: pd.DataFrame) -> pd.DataFrame:
+
+def ensure_positive_depth_and_qc_fs_gtr_0(loaded_data_df: pd.DataFrame) -> pd.DataFrame:
     """
     Ensure that the depth column has positive values and remove rows with negative values in qc and fs.
 
     Parameters
     ----------
-    df : pd.DataFrame
+    loaded_data_df : pd.DataFrame
         The input DataFrame containing the data to be checked.
 
     Returns
@@ -698,22 +1168,30 @@ def ensure_positive_depth_and_qc_fs_gtr_0(df: pd.DataFrame) -> pd.DataFrame:
         The corrected DataFrame with positive depth values and no negative values in qc and fs columns.
     """
 
-    with open(Path(__file__).parent.parent / "resources" / "cpt_column_name_descriptions.toml", "r") as toml_file:
+    with open(
+        Path(__file__).parent.parent
+        / "resources"
+        / "cpt_column_name_descriptions.toml",
+        "r",
+    ) as toml_file:
         column_descriptions = toml.load(toml_file)
 
     ## Ensure that the depth column is defined as positive (some have depth as negative)
-    if df[list(column_descriptions)[0]].min() < 0:
-        df[list(column_descriptions)[0]] = np.abs(df[list(column_descriptions)[0]])
-        df.attrs["depth_originally_defined_as_negative"] = True
+    if loaded_data_df[list(column_descriptions)[0]].min() < 0:
+        loaded_data_df[list(column_descriptions)[0]] = np.abs(
+            loaded_data_df[list(column_descriptions)[0]]
+        )
+        loaded_data_df.attrs["depth_originally_defined_as_negative"] = True
 
     ## Ensure that qc and fs are greater than 0
-    row_indices_to_keep = (df[list(column_descriptions)[1]] > 0) & (df[list(column_descriptions)[2]] > 0)
-    df = df[row_indices_to_keep]
-    dropped_row_indices_as_int = np.where(row_indices_to_keep==False)[0]
+    row_indices_to_keep = (loaded_data_df[list(column_descriptions)[1]] > 0) & (
+        loaded_data_df[list(column_descriptions)[2]] > 0
+    )
+    loaded_data_df = loaded_data_df[row_indices_to_keep]
+    dropped_row_indices_as_int = np.where(row_indices_to_keep == False)[0]
     dropped_row_indices_as_str = [str(i) for i in dropped_row_indices_as_int]
-    df.attrs["qc_fs_row_indices_dropped_for_not_greater_than_zero"] = ", ".join(dropped_row_indices_as_str)
+    loaded_data_df.attrs["qc_fs_row_indices_dropped_for_not_greater_than_zero"] = (
+        ", ".join(dropped_row_indices_as_str)
+    )
 
-    return df
-
-
-
+    return loaded_data_df

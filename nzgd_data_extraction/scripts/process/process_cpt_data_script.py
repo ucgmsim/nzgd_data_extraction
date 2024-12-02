@@ -262,3 +262,4 @@ for record_dir in tqdm(records_to_process):
 spreadsheet_format_description.to_csv(metadata_output_dir / "spreadsheet_format_description.csv", index=False)
 all_failed_loads_df.to_csv(metadata_output_dir / "all_failed_loads.csv", index=False)
 loading_summary_df.to_csv(metadata_output_dir / "loading_summary.csv", index=False)
+print()

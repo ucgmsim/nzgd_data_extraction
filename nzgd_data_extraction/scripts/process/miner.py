@@ -135,6 +135,12 @@ def extract_spt_value(text: str) -> Optional[int]:
     Optional[int]
         The extracted SPT value, or None if not found.
     """
+
+    # Searches for "N" as a whole word (e.g., not part of another word
+    # like "Nail"), followed by "=" or ">", and a number, allowing
+    # spaces between.
+    # Valid match: "N = 42" or "N>50"
+    # Invalid match: "Northing=42" or "NN = 50"
     if match := re.search(r"\bN\s*(=|\>)\s*(\d+)", text):
         return int(match.group(2))
     return None
@@ -200,6 +206,7 @@ def borehole_id(report: Path) -> int:
     ValueError
         If the report name does not follow the expected format.
     """
+    # Borehole PDF names have format Borehole_<Borehole ID>_(Raw/Rep)01.pdf
     if match := re.search(r"_(\d+)_", report.stem):
         return int(match.group(1))
     raise ValueError(f"Report name {report.stem} lacks proper structure")
@@ -438,6 +445,9 @@ def _analyze_text_objects(
             node
             for page in text_objects
             for node in page
+            # Matches "depth" or "length" (case-insensitive),
+            # optionally followed by "(m)" with or without spaces in
+            # between.
             if re.match(r"(depth|length)\s*(\(m\))?", node.text.lower())
         )
     except StopIteration as exc:

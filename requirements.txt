@@ -7,7 +7,7 @@ beautifulsoup4
 selenium
 webdriver-manager
 pytables
-xkrd
+xlrd
 python-calamine
 pyxlsb
 geopandas

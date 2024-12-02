@@ -1,5 +1,6 @@
 """
-Classes and functions to help process cone penetration test (CPT) data from the New Zealand Geotechnical database (NZGD).
+Classes and functions to help process cone penetration test (CPT) data
+from the New Zealand Geotechnical database (NZGD).
 """
 
 import copy
@@ -44,6 +45,28 @@ class InvestigationType(enum.StrEnum):
 
     cpt = "cpt"
     scpt = "scpt"
+
+
+def convert_dataframe_to_list_of_lists(df: pd.DataFrame) -> list[list[str]]:
+    """
+    Convert a DataFrame to a list of lists.
+
+    This function converts a DataFrame to a list of lists, where each list represents a row in the DataFrame.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        The DataFrame to convert.
+
+    Returns
+    -------
+    list[list[str]]
+        A list of lists, where each list represents a row in the DataFrame.
+    """
+
+    lines_and_cells_iterable = [df.iloc[i].to_list() for i in range(len(df))]
+
+    return lines_and_cells_iterable
 
 
 def can_convert_str_to_float(value: str) -> bool:
@@ -328,10 +351,9 @@ def find_one_header_row_index_from_column_names(
     ## is the one with the highest values of text cells
 
     if isinstance(lines_and_cells_iterable, pd.DataFrame):
-        lines_and_cells_iterable = [
-            lines_and_cells_iterable.iloc[i].to_list()
-            for i in range(len(lines_and_cells_iterable))
-        ]
+        lines_and_cells_iterable = convert_dataframe_to_list_of_lists(
+            lines_and_cells_iterable
+        )
 
     num_text_cells_per_line = get_number_of_numeric_or_text_cells_per_line(
         lines_and_cells_iterable, NumOrText.TEXT
@@ -429,7 +451,7 @@ class NumOrText(enum.StrEnum):
 
 def get_number_of_numeric_or_text_cells_per_line(
     iterable: Union[pd.Series, list], numeric_or_text: NumOrText
-) -> npt.ArrayLike:
+) -> npt.NDArray[np.int_]:
     """
     Get the number of numeric or text cells per line in an iterable.
 
@@ -445,7 +467,7 @@ def get_number_of_numeric_or_text_cells_per_line(
 
     Returns
     -------
-    npt.ArrayLike
+    npt.NDArray[np.int_]
         An array containing the count of numeric or text cells for each line.
     """
 
@@ -477,14 +499,14 @@ def get_number_of_numeric_or_text_cells_per_line(
 
 def find_row_indices_of_header_lines(
     lines_and_cells_iterable: Union[pd.DataFrame, list[list[str]]]
-) -> npt.NDArray[np.int_]:
+) -> list:
     """
     Find the row indices of the header lines.
 
     Parameters
     ----------
     lines_and_cells_iterable : Union[pd.DataFrame, list]
-        The input data as a list of list of strings or a DataFrame.
+        The input data as a list of lists containing strings or a DataFrame.
 
     Returns
     -------
@@ -493,10 +515,9 @@ def find_row_indices_of_header_lines(
     """
 
     if isinstance(lines_and_cells_iterable, pd.DataFrame):
-        lines_and_cells_iterable = [
-            lines_and_cells_iterable.iloc[i].to_list()
-            for i in range(len(lines_and_cells_iterable))
-        ]
+        lines_and_cells_iterable = convert_dataframe_to_list_of_lists(
+            lines_and_cells_iterable
+        )
 
     num_text_cells_per_line = get_number_of_numeric_or_text_cells_per_line(
         lines_and_cells_iterable, NumOrText.TEXT
@@ -509,7 +530,7 @@ def find_row_indices_of_header_lines(
         find_one_header_row_index_from_column_names(lines_and_cells_iterable)
     ]
     if (len(header_rows) == 1) & (np.isnan(header_rows[0])):
-        return np.array([])
+        return []
 
     ## Check for header rows above the one first identified
     num_str_cells_in_header = num_numeric_cells_per_line[header_rows[0]]
@@ -522,19 +543,19 @@ def find_row_indices_of_header_lines(
         ) or (text_surplus_per_line[current_row_idx] == 0):
             break
         else:
-            header_rows.append(current_row_idx)
+            header_rows.append(int(current_row_idx))
         current_row_idx -= 1
 
     ## Check for header rows below the one first identified
     current_row_idx = header_rows[0] + 1
     while current_row_idx < len(lines_and_cells_iterable) - 1:
         if text_surplus_per_line[current_row_idx] > 0:
-            header_rows.append(current_row_idx)
+            header_rows.append(int(current_row_idx))
         else:
             break
         current_row_idx += 1
 
-    return np.array(sorted(header_rows))
+    return sorted(header_rows)
 
 
 def get_xls_sheet_names(file_path: Path) -> tuple[list[str], str]:
@@ -640,7 +661,7 @@ def get_csv_or_txt_split_readlines(file_path: Path, encoding: str) -> list[list[
     Returns
     -------
     list[list[str]]
-        A list of list of strings. Each list represents a line in the file. Each item in the list represents a cell in
+        A list of lists containing strings. Each list represents a line in the file. Each item in the list represents a cell in
         the line.
 
     Raises
@@ -815,8 +836,8 @@ def convert_explicit_indications_of_cm_and_kpa(
 
 
 def load_csv_or_txt(
-    file_path, sheet="0", col_data_types=np.array(["Depth", "qc", "fs", "u"])
-):
+    file_path: Path, sheet: str = "0", col_data_types=("Depth", "qc", "fs", "u")
+) -> pd.DataFrame:
     """ "
     Load a .csv or .txt file and return a DataFrame with the required columns.
 
@@ -828,8 +849,8 @@ def load_csv_or_txt(
     sheet : str, optional
         A placeholder value to output a consistent format with xls files which have multiple sheets per file.
         Default is "0".
-    col_data_types : np.ArrayLike, optional
-        The required column types for the DataFrame. Default is ["Depth", "qc", "fs", "u"].
+    col_data_types : tuple, optional
+        The required column types for the DataFrame. Default is ("Depth", "qc", "fs", "u").
 
     Returns
     -------
@@ -854,11 +875,17 @@ def load_csv_or_txt(
             (len(header_lines_in_csv_or_txt_file), 4), dtype=float
         )
         multi_row_header_array[:] = np.nan
-        for header_line_counter, header_row_index in enumerate(header_lines_in_csv_or_txt_file):
+
+        ## writing as a for loop with a counter instead of using enumerate because
+        ## using enumerate seemed to confuse the type checker
+        header_line_counter = 0
+        for header_row_index in header_lines_in_csv_or_txt_file:
             multi_row_header_array[header_line_counter, :] = (
-                search_line_for_all_needed_cells(lines_and_cells_iterable[header_row_index])
+                search_line_for_all_needed_cells(
+                    lines_and_cells_iterable[header_row_index]
+                )
             )
-            print()
+            header_line_counter += 1
         col_data_type_indices = np.nansum(multi_row_header_array, axis=0)
     else:
         col_data_type_indices = search_line_for_all_needed_cells(
@@ -882,9 +909,11 @@ def load_csv_or_txt(
         header=None,
         encoding=file_encoding,
         sep=sep,
-        skiprows=header_lines_in_csv_or_txt_file[0],
+        skiprows=int(header_lines_in_csv_or_txt_file[0]),
         usecols=needed_col_indices,
-    ).map(convert_num_as_str_to_float)
+    )
+
+    df = df.map(convert_num_as_str_to_float)
 
     return df
 
@@ -1040,10 +1069,10 @@ def nth_highest_value(array: npt.NDArray, n: int) -> float:
 
     ## Filter out any nan depth values (such as at the end of a file) and sort the array
     sorted_array = np.sort(array[np.isfinite(array)])
-    neg_n = -n
-    nth_highest = sorted_array[neg_n]
 
-    return nth_highest
+    ## indexing a numpy array returns a numpy scalar which is not the same as a Python float so explicitly convert
+    ## to satisfy type checking
+    return float(sorted_array[-n])
 
 
 def infer_wrong_units(

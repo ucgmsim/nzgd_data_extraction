@@ -1,7 +1,11 @@
+"""
+Get the Foster et al. (2019) Vs30 values at the locations of the NZGD records from Sung's resampled Foster 2019 Vs30
+model as a text file.
+"""
+
+
 import pandas as pd
 from pathlib import Path
-from tqdm import tqdm
-import natsort
 from nzgd_data_extraction.lib import mapping
 
 

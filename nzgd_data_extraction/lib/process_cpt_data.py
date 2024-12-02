@@ -3,7 +3,6 @@ Functions for loading data from the New Zealand Geotechnical Database (NZGD).
 """
 
 from pathlib import Path
-from typing import Union
 
 import numpy as np
 import pandas
@@ -17,13 +16,13 @@ from nzgd_data_extraction.lib.processing_helpers import (
 )
 
 
-def find_missing_cols_for_best_sheet(missing_cols_per_sheet: list[list]) -> list:
+def find_missing_cols_for_best_sheet(missing_columns_per_sheet: list[list]) -> list:
     """
     Find the sheet with the fewest missing columns.
 
     Parameters
     ----------
-    missing_cols_per_sheet : list[list]
+    missing_columns_per_sheet : list[list]
         A list of lists, where each inner list contains the missing columns for a sheet.
 
     Returns
@@ -34,10 +33,10 @@ def find_missing_cols_for_best_sheet(missing_cols_per_sheet: list[list]) -> list
 
     final_num_missing_cols = 5
     final_missing_cols = []
-    for missing_cols_per_sheet in missing_cols_per_sheet:
-        if len(missing_cols_per_sheet) < final_num_missing_cols:
-            final_num_missing_cols = len(missing_cols_per_sheet)
-            final_missing_cols = missing_cols_per_sheet
+    for missing_cols in missing_columns_per_sheet:
+        if len(missing_cols) < final_num_missing_cols:
+            final_num_missing_cols = len(missing_cols)
+            final_missing_cols = missing_cols
     return final_missing_cols
 
 
@@ -76,9 +75,16 @@ def find_col_name_from_substring(
                     if col_name not in candidate_col_names:
                         candidate_col_names.append(col_name)
 
-    ## Check that there are some candidate column names
-    if len(candidate_col_names) >= 1:
+    # no relevant columns were found
+    if len(candidate_col_names) == 0:
+        col = None
+        if "missing_columns" not in df.attrs:
+            df.attrs["missing_columns"] = [target_column_name]
+        else:
+            df.attrs["missing_columns"].append(target_column_name)
 
+    ## Check that there are some candidate column names
+    else:
         col = candidate_col_names[0]
 
         # check for "Clean" which is sometimes used for a cleaned version of the same data
@@ -107,14 +113,6 @@ def find_col_name_from_substring(
             if "cm" in col:
                 df.loc[:, col] /= 100
 
-    # no relevant columns were found
-    elif len(candidate_col_names) == 0:
-        col = None
-        if "missing_columns" not in df.attrs:
-            df.attrs["missing_columns"] = [target_column_name]
-        else:
-            df.attrs["missing_columns"].append(target_column_name)
-
     return col, df, remaining_cols_to_search
 
 
@@ -128,6 +126,9 @@ def load_ags(
     ----------
     file_path : Path
         The path to the AGS file.
+
+    investigation_type : processing_helpers.InvestigationType
+        The type of investigation being processed.
 
     Returns
     -------
@@ -157,8 +158,6 @@ def load_ags(
         )
 
     required_ags_column_names = ["SCPT_DPTH", "SCPT_RES", "SCPT_FRES", "SCPT_PWP2"]
-    # if investigation_type == processing_helpers.InvestigationType.scpt:
-    #     required_ags_column_names.extend(["SCPT_SWV","SCPT_PWV"])
 
     ## Check if any required columns are completely missing from the ags file
     for required_column_name in required_ags_column_names:
@@ -256,30 +255,29 @@ def load_cpt_spreadsheet_file(file_path: Path) -> list[pd.DataFrame]:
     if record_id in known_special_cases.keys():
         raise processing_helpers.FileProcessingError(known_special_cases[record_id])
 
+    ## Set an initial value for the sheet names that will be used if the file is a csv or txt file
+    ## as these do not have multiple sheets per file like xls
+    sheet_names = ["0"]
     if file_path.suffix.lower() in [".xls", ".xlsx"]:
-        sheet_names, engine = processing_helpers.get_xls_sheet_names(file_path)
+        ## Get the actual sheet names
+        sheet_names, _ = processing_helpers.get_xls_sheet_names(file_path)
 
         if len(sheet_names) == 0:
             raise processing_helpers.FileProcessingError(
                 f"corrupt_file - cannot detect sheets in file {file_path.name}"
             )
 
-    else:
-        # A dummy sheet name as .txt and .csv files do not have sheet names
-        sheet_names = ["0"]
-
     # Iterate through each sheet
-
     missing_cols_per_sheet = []
     error_text = []
     dataframes_to_return = []
 
-    for sheet_idx, sheet in enumerate(sheet_names):
+    for sheet in sheet_names:
 
         if file_path.suffix.lower() in [".csv", ".txt"]:
             df = processing_helpers.load_csv_or_txt(file_path)
-            print()
         else:
+            _, engine = processing_helpers.get_xls_sheet_names(file_path)
             df = pd.read_excel(
                 file_path,
                 sheet_name=sheet,
@@ -300,7 +298,7 @@ def load_cpt_spreadsheet_file(file_path: Path) -> list[pd.DataFrame]:
         df.attrs["depth_originally_defined_as_negative"] = False
 
         df_for_counting_str_per_row = df.map(
-            lambda x: 1.0 if isinstance(x, (str)) else 0
+            lambda x: 1.0 if isinstance(x, str) else 0
         )
 
         df_nan_to_str = df.fillna("nan")
@@ -453,7 +451,7 @@ def load_cpt_spreadsheet_file(file_path: Path) -> list[pd.DataFrame]:
     final_missing_cols = find_missing_cols_for_best_sheet(missing_cols_per_sheet)
     if len(final_missing_cols) > 0:
         raise processing_helpers.FileProcessingError(
-            f"missing_columns - sheet ({sheet.replace('-', '_')}) is missing [{' & '.join(final_missing_cols)}]"
+            f"missing_columns - sheet ({sheet_names[0].replace('-', '_')}) is missing [{' & '.join(final_missing_cols)}]"
         )
 
     else:

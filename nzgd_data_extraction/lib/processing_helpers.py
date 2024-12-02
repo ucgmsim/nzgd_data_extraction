@@ -8,7 +8,7 @@ import enum
 import re
 import zipfile
 from pathlib import Path
-from typing import Union
+from typing import Union, Literal
 
 import numpy as np
 import numpy.typing as npt
@@ -558,7 +558,7 @@ def find_row_indices_of_header_lines(
     return sorted(header_rows)
 
 
-def get_xls_sheet_names(file_path: Path) -> tuple[list[str], str]:
+def get_xls_sheet_names(file_path: Path) -> tuple[list[str], Literal["xlrd","openpyxl"]]:
     """
     Get the sheet names from an Excel file and determine the engine used to read the file.
 
@@ -581,9 +581,9 @@ def get_xls_sheet_names(file_path: Path) -> tuple[list[str], str]:
         If the file is not a valid .xls or .xlsx file.
     """
     if file_path.suffix.lower() == ".xls":
-        engine = "xlrd"
+        engine: Literal["xlrd"] = "xlrd"
     else:
-        engine = "openpyxl"
+        engine: Literal["openpyxl"] = "openpyxl"
 
     # Some .xls files are actually xlsx files and need to be opened with openpyxl
     try:
@@ -592,11 +592,11 @@ def get_xls_sheet_names(file_path: Path) -> tuple[list[str], str]:
 
     except xlrd.biffh.XLRDError:
         if engine == "xlrd":
-            other_engine = "openpyxl"
+            other_engine: Literal["openpyxl"] = "openpyxl"
         else:
-            other_engine = "xlrd"
+            other_engine: Literal["xlrd"] = "xlrd"
 
-        engine = other_engine
+        engine: Literal["xlrd","openpyxl"] = other_engine
         sheet_names = pd.ExcelFile(file_path, engine=engine).sheet_names
 
         return sheet_names, engine
@@ -836,7 +836,7 @@ def convert_explicit_indications_of_cm_and_kpa(
 
 
 def load_csv_or_txt(
-    file_path: Path, sheet: str = "0", col_data_types=("Depth", "qc", "fs", "u")
+    file_path: Path, sheet: str = "0", col_data_types: npt.NDArray[np.str_] = np.array(["Depth", "qc", "fs", "u"])
 ) -> pd.DataFrame:
     """ "
     Load a .csv or .txt file and return a DataFrame with the required columns.
@@ -891,7 +891,8 @@ def load_csv_or_txt(
         col_data_type_indices = search_line_for_all_needed_cells(
             lines_and_cells_iterable[header_lines_in_csv_or_txt_file[0]]
         )
-    missing_cols = list(col_data_types[~np.isfinite(col_data_type_indices)])
+
+    missing_cols = col_data_types[~np.isfinite(col_data_type_indices)]
 
     if len(missing_cols) > 0:
         raise FileProcessingError(

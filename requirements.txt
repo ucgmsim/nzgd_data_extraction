@@ -13,4 +13,5 @@ pyxlsb
 geopandas
 shapely
 folium
+rasterio
 vs30 @ git+https://github.com/ucgmsim/Vs30.git@dev_for_new_cpt_data

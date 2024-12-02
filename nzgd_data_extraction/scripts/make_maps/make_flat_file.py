@@ -1,3 +1,6 @@
+"""
+Make a flat file for SPT data
+"""
 import re
 from pathlib import Path
 

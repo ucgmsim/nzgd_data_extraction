@@ -36,7 +36,7 @@ nzgd_df = pd.read_csv(
     "/home/arr65/data/nzgd/resources/nzgd_index_files/csv_files/NZGD_Investigation_Report_08112024_1017.csv"
 )
 ### drop columns X and Y
-nzgd_df.drop(columns=["X", "Y", "Coordinate System"], inplace=True)
+nzgd_df.drop(columns=["X", "Y", "Coordinate System","URL"], inplace=True)
 nzgd_df.rename(
     columns={
         "ID": "record_name",
@@ -47,7 +47,6 @@ nzgd_df.rename(
         "PublishedDate": "published_date",
         "Latitude": "latitude",
         "Longitude": "longitude",
-        "URL": "nzgd_url",
     },
     inplace=True,
 )

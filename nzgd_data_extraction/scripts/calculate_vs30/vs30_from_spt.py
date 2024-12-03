@@ -22,7 +22,7 @@ hammer_types = [vs_calc.constants.HammerType.Auto, vs_calc.constants.HammerType.
 borehole_diameter = 150
 
 output_dir = Path("/home/arr65/data/nzgd/processed_data/spt")
-all_spt_df = pd.read_parquet("/home/arr65/data/nzgd/processed_data/spt/out.parquet")
+all_spt_df = pd.read_parquet("/home/arr65/data/nzgd/processed_data/spt/extracted_spt_data.parquet")
 all_spt_df = all_spt_df.reset_index()
 
 ## Get unique values of the column "NZGD_ID" in all_spt_df

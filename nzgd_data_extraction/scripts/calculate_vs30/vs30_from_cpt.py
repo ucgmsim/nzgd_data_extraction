@@ -6,6 +6,7 @@ import multiprocessing as mp
 from tqdm import tqdm
 import time
 import sys
+from nzgd_data_extraction.lib import processing_helpers
 
 import natsort as natsort
 
@@ -97,33 +98,35 @@ if __name__ == "__main__":
 
     start_time = time.time()
 
-    ## The code to calculate vs30 from CPT data (vs_calc) produces tens of thousands of divide by zero and invalid
-    ## value warnings that are suppressed.
-    np.seterr(divide='ignore', invalid='ignore')
+    for investigation_type in [processing_helpers.InvestigationType.cpt, processing_helpers.InvestigationType.scpt]:
 
-    parquet_dir = Path("/home/arr65/data/nzgd/processed_data/cpt/data")
-    metadata_dir = parquet_dir.parent / "metadata"
+        ## The code to calculate vs30 from CPT data (vs_calc) produces tens of thousands of divide by zero and invalid
+        ## value warnings that are suppressed.
+        np.seterr(divide='ignore', invalid='ignore')
 
-    file_paths = list(parquet_dir.glob("*.parquet"))
+        parquet_dir = Path(f"/home/arr65/data/nzgd/processed_data/{investigation_type}/data")
+        metadata_dir = parquet_dir.parent / "metadata"
 
-    cpt_vs_correlations = ["andrus_2007_pleistocene", "andrus_2007_holocene"]
-    vs30_correlations = ["boore_2004"]
+        file_paths = list(parquet_dir.glob("*.parquet"))
 
-    results = []
-    for vs30_correlation in vs30_correlations:
-        for cpt_vs_correlation in cpt_vs_correlations:
+        cpt_vs_correlations = ["andrus_2007_pleistocene"]
+        vs30_correlations = ["boore_2004"]
 
-            description_text = f"Calculating Vs30 using {vs30_correlation} and {cpt_vs_correlation}"
-            print(description_text)
+        results = []
+        for vs30_correlation in vs30_correlations:
+            for cpt_vs_correlation in cpt_vs_correlations:
 
-            calc_vs30_from_filename_partial = functools.partial(calc_vs30_from_filename,
-                                                      cpt_vs_correlation=cpt_vs_correlation,
-                                                      vs30_correlation=vs30_correlation)
-            num_workers = 8
-            with mp.Pool(processes=num_workers) as pool:
-                results.extend(list(tqdm(pool.imap(calc_vs30_from_filename_partial, file_paths),
-                                    total=len(file_paths))))
+                description_text = f"Calculating Vs30 using {vs30_correlation} and {cpt_vs_correlation}"
+                print(description_text)
 
-    pd.concat(results, ignore_index=True).to_csv(metadata_dir / f"vs30_estimates_from_cpt.csv", index=False)
+                calc_vs30_from_filename_partial = functools.partial(calc_vs30_from_filename,
+                                                          cpt_vs_correlation=cpt_vs_correlation,
+                                                          vs30_correlation=vs30_correlation)
+                num_workers = 8
+                with mp.Pool(processes=num_workers) as pool:
+                    results.extend(list(tqdm(pool.imap(calc_vs30_from_filename_partial, file_paths),
+                                        total=len(file_paths))))
+
+        pd.concat(results, ignore_index=True).to_csv(metadata_dir / f"vs30_estimates_from_cpt.csv", index=False)
 
     print(f"Total time taken: {(time.time() - start_time)/3600} hours")

@@ -14,4 +14,5 @@ geopandas
 shapely
 folium
 rasterio
+natsort
 vs30 @ git+https://github.com/ucgmsim/Vs30.git@dev_for_new_cpt_data

@@ -958,8 +958,7 @@ def combine_multiple_header_rows(
     return loaded_data_df_with_combined_header_rows, header_row_index
 
 
-def make_summary_df(
-    summary_df: pd.DataFrame,
+def make_summary_df_per_record(
     record_dir_name: str,
     file_was_loaded: bool,
     loaded_file_type: str,
@@ -978,8 +977,6 @@ def make_summary_df(
 
     Parameters
     ----------
-    summary_df : pd.DataFrame
-        The existing summary DataFrame to which new information will be added.
     record_dir_name : str
         The name of the record directory.
     file_was_loaded : bool
@@ -1025,30 +1022,25 @@ def make_summary_df(
     else:
         has_only_pdf = False
 
-    concat_df = pd.concat(
-        [
-            summary_df,
-            pd.DataFrame(
+    loading_summary = pd.DataFrame(
                 {
-                    "record_name": [record_dir_name],
-                    "file_was_loaded": [file_was_loaded],
-                    "loaded_file_type": [loaded_file_type],
-                    "loaded_file_name": [loaded_file_name],
-                    "only_has_pdf": [has_only_pdf],
-                    "num_pdf_files": [len(pdf_file_list)],
-                    "num_cpt_files": [len(cpt_file_list)],
-                    "num_ags_files": [len(ags_file_list)],
-                    "num_xls_files": [len(xls_file_list)],
-                    "num_xlsx_files": [len(xlsx_file_list)],
-                    "num_csv_files": [len(csv_file_list)],
-                    "num_txt_files": [len(txt_file_list)],
-                    "num_other_files": [len(unknown_list)],
-                }
-            ),
-        ],
-        ignore_index=True,
-    )
-    return concat_df
+                    "record_name": record_dir_name,
+                    "file_was_loaded": file_was_loaded,
+                    "loaded_file_type": loaded_file_type,
+                    "loaded_file_name": loaded_file_name,
+                    "only_has_pdf": has_only_pdf,
+                    "num_pdf_files": len(pdf_file_list),
+                    "num_cpt_files": len(cpt_file_list),
+                    "num_ags_files": len(ags_file_list),
+                    "num_xls_files": len(xls_file_list),
+                    "num_xlsx_files": len(xlsx_file_list),
+                    "num_csv_files": len(csv_file_list),
+                    "num_txt_files": len(txt_file_list),
+                    "num_other_files": len(unknown_list),
+                }, index=[0]
+            )
+
+    return loading_summary
 
 
 def nth_highest_value(array: npt.NDArray, n: int) -> float:

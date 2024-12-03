@@ -58,7 +58,7 @@ if __name__ == "__main__":
         records_to_process = [record_dir for record_dir in records_to_process if record_dir.name not in records_that_have_been_removed]
 
     # records_to_process = [Path("/home/arr65/data/nzgd/downloads_and_metadata/unorganised_raw_from_nzgd/cpt/CPT_663")]
-    records_to_process = records_to_process[0:1000]
+    #records_to_process = records_to_process[0:1000]
 
     process_one_record_partial = functools.partial(process_cpt_data.process_one_record,
                                                    parquet_output_dir=parquet_output_path,

@@ -14,9 +14,6 @@ from nzgd_data_extraction.lib import process_cpt_data, processing_helpers
 
 if __name__ == "__main__":
 
-    #investigation_type = processing_helpers.InvestigationType.cpt
-    investigation_type = processing_helpers.InvestigationType.scpt
-
     for investigation_type in [processing_helpers.InvestigationType.cpt, processing_helpers.InvestigationType.scpt]:
 
         nzgd_index_df = pd.read_csv(Path("/home/arr65/data/nzgd/resources/nzgd_index_files/csv_files/"

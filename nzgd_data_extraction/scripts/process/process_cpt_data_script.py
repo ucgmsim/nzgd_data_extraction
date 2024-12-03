@@ -19,7 +19,7 @@ if __name__ == "__main__":
     nzgd_index_df = pd.read_csv(Path("/home/arr65/data/nzgd/resources/nzgd_index_files/csv_files/"
                                      "NZGD_Investigation_Report_08112024_1017.csv"))
 
-    output_dir = Path(f"/home/arr65/data/nzgd/testing_processed_data/{investigation_type}")
+    output_dir = Path(f"/home/arr65/data/nzgd/processed_data/{investigation_type}")
 
     if output_dir.exists():
         raise ValueError("Output directory already exists. Delete or rename previous output and try again.")
@@ -58,7 +58,7 @@ if __name__ == "__main__":
         records_to_process = [record_dir for record_dir in records_to_process if record_dir.name not in records_that_have_been_removed]
 
     # records_to_process = [Path("/home/arr65/data/nzgd/downloads_and_metadata/unorganised_raw_from_nzgd/cpt/CPT_663")]
-    ## records_to_process = records_to_process[0:500]
+    records_to_process = records_to_process[0:1000]
 
     process_one_record_partial = functools.partial(process_cpt_data.process_one_record,
                                                    parquet_output_dir=parquet_output_path,
@@ -99,6 +99,6 @@ if __name__ == "__main__":
 
     # get number of unique rows in spreadsheet_format_description_df
     unique_spreadsheet_format_descriptions_df = unique_spreadsheet_format_descriptions_df.drop_duplicates()
-    unique_spreadsheet_format_descriptions_df.to_csv(metadata_output_dir / "metadata/spreadsheet_format_description_unique.csv",
+    unique_spreadsheet_format_descriptions_df.to_csv(metadata_output_dir / "spreadsheet_format_description_unique.csv",
                                                     index=False)
 

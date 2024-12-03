@@ -536,7 +536,7 @@ def process_one_record(record_dir: Path,
             if record_df.empty:
                 raise processing_helpers.FileProcessingError("spreadsheet_dataframe_empty - while loading from a spreadsheet, tried to save an empty dataframe")
 
-            #record_df.to_parquet(parquet_output_dir / f"{record_dir.name}.parquet")
+            record_df.to_parquet(parquet_output_dir / f"{record_dir.name}.parquet")
 
             spreadsheet_format_description_per_record = pd.DataFrame([{"record_name":record_dir.name,
                                                                "header_row_index":record_df_copy_for_attrs.attrs["header_row_index_in_original_file"],
@@ -582,7 +582,7 @@ def process_one_record(record_dir: Path,
     files_to_try = list(record_dir.glob("*.ags")) + list(record_dir.glob("*.AGS"))
 
     if len(files_to_try) > 0:
-        for file_to_try in files_to_try:
+        for file_to_try_index, file_to_try in enumerate(files_to_try):
             try:
                 record_df = load_ags(file_to_try, investigation_type)
 

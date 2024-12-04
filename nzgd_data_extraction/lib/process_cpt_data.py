@@ -492,18 +492,18 @@ def process_one_record(record_dir: Path,
                                                   pdf_file_list=pdf_file_list, cpt_file_list=cpt_file_list, ags_file_list=ags_file_list,
                                                   xls_file_list=xls_file_list, xlsx_file_list=xlsx_file_list, csv_file_list=csv_file_list,
                                                   txt_file_list=txt_file_list, unknown_list=unknown_list)
-
     if (
             (len(ags_file_list) == 0) &
             (len(xls_file_list) == 0) &
             (len(xlsx_file_list) == 0) &
             (len(csv_file_list) == 0) &
-            (len(txt_file_list) == 0) &
-            (len(cpt_file_list) == 0)):
-        if len(pdf_file_list) == 0:
+            (len(txt_file_list) == 0)):
+        if (len(pdf_file_list) == 0) & (len(cpt_file_list) == 0):
             error_as_string = "no_files - no files in the record directory"
-        else:
+        elif (len(pdf_file_list) > 0) & (len(cpt_file_list) == 0):
             error_as_string = "only_pdf_files - only pdf files in the record directory"
+        else:
+            error_as_string = "only_unknown_cpt_type_files - only unknown .cpt type files in the record directory"
 
         loading_summary_df = partial_summary_df_helper(file_was_loaded=False,
                                                        loaded_file_type="N/A",
@@ -515,6 +515,7 @@ def process_one_record(record_dir: Path,
                                                        "category": error_as_string.split("-")[0].strip(),
                                                        "details": error_as_string.split("-")[1].strip()},
                                                  index = [0])
+
         return CptProcessingMetadata(pd.DataFrame(), loading_summary_df, all_failed_loads_df)
 
     nzgd_meta_data_record = nzgd_index_df[nzgd_index_df["ID"]==record_dir.name].to_dict(orient="records")[0]

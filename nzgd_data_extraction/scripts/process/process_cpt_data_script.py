@@ -55,6 +55,8 @@ if __name__ == "__main__":
             ## Remove the records that have been removed from the list of records to process
             records_to_process = [record_dir for record_dir in records_to_process if record_dir.name not in records_that_have_been_removed]
 
+        records_to_process = records_to_process[17526:17528]
+
         process_one_record_partial = functools.partial(process_cpt_data.process_one_record,
                                                        parquet_output_dir=parquet_output_path,
                                                        nzgd_index_df=nzgd_index_df,
@@ -74,19 +76,26 @@ if __name__ == "__main__":
         loading_summary_dfs = []
 
         for result in tqdm(results):
-            if result.spreadsheet_format_description_per_record is not None:
-                spreadsheet_format_descriptions_dfs.append(result.spreadsheet_format_description_per_record)
-                all_failed_loads_dfs.append(result.all_failed_loads_df)
-                loading_summary_dfs.append(result.loading_summary_df)
+            spreadsheet_format_descriptions_dfs.append(result.spreadsheet_format_description_per_record)
+            all_failed_loads_dfs.append(result.all_failed_loads_df)
+            loading_summary_dfs.append(result.loading_summary_df)
 
-        spreadsheet_format_descriptions_df = pd.concat(spreadsheet_format_descriptions_dfs,
-                                                         ignore_index=True)
+        ## If processing a small number of CPT records, some dataframes will be empty
+        ## which will cause an error when concatenating, so only concatenate if the dataframes are not empty
+        if all(x.size == 0 for x in spreadsheet_format_descriptions_dfs):
+            spreadsheet_format_descriptions_df = pd.DataFrame()
+        else:
+            spreadsheet_format_descriptions_df = pd.concat(spreadsheet_format_descriptions_dfs, ignore_index=True)
 
-        all_failed_loads_df = pd.concat(all_failed_loads_dfs,
-                                                         ignore_index=True)
+        if all(x.size == 0 for x in all_failed_loads_dfs):
+            all_failed_loads_dfs = pd.DataFrame()
+        else:
+            all_failed_loads_df = pd.concat(all_failed_loads_dfs, ignore_index=True)
 
-        loading_summary_df = pd.concat(loading_summary_dfs,
-                                                         ignore_index=True)
+        if all(x.size == 0 for x in loading_summary_dfs):
+            loading_summary_df = pd.DataFrame()
+        else:
+            loading_summary_df = pd.concat(loading_summary_dfs, ignore_index=True)
 
         spreadsheet_format_descriptions_df.to_csv(metadata_output_dir / "spreadsheet_format_description.csv", index=False)
         all_failed_loads_df.to_csv(metadata_output_dir / "all_failed_loads.csv", index=False)

@@ -25,24 +25,28 @@ region_df = organise.find_regions(
 )
 
 ### Organise the raw data from the NZGD into regions
-organise.organise_records_into_regions(
-    processed_data=False,
-    dry_run=False,
-    unorganised_root_dir_to_copy_from=Path("/home/arr65/data/nzgd/downloads_and_metadata/unorganised_raw_from_nzgd"),
-    organised_root_dir_to_copy_to=Path("/home/arr65/data/nzgd/hypocentre_mirror/nzgd/raw_from_nzgd"),
-    region_df=region_df)
+# organise.organise_records_into_regions(
+#     processed_data=False,
+#     dry_run=False,
+#     unorganised_root_dir_to_copy_from=Path("/home/arr65/data/nzgd/downloads_and_metadata/unorganised_raw_from_nzgd"),
+#     organised_root_dir_to_copy_to=Path("/home/arr65/data/nzgd/hypocentre_mirror/nzgd/raw_from_nzgd"),
+#     region_df=region_df)
 
 ### Organise the processed analysis-ready data from the NZGD into regions
-# organise.organise_records_into_regions(
-#     processed_data=True,
-#     dry_run=False,
-#     unorganised_root_dir_to_copy_from=Path(
-#         "/home/arr65/data/nzgd/processed_data/cpt/data"
-#     ),
-#     organised_root_dir_to_copy_to=Path(
-#         "/home/arr65/data/nzgd/hypocentre_mirror/nzgd/processed"
-#     ),
-#     region_df=region_df,
-# )
+
+#for data_type in ["cpt", "scpt"]:
+for data_type in ["scpt"]:
+
+    organise.organise_records_into_regions(
+        processed_data=True,
+        dry_run=False,
+        unorganised_root_dir_to_copy_from=Path(
+            f"/home/arr65/data/nzgd/processed_data/{data_type}/data"
+        ),
+        organised_root_dir_to_copy_to=Path(
+            "/home/arr65/data/nzgd/hypocentre_mirror/nzgd/processed"
+        ),
+        region_df=region_df,
+    )
 
 

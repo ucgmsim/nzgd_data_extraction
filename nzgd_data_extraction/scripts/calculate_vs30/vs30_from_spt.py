@@ -91,7 +91,7 @@ for spt_vs_correlation in spt_vs_correlations:
                                               "depth_span": spt_df["Depth"].max() - spt_df["Depth"].min(),
                                               "num_depth_levels": spt_df["Depth"].size,
                                               "vs30": vs30,
-                                              "vs30_sd": vs30_sd,
+                                              "vs30_std": vs30_sd,
                                               "vs30_correlation": vs30_correlation,
                                               "cpt_vs_correlation": np.nan,
                                               "spt_vs_correlation": spt_vs_correlation,

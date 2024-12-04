@@ -8,7 +8,7 @@ python-dotenv
 beautifulsoup4
 selenium
 webdriver-manager
-pytables
+tables
 xlrd
 python-calamine
 pyxlsb
@@ -18,4 +18,4 @@ folium
 rasterio
 natsort
 typer
-vs30 @ git+https://github.com/ucgmsim/Vs30.git@dev_for_new_cpt_data
+vs30 @ git+https://github.com/ucgmsim/Vs30.git

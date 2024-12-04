@@ -46,12 +46,9 @@ region_df = region_df.map(organise.replace_chars)
 region_df = region_df[~region_df["record_name"].str.contains("Other")]
 region_df.set_index("record_name", inplace=True)
 
-#region_df = region_df.iloc[0:5000]
-
 file_names_df = pd.DataFrame({"raw_file_links" : None,
                                 "processed_file_links" : None},
                                 index = region_df.index)
-
 
 print("Finding all raw files")
 all_raw_files = list(Path("/home/arr65/data/nzgd/downloads_and_metadata/unorganised_raw_from_nzgd").rglob("*"))
@@ -77,37 +74,21 @@ for record_name in tqdm(file_names_df.index):
 
     type_for_path = record_type_to_path[record_name.split("_")[0]]
 
-    #region_df[record_name,"region"] = region_df["record_name"].apply(lambda x: x.split("_")[1] if "BH" in x else x)
     region_path = Path(region_df.loc[record_name,"region"] ) / region_df.loc[record_name,"district"] / region_df.loc[record_name,"city"] / region_df.loc[record_name,"suburb"]
-
     full_path_to_file = Path(link_prefix) / Path("raw_from_nzgd") / type_for_path / region_path / record_name
 
-    raw_file_link_list = []
+    file_names_df.at[record_name, "raw_file_links"] = []
     for raw_file in record_name_to_raw_files[record_name]:
-        raw_file_link_list.append(str(full_path_to_file / raw_file))
+        file_names_df.at[record_name, "raw_file_links"].append(str(full_path_to_file / raw_file))
 
-    file_names_df.at[record_name, "raw_file_links"] = raw_file_link_list
-
-    if record_name not in record_name_to_processed_files:
-        file_names_df.at[record_name, "processed_file_links"] = []
-    else:
-        processed_file_links = []
-        for processed_file in record_name_to_processed_files[record_name]:
-
-            if "BH" in record_name:
-                full_file_path = Path(link_prefix) / "processed" / "spt" / "extracted_spt_data.parquet"
-            else:
-                full_file_path = Path(link_prefix) / "processed" / type_for_path / region_path / processed_file
-            processed_file_links.append(str(full_file_path))
-        file_names_df.at[record_name, "processed_file_links"] = processed_file_links
-
-# ### Append the link prefix to the full path in a new column called link
-# file_names_df["link"] = file_names_df["full_path"].apply(lambda x: f"{link_prefix}/{x}")
+    file_names_df.at[record_name, "processed_file_links"] = []
+    for processed_file in record_name_to_processed_files[record_name]:
+        if "BH" in record_name:
+            full_file_path = Path(link_prefix) / "processed" / "spt" / "extracted_spt_data.parquet"
+        else:
+            full_file_path = Path(link_prefix) / "processed" / type_for_path / region_path / processed_file
+        file_names_df.at[record_name, "processed_file_links"].append(str(full_file_path))
 
 file_names_df.reset_index(inplace=True)
-
 file_names_df.to_parquet(f"/home/arr65/data/nzgd/resources/metadata_from_nzgd_location/"
                      f"file_paths_names_linked_to_{region_df_path.stem}.parquet", index=False)
-
-# file_names_df.to_csv(f"/home/arr65/data/nzgd/resources/metadata_from_nzgd_location/"
-#                      f"V2_file_names_linked_to_{region_df_path.name}", index=False)

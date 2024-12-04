@@ -1,8 +1,12 @@
+"""
+Get the Foster et al. (2019) Vs30 values at the locations of the NZGD records given in the NZGD index file.
+"""
+
+
 import rasterio
 from rasterio.sample import sample_gen
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
 from pathlib import Path
 from tqdm import tqdm
 

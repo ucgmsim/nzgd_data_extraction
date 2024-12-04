@@ -6,6 +6,7 @@ import multiprocessing as mp
 from tqdm import tqdm
 import time
 import sys
+from nzgd_data_extraction.lib import processing_helpers
 
 import natsort as natsort
 
@@ -14,38 +15,42 @@ sys.path.append(str(vs_calc_path))
 
 import vs_calc
 
-def filter_out_files_with_insufficient_depth(file_paths, metadata_dir):
-    sufficient_depths = []
-    insufficient_depths = []
+def calc_vs30_from_filename(file_path: Path, cpt_vs_correlation: str, vs30_correlation: str) -> pd.DataFrame:
+    """
+    Calculate Vs30 from a given CPT file.
 
-    for file_path in file_paths:
-        df = pd.read_parquet(file_path)
-        if df["Depth"].max() > 5:
-            sufficient_depths.append(file_path)
-        else:
-            insufficient_depths.append(file_path)
+    Parameters
+    ----------
+    file_path : Path
+        The path to the CPT file in Parquet format.
+    cpt_vs_correlation : str
+        The correlation method to use for CPT to Vs conversion.
+    vs30_correlation : str
+        The correlation method to use for Vs30 calculation.
 
-    record_ids_sufficient_depth = [file.stem for file in sufficient_depths]
-    record_ids_insufficient_depth = [file.stem for file in insufficient_depths]
+    Returns
+    -------
+    pd.DataFrame
+        A DataFrame containing the Vs30 calculation results and metadata.
+    """
 
-    pd.DataFrame(record_ids_sufficient_depth, columns=["record_name_sufficient_depth"]).to_csv(metadata_dir / "record_ids_sufficient_depth.csv")
-    pd.DataFrame(record_ids_insufficient_depth, columns=["record_name_insufficient_depth"]).to_csv(metadata_dir / "record_ids_insufficient_depth.csv")
+    # Read the CPT data from the Parquet file
+    cpt_df_repeat_measures = pd.read_parquet(file_path)
 
-    return sufficient_depths
+    # Find the row with the maximum depth and get the index for multiple measurements
+    max_depth_row = cpt_df_repeat_measures[cpt_df_repeat_measures["Depth"] == cpt_df_repeat_measures["Depth"].max()]
+    multiple_measurements_index = max_depth_row["multiple_measurements"].values[0]
 
-def calc_vs30_from_filename(file_path, cpt_vs_correlation, vs30_correlation):
+    # Filter the DataFrame to include only the rows with the same multiple measurements index
+    cpt_df = cpt_df_repeat_measures[cpt_df_repeat_measures["multiple_measurements"] == multiple_measurements_index]
+    cpt_df = cpt_df[cpt_df["fs"] > 0]
 
     try:
-        cpt_df_repeat_measures = pd.read_parquet(file_path)
-
-        max_depth_row = cpt_df_repeat_measures[cpt_df_repeat_measures["Depth"] == cpt_df_repeat_measures["Depth"].max()]
-        multiple_measurements_index = max_depth_row["multiple_measurements"].values[0]
-        cpt_df = cpt_df_repeat_measures[cpt_df_repeat_measures["multiple_measurements"] == multiple_measurements_index]
-        cpt_df = cpt_df[cpt_df["fs"] > 0]
-
+        # Raise an error if there are no valid measurements
         if cpt_df.size == 0:
             raise ValueError("No valid measurements in the CPT")
 
+        # Create a CPT object from the DataFrame
         cpt = vs_calc.CPT(
             cpt_df["record_name"].values[0],
             cpt_df["Depth"].values,
@@ -53,88 +58,80 @@ def calc_vs30_from_filename(file_path, cpt_vs_correlation, vs30_correlation):
             cpt_df["fs"].values,
             cpt_df["u"].values)
 
+        # Create a VsProfile from the CPT object using the specified correlation
         cpt_vs_profile = vs_calc.VsProfile.from_cpt(cpt, cpt_vs_correlation)
         cpt_vs_profile.vs30_correlation = vs30_correlation
 
-        return pd.DataFrame({
-            "record_name": cpt.name,
-            "exception": None,
-            "cpt_vs_correlation": cpt_vs_correlation,
-            "vs30_correlation": vs30_correlation,
-            "vs30": cpt_vs_profile.vs30,
-            "vs30_sd": cpt_vs_profile.vs30_sd,
-            "calculation_time_ms": time.time() - start_time,
-            "latitude": cpt_df["latitude"].values[0],
-            "longitude": cpt_df["longitude"].values[0],
-            "min_depth_m": cpt_df["Depth"].min(),
-            "max_depth_m": cpt_df["Depth"].max(),
-            "depth_span_m": cpt_df["Depth"].max() - cpt_df["Depth"].min(),
-            "num_depth_levels": cpt_df["Depth"].size
-        }, index=[0])
+        # Calculate Vs30 and its standard deviation
+        vs30 = cpt_vs_profile.vs30
+        vs30_std = cpt_vs_profile.vs30_sd
+        error = np.nan
 
     except Exception as e:
-        return pd.DataFrame({
-            "record_name": cpt.name,
-            "exception": e,
-            "cpt_vs_correlation": cpt_vs_correlation,
-            "vs30_correlation": vs30_correlation,
-            "vs30": None,
-            "vs30_sd": None,
-            "calculation_time_ms": time.time() - start_time,
-            "latitude": cpt_df["latitude"].values[0],
-            "longitude": cpt_df["longitude"].values[0],
-            "min_depth_m": cpt_df["Depth"].min(),
-            "max_depth_m": cpt_df["Depth"].max(),
-            "depth_span_m": cpt_df["Depth"].max() - cpt_df["Depth"].min(),
-            "num_depth_levels": cpt_df["Depth"].size
-        }, index=[0])
+        # Handle any exceptions by setting Vs30 and its standard deviation to NaN
+        vs30 = np.nan
+        vs30_std = np.nan
+        error = e
 
+    # Create a DataFrame with the Vs30 calculation results and metadata
+    cpt_vs30_df = pd.DataFrame(
+                 {"record_name": cpt_df["record_name"].values[0],
+                  "record_type": "cpt",
+                  "processing_error": error,
+                  "max_depth": cpt_df["Depth"].max(),
+                  "min_depth": cpt_df["Depth"].min(),
+                  "depth_span": cpt_df["Depth"].max() - cpt_df["Depth"].min(),
+                  "num_depth_levels": cpt_df["Depth"].size,
+                  "vs30": vs30,
+                  "vs30_std": vs30_std,
+                  "vs30_correlation": vs30_correlation,
+                  "cpt_vs_correlation": cpt_vs_correlation,
+                  "spt_vs_correlation": np.nan,
+                  "spt_used_soil_info": np.nan,
+                  "spt_hammer_type": np.nan,
+                  "spt_borehole_diameter": np.nan},
+                 index=[0])
 
+    return cpt_vs30_df
 
 if __name__ == "__main__":
 
     start_time = time.time()
 
-    np.seterr(divide='ignore', invalid='ignore')
+    for investigation_type in [processing_helpers.InvestigationType.cpt, processing_helpers.InvestigationType.scpt]:
 
-    parquet_dir = Path("/home/arr65/data/nzgd/processed_data/cpt/data")
-    metadata_dir = parquet_dir.parent / "metadata"
+        ## The code to calculate vs30 from CPT data (vs_calc) produces tens of thousands of divide by zero and invalid
+        ## value warnings that are suppressed.
+        np.seterr(divide='ignore', invalid='ignore')
 
-    # if Path(metadata_dir / "record_ids_sufficient_depth.csv").exists():
-    #     record_ids = natsort.natsorted(pd.read_csv(metadata_dir / "record_ids_sufficient_depth.csv")["record_name_sufficient_depth"].to_list())
-    #     file_paths = [parquet_dir / f"{record_id}.parquet" for record_id in record_ids]
-    # else:
-    #     file_paths = list(parquet_dir.glob("*.parquet"))
-    #     file_paths = filter_out_files_with_insufficient_depth(file_paths, metadata_dir)
+        parquet_dir = Path(f"/home/arr65/data/nzgd/processed_data/{investigation_type}/data")
+        metadata_dir = parquet_dir.parent / "metadata"
 
-    file_paths = list(parquet_dir.glob("*.parquet"))
+        file_paths = list(parquet_dir.glob("*.parquet"))
 
-    # cpt_vs_correlations = list(vs_calc.cpt_vs_correlations.CPT_CORRELATIONS.keys())
-    # vs30_correlations = list(vs_calc.vs30_correlations.VS30_CORRELATIONS.keys())
+        # cpt_vs_correlations = ["andrus_2007_pleistocene","andrus_2007_holocene", "andrus_2007_tertiary_age_cooper_marl",
+        #                        "robertson_2009","hegazy_2006","mcgann_2015","mcgann_2018"]
+        #
+        # vs30_correlations = ["boore_2004", "boore_2011"]
 
-    # cpt_vs_correlations = cpt_vs_correlations[0:1]
-    # vs30_correlations = vs30_correlations[1:]
+        cpt_vs_correlations = ["andrus_2007_pleistocene", "robertson_2009", "mcgann_2018"]
+        vs30_correlations = ["boore_2004", "boore_2011"]
 
-    cpt_vs_correlations = ["andrus_2007_pleistocene", "andrus_2007_holocene"]
-    vs30_correlations = ["boore_2004"]
+        results = []
+        for vs30_correlation in vs30_correlations:
+            for cpt_vs_correlation in cpt_vs_correlations:
 
-    results = []
-    for vs30_correlation in vs30_correlations:
-        for cpt_vs_correlation in cpt_vs_correlations:
+                description_text = f"Calculating Vs30 using {vs30_correlation} and {cpt_vs_correlation}"
+                print(description_text)
 
-            description_text = f"Calculating Vs30 using {vs30_correlation} and {cpt_vs_correlation}"
-            print(description_text)
+                calc_vs30_from_filename_partial = functools.partial(calc_vs30_from_filename,
+                                                          cpt_vs_correlation=cpt_vs_correlation,
+                                                          vs30_correlation=vs30_correlation)
+                num_workers = 8
+                with mp.Pool(processes=num_workers) as pool:
+                    results.extend(list(tqdm(pool.imap(calc_vs30_from_filename_partial, file_paths),
+                                        total=len(file_paths))))
 
-            calc_vs30_from_filename_partial = functools.partial(calc_vs30_from_filename,
-                                                      cpt_vs_correlation=cpt_vs_correlation,
-                                                      vs30_correlation=vs30_correlation)
-            #num_workers = mp.cpu_count() - 1
-            num_workers = 8
-            with mp.Pool(processes=num_workers) as pool:
-                results.extend(list(tqdm(pool.imap(calc_vs30_from_filename_partial, file_paths),
-                                    total=len(file_paths))))
+        pd.concat(results, ignore_index=True).to_csv(metadata_dir / f"vs30_estimates_from_cpt.csv", index=False)
 
-    pd.concat(results, ignore_index=True).to_csv(metadata_dir / f"vs30_estimates_from_cpt.csv", index=False)
-
-    print()
     print(f"Total time taken: {(time.time() - start_time)/3600} hours")

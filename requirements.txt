@@ -9,11 +9,13 @@ beautifulsoup4
 selenium
 webdriver-manager
 pytables
-xkrd
+xlrd
 python-calamine
 pyxlsb
 geopandas
 shapely
 folium
+rasterio
+natsort
 typer
 vs30 @ git+https://github.com/ucgmsim/Vs30.git@dev_for_new_cpt_data

@@ -22,15 +22,13 @@ hammer_types = [vs_calc.constants.HammerType.Auto, vs_calc.constants.HammerType.
 borehole_diameter = 150
 
 output_dir = Path("/home/arr65/data/nzgd/processed_data/spt")
-all_spt_df = pd.read_parquet("/home/arr65/data/nzgd/processed_data/spt/out.parquet")
+all_spt_df = pd.read_parquet("/home/arr65/data/nzgd/processed_data/spt/extracted_spt_data.parquet")
 all_spt_df = all_spt_df.reset_index()
 
 ## Get unique values of the column "NZGD_ID" in all_spt_df
 unique_nzgd_ids = all_spt_df["NZGD_ID"].unique()
 
-spt_vs30_df = pd.DataFrame(columns=["record_name", "error", "Vs30", "Vs30_sd", "spt_vs_correlation", "vs30_correlation",
-                                    "used_soil_info", "hammer_type","borehole_diameter", "min_depth", "max_depth",
-                                    "depth_span", "num_depth_levels"])
+spt_vs30_df = pd.DataFrame()
 
 progress_bar = tqdm(total=len(unique_nzgd_ids)*len(spt_vs_correlations)*len(vs30_correlations)*len(hammer_types))
 
@@ -86,19 +84,20 @@ for spt_vs_correlation in spt_vs_correlations:
                 spt_vs30_df = pd.concat([spt_vs30_df,
                                          pd.DataFrame(
                                              {"record_name": f"BH_{nzgd_id}",
-                                                    "error": error,
-                                                    "Vs30": vs30,
-                                                    "Vs30_sd": vs30_sd,
-                                                    "spt_vs_correlation": spt_vs_correlation,
-                                                    "vs30_correlation": vs30_correlation,
-                                                    "used_soil_info" : used_soil_info,
-                                                    "hammer_type": hammer_type.name,
-                                                    "borehole_diameter": borehole_diameter,
-                                                    "min_depth": spt_df["Depth"].min(),
-                                                    "max_depth": spt_df["Depth"].max(),
-                                                    "depth_span": spt_df["Depth"].max() - spt_df["Depth"].min(),
-                                                    "num_depth_levels": spt_df["Depth"].size
-                                              },
+                                              "record_type" : "spt",
+                                              "processing_error": error,
+                                              "max_depth": spt_df["Depth"].max(),
+                                              "min_depth": spt_df["Depth"].min(),
+                                              "depth_span": spt_df["Depth"].max() - spt_df["Depth"].min(),
+                                              "num_depth_levels": spt_df["Depth"].size,
+                                              "vs30": vs30,
+                                              "vs30_std": vs30_sd,
+                                              "vs30_correlation": vs30_correlation,
+                                              "cpt_vs_correlation": np.nan,
+                                              "spt_vs_correlation": spt_vs_correlation,
+                                              "spt_used_soil_info" : used_soil_info,
+                                              "spt_hammer_type": hammer_type.name,
+                                              "spt_borehole_diameter": borehole_diameter},
                                              index=[0])], ignore_index=True)
                 progress_bar.update(1)
 

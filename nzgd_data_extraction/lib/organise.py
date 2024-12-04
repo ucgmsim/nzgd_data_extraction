@@ -309,3 +309,26 @@ def replace_folder_with_tar_xz(folder_path: Path) -> None:
     shutil.rmtree(folder_path)
 
     return None
+
+def replace_chars(old_string: str) -> str:
+    """
+    Replace specific characters in a string with underscores.
+
+    This function uses a regular expression to replace the following characters
+    in the input string with underscores: space (" "), apostrophe ("'"), comma (","),
+    and forward slash ("/").
+
+    Parameters
+    ----------
+    old_string : str
+        The input string to be modified.
+
+    Returns
+    -------
+    str
+        The modified string with specified characters replaced by underscores.
+    """
+
+    # Regular expression to replace " " (space), ' (apostrophe), "," (comma), and "/" (forward slash) characters
+    chars_to_replace = r"[ ',/]"
+    return re.sub(chars_to_replace, "_", old_string)

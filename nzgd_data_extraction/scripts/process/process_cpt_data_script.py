@@ -55,8 +55,6 @@ if __name__ == "__main__":
             ## Remove the records that have been removed from the list of records to process
             records_to_process = [record_dir for record_dir in records_to_process if record_dir.name not in records_that_have_been_removed]
 
-        records_to_process = records_to_process[17526:17528]
-
         process_one_record_partial = functools.partial(process_cpt_data.process_one_record,
                                                        parquet_output_dir=parquet_output_path,
                                                        nzgd_index_df=nzgd_index_df,

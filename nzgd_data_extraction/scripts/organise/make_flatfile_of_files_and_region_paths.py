@@ -76,43 +76,38 @@ print("Matching all files to record names")
 for record_name in tqdm(file_names_df.index):
 
     type_for_path = record_type_to_path[record_name.split("_")[0]]
-    print()
-    region_df[record_name,"region"] = region_df["record_name"].apply(lambda x: x.split("_")[1] if "BH" in x else x)
-    region_path = Path(region_df[record_name,"region"] ) / region_df[record_name,"district"] / region_df[record_name,"city"] / region_df[record_name,"suburb"]
 
-    print()
+    #region_df[record_name,"region"] = region_df["record_name"].apply(lambda x: x.split("_")[1] if "BH" in x else x)
+    region_path = Path(region_df.loc[record_name,"region"] ) / region_df.loc[record_name,"district"] / region_df.loc[record_name,"city"] / region_df.loc[record_name,"suburb"]
 
-    for raw_file in record_name_to_raw_files[row["record_name"]]:
+    full_path_to_file = Path(link_prefix) / Path("raw_from_nzgd") / type_for_path / region_path / record_name
 
-        full_path = Path("raw_from_nzgd") / type_for_path / region_path / row["record_name"] / raw_file
+    raw_file_link_list = []
+    for raw_file in record_name_to_raw_files[record_name]:
+        raw_file_link_list.append(str(full_path_to_file / raw_file))
 
-        file_names_df = pd.concat([file_names_df,
-                                   pd.DataFrame({"record_name": row["record_name"],
-                                                 "file_type": "raw",
-                                                 "file": raw_file,
-                                                 "region_path":str(region_path),
-                                                 "full_path":str(full_path)}, index=[0])],
-                                  ignore_index=True)
+    file_names_df.at[record_name, "raw_file_links"] = raw_file_link_list
 
-    if row["record_name"] in record_name_to_processed_files:
+    if record_name not in record_name_to_processed_files:
+        file_names_df.at[record_name, "processed_file_links"] = []
+    else:
+        processed_file_links = []
+        for processed_file in record_name_to_processed_files[record_name]:
 
-        for processed_file in record_name_to_processed_files[row["record_name"]]:
-
-            if "BH" in row["record_name"]:
-                full_path = Path("processed") / "spt" / "extracted_spt_data.parquet"
+            if "BH" in record_name:
+                full_file_path = Path(link_prefix) / "processed" / "spt" / "extracted_spt_data.parquet"
             else:
-                full_path = Path("processed") / type_for_path / region_path / processed_file
+                full_file_path = Path(link_prefix) / "processed" / type_for_path / region_path / processed_file
+            processed_file_links.append(str(full_file_path))
+        file_names_df.at[record_name, "processed_file_links"] = processed_file_links
 
-            file_names_df = pd.concat([file_names_df,
-                                       pd.DataFrame({"record_name": row["record_name"],
-                                                     "file_type": "processed",
-                                                     "file": processed_file,
-                                                     "region_path":str(region_path),
-                                                     "full_path":str(full_path)}, index=[0])],
-                                      ignore_index=True)
+# ### Append the link prefix to the full path in a new column called link
+# file_names_df["link"] = file_names_df["full_path"].apply(lambda x: f"{link_prefix}/{x}")
 
-### Append the link prefix to the full path in a new column called link
-file_names_df["link"] = file_names_df["full_path"].apply(lambda x: f"{link_prefix}/{x}")
+file_names_df.reset_index(inplace=True)
 
-file_names_df.to_csv(f"/home/arr65/data/nzgd/resources/metadata_from_nzgd_location/"
-                     f"V2_file_names_linked_to_{region_df_path.name}", index=False)
+file_names_df.to_parquet(f"/home/arr65/data/nzgd/resources/metadata_from_nzgd_location/"
+                     f"file_paths_names_linked_to_{region_df_path.stem}.parquet", index=False)
+
+# file_names_df.to_csv(f"/home/arr65/data/nzgd/resources/metadata_from_nzgd_location/"
+#                      f"V2_file_names_linked_to_{region_df_path.name}", index=False)

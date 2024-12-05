@@ -46,6 +46,7 @@ Notes
 
 import multiprocessing
 import re
+import sqlite3
 import warnings
 from dataclasses import dataclass
 from pathlib import Path
@@ -103,6 +104,18 @@ class TextObject:
     def xc(self) -> float:
         """float: The horizontal centre coordinate."""
         return (self.x1 + self.x0) / 2
+
+
+@dataclass
+class SPTReport:
+    borehole_id: int
+    """The borehole ID number for this report."""
+    borehole_file: Path
+    """The path to the report."""
+    efficiency: Optional[float]
+    """The hammer efficiency ratio."""
+    spt_measurements: pd.DataFrame
+    """The SPT record. A data frame with columns Depth, N, and 'Soil Type'."""
 
 
 def extract_soil_report(description: str) -> set[str]:
@@ -416,9 +429,56 @@ def extract_depth_scale(
     raise ValueError("Failed to converge to a valid depth column")
 
 
+RATIO_RE = re.compile(r"(\d{1,3}(\.\d+)?)\s*%")
+LABEL_RE = re.compile(r"\b(ratio|efficien(t|cy)|hammer\s+energy)\b")
+
+
+def get_ratio_near(node: TextObject, page: list[TextObject]) -> Optional[float]:
+    """Extract the energy ratio from the given node or nearby.
+
+    Parameters
+    ----------
+    node : TextObject
+        The reference node.
+    page : list[TextObject]
+        The page of text objects to search.
+
+
+    Returns
+    -------
+    Optional[float]
+        Either the efficiency ratio, or None if it could be found.
+
+    """
+    if efficiencies := list(re.finditer(RATIO_RE, node.text)):
+        label = re.search(LABEL_RE, node.text)
+        return float(
+            min(
+                efficiencies,
+                # Hausdorff distance between label spans to find the
+                # one that is most likely to be the hammer energy
+                # efficiency ratio.
+                key=lambda m: max(
+                    abs(m.span[0] - label.span[0]), abs(m.span[1] - label.span[1])
+                ),
+            ).group(1)
+        )
+
+    efficiency_nodes = [
+        other
+        for other in page
+        if interval_intersects(node.y0, node.y1, other.y0, other.y1)
+    ]
+    for efficiency_node in efficiency_nodes:
+        if efficiency := re.search(RATIO_RE, efficiency_node.text):
+            return float(efficiency.group(1))
+
+    return None
+
+
 def _analyze_text_objects(
     text_objects: list[list[TextObject]], report: Path
-) -> pd.DataFrame:
+) -> SPTReport:
     """Analyse extracted text objects to extract borehole data.
 
     Parameters
@@ -440,6 +500,12 @@ def _analyze_text_objects(
     """
     spt_values, extracted_soil_depths, soil_types = [], [], []
 
+    hammer_efficiency = None
+    for page in text_objects:
+        for node in page:
+            if re.search(LABEL_RE, node.text.lower()):
+                hammer_efficiency = get_ratio_near(node, page)
+
     try:
         depth_node = next(
             node
@@ -452,6 +518,11 @@ def _analyze_text_objects(
         )
     except StopIteration as exc:
         raise ValueError(f"Depth column not found in {report}") from exc
+    hammer_efficiency = None
+    for page in text_objects:
+        for node in page:
+            if re.search(LABEL_RE, node.text.lower()):
+                hammer_efficiency = get_ratio_near(node, page)
 
     for page in text_objects:
         try:
@@ -465,6 +536,7 @@ def _analyze_text_objects(
                 soil_types.append(soil_report)
 
         soil_depths = np.array(extracted_soil_depths)
+
         for node in page:
             depth = m * node.yc + c
             soil_type = (
@@ -484,22 +556,26 @@ def _analyze_text_objects(
                         "N": n,
                     }
                 )
-
     if not spt_values:
         raise ValueError(f"No SPT values found in {report}")
 
     df = pd.DataFrame(spt_values)
-    df["NZGD_ID"] = borehole_id(report)
     min_depth = df["Depth"].min()
     max_depth = df["Depth"].max()
     if min_depth < 0 or max_depth > 70:
         raise ValueError(
             f"Invalid depth calculation detected (minimum depth = {min_depth}, max depth = {max_depth})."
         )
-    return df
+
+    return SPTReport(
+        borehole_id=borehole_id(report),
+        efficiency=hammer_efficiency,
+        borehole_file=report,
+        spt_measurements=df,
+    )
 
 
-def process_borehole_no_exceptions(report: Path) -> Optional[pd.DataFrame]:
+def process_borehole_no_exceptions(report: Path) -> Optional[SPTReport]:
     """Process a borehole report while suppressing exceptions.
 
     Parameters
@@ -519,6 +595,66 @@ def process_borehole_no_exceptions(report: Path) -> Optional[pd.DataFrame]:
         return None
 
 
+def serialize_reports(reports: list[SPTReport], conn: sqlite3.Connection):
+    cursor = conn.cursor()
+
+    # Insert SPTReports
+    report_data = [
+        (report.borehole_id, report.borehole_file.stem, report.efficiency)
+        for report in reports
+    ]
+    cursor.executemany(
+        """
+        INSERT OR REPLACE INTO SPTReport (borehole_id, borehole_file, efficiency)
+        VALUES (?, ?, ?)
+    """,
+        report_data,
+    )
+
+    # Insert SoilTypes and retrieve their IDs
+    soil_type_data = set()
+    for report in reports:
+        for _, row in report.spt_measurements.iterrows():
+            for soil_type in row["Soil Type"]:
+                soil_type_data.add((soil_type,))
+
+    cursor.executemany(
+        """
+        INSERT OR IGNORE INTO SoilTypes (name)
+        VALUES (?)
+    """,
+        list(soil_type_data),
+    )
+
+    cursor.execute("SELECT id, name FROM SoilTypes")
+    soil_type_id_map = {name: soil_type_id for soil_type_id, name in cursor.fetchall()}
+
+    # Insert SPTMeasurements and SPTMeasurementSoilTypes
+    for report in reports:
+        for _, row in report.spt_measurements.iterrows():
+            cursor.execute(
+                """
+                INSERT INTO SPTMeasurements (borehole_id, depth, n)
+                VALUES (?, ?, ?)
+            """,
+                (report.borehole_id, row["Depth"], row["N"]),
+            )
+            measurement_id = cursor.lastrowid
+
+            measurement_soil_type_data = [
+                (measurement_id, soil_type_id_map[soil_type])
+                for soil_type in row["Soil Type"]
+            ]
+
+            cursor.executemany(
+                """
+                INSERT INTO SPTMeasurementSoilTypes (measurement_id, soil_type_id)
+                VALUES (?, ?)
+            """,
+                measurement_soil_type_data,
+            )
+
+
 @app.command(help="Extract borehole report data.")
 def mine_borehole_log(
     report_directory: Annotated[
@@ -533,8 +669,9 @@ def mine_borehole_log(
     output_path: Annotated[
         Path,
         typer.Argument(
-            help="Path to save the consolidated output as a Parquet file.",
+            help="Path to save the consolidated output as a database.",
             writable=True,
+            exists=False,
             dir_okay=False,
         ),
     ],
@@ -550,17 +687,55 @@ def mine_borehole_log(
     """
     pdfs = list(report_directory.glob("*.pdf"))
     with multiprocessing.Pool() as pool:
-        combined_df = (
-            pd.concat(
-                tqdm.tqdm(
-                    pool.imap(process_borehole_no_exceptions, pdfs), total=len(pdfs)
-                )
+        reports = [
+            report
+            for report in tqdm.tqdm(
+                pool.imap(process_borehole_no_exceptions, pdfs), total=len(pdfs)
             )
-            .set_index(["NZGD_ID", "Depth"])
-            .sort_index()
+            if report is not None
+        ]
+    with sqlite3.connect(output_path) as db:
+        db.executescript(
+            """
+            -- Create table for SPTReport
+            CREATE TABLE SPTReport (
+                borehole_id INTEGER PRIMARY KEY,
+                borehole_file TEXT NOT NULL,
+                efficiency REAL
+            );
+            CREATE INDEX idx_sptreport_borehole_file ON SPTReport(borehole_file);
+
+            -- Create table for SPTMeasurements
+            CREATE TABLE SPTMeasurements (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                borehole_id INTEGER NOT NULL,
+                depth REAL NOT NULL,
+                n INTEGER NOT NULL,
+                FOREIGN KEY (borehole_id) REFERENCES SPTReport(borehole_id)
+            );
+            CREATE INDEX idx_sptmeasurements_borehole_id ON SPTMeasurements(borehole_id);
+
+            -- Create table for SoilTypes
+            CREATE TABLE SoilTypes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL UNIQUE
+            );
+            CREATE INDEX idx_soiltypes_name ON SoilTypes(name);
+
+            -- Create table for SPTMeasurementSoilTypes (many-to-many relationship)
+            CREATE TABLE SPTMeasurementSoilTypes (
+                measurement_id INTEGER NOT NULL,
+                soil_type_id INTEGER NOT NULL,
+                PRIMARY KEY (measurement_id, soil_type_id),
+                FOREIGN KEY (measurement_id) REFERENCES SPTMeasurements(id),
+                FOREIGN KEY (soil_type_id) REFERENCES SoilTypes(id)
+            );
+            CREATE INDEX idx_sptmeasurementsoiltypes_measurement_id ON SPTMeasurementSoilTypes(measurement_id);
+            CREATE INDEX idx_sptmeasurementsoiltypes_soil_type_id ON SPTMeasurementSoilTypes(soil_type_id);
+            """
         )
 
-    combined_df.to_parquet(output_path)
+        serialize_reports(reports, db)
 
 
 if __name__ == "__main__":

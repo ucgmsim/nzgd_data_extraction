@@ -63,11 +63,19 @@ foster_vs30_df.rename(
 )
 foster_vs30_df = foster_vs30_df[foster_vs30_df["record_name"].isin(nzgd_df["record_name"])]
 
+file_links_df = pd.read_parquet("/home/arr65/data/nzgd/resources/metadata_from_nzgd_location/"
+                            "file_paths_names_linked_to_regions_NZGD_Investigation_Report_08112024_1017.parquet")
+file_links_df = file_links_df[file_links_df["record_name"].isin(nzgd_df["record_name"])]
+
+
 spt_vs30_df = pd.read_csv("/home/arr65/data/nzgd/processed_data/spt/spt_vs30.csv")
 scpt_vs30_df = pd.read_csv("/home/arr65/data/nzgd/processed_data/scpt/metadata/vs30_estimates_from_cpt.csv")
 cpt_vs30_df = pd.read_csv("/home/arr65/data/nzgd/processed_data/cpt/metadata/vs30_estimates_from_cpt.csv")
 
 vs30_df = pd.concat([spt_vs30_df, scpt_vs30_df, cpt_vs30_df], ignore_index=True)
+
+### If vs30_df["vs30"] > 1000, replace vs30_df["vs30"] and vs30_df["vs30_std"] with np.nan
+vs30_df.loc[vs30_df["vs30"] > 1000, ["vs30", "vs30_std"]] = np.nan
 
 ## Make a new column that is the concatenation of strings in columns 'spt_vs_correlation' and 'vs30_correlation'
 # spt_vs30_df["spt_vs_correlation_and_vs30_correlation"] = (
@@ -77,6 +85,7 @@ vs30_df = pd.concat([spt_vs30_df, scpt_vs30_df, cpt_vs30_df], ignore_index=True)
 ### Merge DataFrames using the record_name column
 df_from_record_locations = pd.merge(nzgd_df, region_df, on="record_name")
 df_from_record_locations = pd.merge(df_from_record_locations, foster_vs30_df, on="record_name")
+df_from_record_locations = pd.merge(df_from_record_locations, file_links_df, on="record_name")
 
 merged_df = pd.merge(df_from_record_locations, vs30_df, on="record_name", how="outer")
 
@@ -84,7 +93,7 @@ merged_df["vs30_log_residual"] = np.log(merged_df["vs30"]) - np.log(
     merged_df["foster_2019_vs30"]
 )
 
-merged_df.to_csv("/home/arr65/data/nzgd/resources/website_database.csv")
+#merged_df.to_csv("/home/arr65/data/nzgd/resources/website_database.csv")
 
 
 merged_df.to_parquet(

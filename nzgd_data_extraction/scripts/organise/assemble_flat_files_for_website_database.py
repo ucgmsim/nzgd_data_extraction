@@ -32,6 +32,17 @@ nzgd_df.rename(
     inplace=True,
 )
 
+borehole_num_code = 0
+cpt_num_code = 1
+scpt_num_code = 2
+
+# Add the new column "shape" based on the conditions
+nzgd_df["type_number_code"] = nzgd_df["type"].map({
+    "Borehole": borehole_num_code,
+    "CPT": cpt_num_code,
+    "SCPT": scpt_num_code
+})
+
 region_df = pd.read_csv(
     "/home/arr65/data/nzgd/resources/metadata_from_nzgd_location/regions_NZGD_Investigation_Report_08112024_1017.csv"
 )

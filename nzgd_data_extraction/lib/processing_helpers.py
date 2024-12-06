@@ -303,6 +303,14 @@ def search_line_for_all_needed_cells(
     Union[npt.ArrayLike, tuple[npt.ArrayLike]]
         The indices of the first cell that matches each of the given characters or substrings,
         or all candidate indices if output_all_candidates is True.
+
+    Example output:
+    ([0], [1, 8, 12, 14, 16, 17, 18], [2, 23, 29], [3, 4])
+    which indicates that for Depth (position 0 in this list), column 0 (the first column) is the only
+    possiblilty for the Depth column. For qc (position 1 in this list), columns 1, 8, 12, 14, 16, 17, and 18
+    are all possible candidates for the qc column. For fs (position 2 in this list), columns 2, 23, and 29
+    are all possible candidates for the fs column. For u2 (position 3 in this list), columns 3 and 4 are
+    all possible candidates for the u2 column.
     """
 
     col1_search = search_line_for_cell(line, characters1, substrings1)
@@ -722,6 +730,7 @@ def get_column_names(loaded_data_df: pd.DataFrame) -> tuple[pd.DataFrame, list[s
     all_possible_col_indices = search_line_for_all_needed_cells(
         loaded_data_df.columns, output_all_candidates=True
     )
+
     final_col_names = []
     for possible_col_idx, possible_col_indices in enumerate(all_possible_col_indices):
         if len(possible_col_indices) == 0:
@@ -747,13 +756,43 @@ def get_column_names(loaded_data_df: pd.DataFrame) -> tuple[pd.DataFrame, list[s
                 raise FileProcessingError(
                     f"repeated_col_names_in_source - sheet has multiple columns with the name {candidate_col_name}"
                 )
+            print()
+            ## For every possible column name, check how many finite values are in the column
 
-            num_finite_per_col = np.array(
-                [
-                    np.sum(np.isfinite(loaded_data_df[col_name]))
-                    for col_name in possible_col_names
-                ]
-            )
+            ############################################################################
+
+            num_finite_per_col_list = []
+            for col_name in possible_col_names:
+                data_col = loaded_data_df[col_name]
+                ## If the shape of data col is like (x, y), instead of just (x,) then there are multiple columns
+                # with the same name so raise an error
+                if len(data_col.shape) > 1:
+                    raise FileProcessingError(
+                        f"repeated_col_names_in_source - sheet has multiple columns with the name {col_name}")
+                finite_data_col = np.isfinite(data_col)
+                num_finite = np.sum(finite_data_col)
+                num_finite_per_col_list.append(num_finite)
+
+            num_finite_per_col = np.array(num_finite_per_col_list)
+
+
+
+
+
+
+
+            ############################################################################
+            #
+            # print()
+            # num_finite_per_col = np.array(
+            #     [
+            #         np.sum(np.isfinite(loaded_data_df[col_name]))
+            #         for col_name in possible_col_names
+            #     ]
+            # )
+            # print()
+
+            ## Valid possible column names will have at least one finite value
             valid_possible_col_names = np.array(possible_col_names)[
                 num_finite_per_col > 0
             ]

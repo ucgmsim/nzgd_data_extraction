@@ -367,7 +367,6 @@ def find_one_header_row_index_from_column_names(
     ## roll the array such that the first row to be checked is the one with the highest number of text cells
     ## as it is most likely to contain the column names. This will reduce the chance of accidentally choosing the
     ## wrong row because it coincidentally contained the keywords
-
     check_rows = np.roll(
         np.arange(0, len(lines_and_cells_iterable) - 1),
         -np.argmax(text_surplus_per_line),
@@ -590,20 +589,25 @@ def get_xls_sheet_names(file_path: Path) -> tuple[list[str], Literal["xlrd","ope
         sheet_names = pd.ExcelFile(file_path, engine=engine).sheet_names
         return sheet_names, engine
 
-    except xlrd.biffh.XLRDError:
+    except (xlrd.biffh.XLRDError, TypeError):
         if engine == "xlrd":
             other_engine: Literal["openpyxl"] = "openpyxl"
         else:
             other_engine: Literal["xlrd"] = "xlrd"
 
         engine: Literal["xlrd","openpyxl"] = other_engine
-        sheet_names = pd.ExcelFile(file_path, engine=engine).sheet_names
+        try:
+            sheet_names = pd.ExcelFile(file_path, engine=engine).sheet_names
+        except:
+            raise FileProcessingError(
+                f"bad_xls_or_xlsx_file - file {file_path.name} is not a valid xls or xlsx file"
+            )
 
         return sheet_names, engine
 
     except zipfile.BadZipFile:
         raise FileProcessingError(
-            f"bad_zip_file - file {file_path.name} is not a valid xls or xlsx file"
+            f"bad_xls_or_xlsx_file - file {file_path.name} is not a valid xls or xlsx file"
         )
 
     except xlrd.compdoc.CompDocError:
@@ -755,6 +759,10 @@ def get_column_names(loaded_data_df: pd.DataFrame) -> tuple[pd.DataFrame, list[s
             ]
 
             ## Initially set the column name to the first valid column name
+            if len(valid_possible_col_names) == 0:
+                raise FileProcessingError(
+                    f"no_valid_column_names - sheet has no valid column names for column {col_index_to_name[possible_col_idx]}"
+                )
             col_name = valid_possible_col_names[0]
 
             for possible_col_name in valid_possible_col_names:
@@ -861,6 +869,12 @@ def load_csv_or_txt(
     sep = r"," if file_path.suffix.lower() == ".csv" else r"\s+"
     file_encoding = find_encoding(file_path)
     lines_and_cells_iterable = get_csv_or_txt_split_readlines(file_path, file_encoding)
+
+    if len(lines_and_cells_iterable) == 0:
+        raise FileProcessingError(
+            f"no_data - sheet ({sheet.replace('-', '_')}) has no data"
+        )
+
     header_lines_in_csv_or_txt_file = find_row_indices_of_header_lines(
         lines_and_cells_iterable
     )

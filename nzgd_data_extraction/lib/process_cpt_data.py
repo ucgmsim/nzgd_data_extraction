@@ -253,6 +253,11 @@ def load_cpt_spreadsheet_file(file_path: Path) -> list[pd.DataFrame]:
     known_special_cases = toml.load(
         Path(__file__).parent.parent / "resources" / "cpt_column_name_descriptions.toml"
     )
+
+    if "_" not in file_path.name:
+        raise processing_helpers.FileProcessingError(
+            f"bad_file_name_format - file name {file_path.name} does not contain an NZGD record name")
+
     record_id = f"{file_path.name.split("_")[0]}_{file_path.name.split("_")[1]}"
     if record_id in known_special_cases.keys():
         raise processing_helpers.FileProcessingError(known_special_cases[record_id])
@@ -291,7 +296,6 @@ def load_cpt_spreadsheet_file(file_path: Path) -> list[pd.DataFrame]:
         ####################################################################################################################
         ####################################################################################################################
         # Now xls, csv and txt should all be in a dataframe so continue the same for all
-
         ## Check the dataframe for various issues
         if df.shape == (0, 0):
             error_text.append(
@@ -331,7 +335,6 @@ def load_cpt_spreadsheet_file(file_path: Path) -> list[pd.DataFrame]:
         numeric_surplus_per_row = np.nansum(
             df_for_counting_num_of_num, axis=1
         ) - np.nansum(df_for_counting_str_per_row, axis=1)
-
         header_row_indices = []
         header_row_from_col_names = (
             processing_helpers.find_one_header_row_index_from_column_names(df)
@@ -525,6 +528,9 @@ def process_one_record(record_dir: Path,
     ## This dataframe will store the details of all the files that failed to load over the loops below
     all_failed_loads_df = pd.DataFrame(columns=["record_name", "file_type", "file_name", "category", "details"])
 
+    ### ags files
+    ags_files_to_try = list(record_dir.glob("*.ags")) + list(record_dir.glob("*.AGS"))
+
     ########
     ## spreadsheet files
     files_to_try = list(record_dir.glob("*.xls")) + list(record_dir.glob("*.XLS")) + \
@@ -603,13 +609,14 @@ def process_one_record(record_dir: Path,
                 loading_summary_df = partial_summary_df_helper(file_was_loaded=False,
                                                                loaded_file_type="N/A",
                                                                loaded_file_name="N/A")
-                return CptProcessingMetadata(pd.DataFrame(), loading_summary_df, all_failed_loads_df)
 
-    ### ags files
-    files_to_try = list(record_dir.glob("*.ags")) + list(record_dir.glob("*.AGS"))
+                if len(ags_files_to_try) > 0:
+                    continue
+                else:
+                    return CptProcessingMetadata(pd.DataFrame(), loading_summary_df, all_failed_loads_df)
 
-    if len(files_to_try) > 0:
-        for file_to_try_index, file_to_try in enumerate(files_to_try):
+    if len(ags_files_to_try) > 0:
+        for file_to_try_index, file_to_try in enumerate(ags_files_to_try):
             try:
                 record_df = load_ags(file_to_try, investigation_type)
 

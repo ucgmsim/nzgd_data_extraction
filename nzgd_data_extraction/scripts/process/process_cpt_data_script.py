@@ -15,6 +15,7 @@ from nzgd_data_extraction.lib import process_cpt_data, processing_helpers
 if __name__ == "__main__":
 
     for investigation_type in [processing_helpers.InvestigationType.cpt, processing_helpers.InvestigationType.scpt]:
+    #for investigation_type in [processing_helpers.InvestigationType.cpt]:
 
         nzgd_index_df = pd.read_csv(Path("/home/arr65/data/nzgd/resources/nzgd_index_files/csv_files/"
                                          "NZGD_Investigation_Report_08112024_1017.csv"))
@@ -55,6 +56,14 @@ if __name__ == "__main__":
             ## Remove the records that have been removed from the list of records to process
             records_to_process = [record_dir for record_dir in records_to_process if record_dir.name not in records_that_have_been_removed]
 
+        # previous_failed_loads_df = pd.read_csv(Path("/home/arr65/data/nzgd/processed_data/cpt/metadata") / "all_failed_loads.csv")
+        # actual_records_to_process = previous_failed_loads_df[previous_failed_loads_df["category"] == "unknown_category"]["record_name"].values
+
+        #records_to_process = [Path(f"/home/arr65/data/nzgd/downloads_and_metadata/unorganised_raw_from_nzgd/cpt/{x}") for x in actual_records_to_process]
+        # records_to_process = [Path("/home/arr65/data/nzgd/downloads_and_metadata/unorganised_raw_from_nzgd/cpt/CPT_26432")]
+
+
+
         process_one_record_partial = functools.partial(process_cpt_data.process_one_record,
                                                        parquet_output_dir=parquet_output_path,
                                                        nzgd_index_df=nzgd_index_df,
@@ -86,7 +95,7 @@ if __name__ == "__main__":
             spreadsheet_format_descriptions_df = pd.concat(spreadsheet_format_descriptions_dfs, ignore_index=True)
 
         if all(x.size == 0 for x in all_failed_loads_dfs):
-            all_failed_loads_dfs = pd.DataFrame()
+            all_failed_loads_df = pd.DataFrame()
         else:
             all_failed_loads_df = pd.concat(all_failed_loads_dfs, ignore_index=True)
 

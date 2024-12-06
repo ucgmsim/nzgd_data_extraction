@@ -756,11 +756,7 @@ def get_column_names(loaded_data_df: pd.DataFrame) -> tuple[pd.DataFrame, list[s
                 raise FileProcessingError(
                     f"repeated_col_names_in_source - sheet has multiple columns with the name {candidate_col_name}"
                 )
-            print()
             ## For every possible column name, check how many finite values are in the column
-
-            ############################################################################
-
             num_finite_per_col_list = []
             for col_name in possible_col_names:
                 data_col = loaded_data_df[col_name]
@@ -774,23 +770,6 @@ def get_column_names(loaded_data_df: pd.DataFrame) -> tuple[pd.DataFrame, list[s
                 num_finite_per_col_list.append(num_finite)
 
             num_finite_per_col = np.array(num_finite_per_col_list)
-
-
-
-
-
-
-
-            ############################################################################
-            #
-            # print()
-            # num_finite_per_col = np.array(
-            #     [
-            #         np.sum(np.isfinite(loaded_data_df[col_name]))
-            #         for col_name in possible_col_names
-            #     ]
-            # )
-            # print()
 
             ## Valid possible column names will have at least one finite value
             valid_possible_col_names = np.array(possible_col_names)[

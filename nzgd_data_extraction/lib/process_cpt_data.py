@@ -290,8 +290,22 @@ def load_cpt_spreadsheet_file(file_path: Path) -> list[pd.DataFrame]:
 
         ####################################################################################################################
         ####################################################################################################################
-
         # Now xls, csv and txt should all be in a dataframe so continue the same for all
+
+        ## Check the dataframe for various issues
+        if df.shape == (0, 0):
+            error_text.append(
+                f"empty_file - sheet ({sheet.replace('-', '_')}) has size (0,0)"
+            )
+            continue
+
+        if df.shape[0] == 1:
+            error_text.append(
+                f"only_one_line - sheet ({sheet.replace('-', '_')}) has only one line with first cell of {df.iloc[0][0]}"
+            )
+            continue
+
+        ## Add some attributes to the dataframe to store information about the original file
         df.attrs["original_file_name"] = file_path.name
         df.attrs["sheet_in_original_file"] = sheet
         df.attrs["column_name_descriptions"] = column_descriptions
@@ -325,19 +339,7 @@ def load_cpt_spreadsheet_file(file_path: Path) -> list[pd.DataFrame]:
         if np.isfinite(header_row_from_col_names):
             header_row_indices = processing_helpers.find_row_indices_of_header_lines(df)
 
-        ## Check the dataframe for various issues
-        if df.shape == (0, 0):
-            error_text.append(
-                f"empty_file - sheet ({sheet.replace('-', '_')}) has size (0,0)"
-            )
-            continue
-
-        if df.shape[0] == 1:
-            error_text.append(
-                f"only_one_line - sheet ({sheet.replace('-', '_')}) has only one line with first cell of {df.iloc[0][0]}"
-            )
-            continue
-
+        ## Check if the dataframe has any numeric data
         if np.sum(df_for_counting_num_of_num.values) == 0:
             error_text.append(
                 f"no_numeric_data - sheet ({sheet.replace('-', '_')}) has no numeric data"

@@ -657,10 +657,9 @@ def process_one_record(record_dir: Path,
                                      "category": [error_as_string.split("-")[0].strip()],
                                      "details": [error_as_string.split("-")[1].strip()]})], ignore_index=True)
 
-                if file_to_try_index == len(files_to_try) - 1:
+                if file_to_try_index == len(ags_files_to_try) - 1:
                     ## No more files to try for this record
                     loading_summary_df = partial_summary_df_helper(file_was_loaded=False,
                                                                    loaded_file_type="N/A",
                                                                    loaded_file_name="N/A")
-
                     return CptProcessingMetadata(pd.DataFrame(), loading_summary_df, all_failed_loads_df)

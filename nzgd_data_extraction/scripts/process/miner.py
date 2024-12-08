@@ -44,6 +44,7 @@ Notes
   continue for other reports.
 """
 
+import json
 import multiprocessing
 import re
 import sqlite3
@@ -181,13 +182,19 @@ def extract_pdf_text_objects(lt_objs: list[Any]) -> Generator[TextObject, None, 
             yield from extract_pdf_text_objects(obj._objs)
 
 
-def is_number(text: str) -> bool:
-    """Check if a given string represents a number.
+def is_valid_depth_measurement(text: str, max_depth_cutoff: float = 60) -> bool:
+    """Check if a given string represents a valid depth measurement.
+
+    A valid depth measurement is a number that is between 0 and 60m.
+    The 60m cutoff heuristic is a generous assumption on the deepest
+    reasonable depths observed in borehole PDFs.
 
     Parameters
     ----------
     text : str
         The string to check.
+    max_depth_cutoff : float, optional
+        Use an alternative maximum depth cutoff value. Default is 60m.
 
     Returns
     -------
@@ -196,7 +203,8 @@ def is_number(text: str) -> bool:
     """
     try:
         x = float(text.strip(" \nm"))
-        return 0 <= x <= 60
+
+        return 0 <= x <= max_depth_cutoff
     except ValueError:
         return False
 
@@ -225,7 +233,7 @@ def borehole_id(report: Path) -> int:
     raise ValueError(f"Report name {report.stem} lacks proper structure")
 
 
-def process_borehole(report: Path) -> pd.DataFrame:
+def process_borehole(report: Path) -> SPTReport:
     """Process a borehole report to extract SPT values and soil types.
 
     Parameters
@@ -235,8 +243,8 @@ def process_borehole(report: Path) -> pd.DataFrame:
 
     Returns
     -------
-    pd.DataFrame
-        A DataFrame containing depth, soil types, and SPT values.
+    SPTReport
+        The extracted SPT report.
 
     Raises
     ------
@@ -269,29 +277,6 @@ def process_borehole(report: Path) -> pd.DataFrame:
             text_objects.append(page_text_objects)
 
     return _analyze_text_objects(text_objects, report)
-
-
-def interval_intersects(a: float, b: float, c: float, d: float) -> bool:
-    """Check if the interval [a, b] intersects the interval [c, d].
-
-    Parameters
-    ----------
-    a : float
-        The left bound of the first interval.
-    b : float
-        The right bound of the first interval.
-    c : float
-        The left bound of the second interval.
-    d : float
-        The right bound of the second interval.
-
-
-    Returns
-    -------
-    bool
-        True if the intersection of the interval [a, b] with [c, d] is non-trivial.
-    """
-    return not (b < c or d < a)
 
 
 def invalid_scale(scale: list[float]) -> bool:
@@ -397,12 +382,8 @@ def extract_depth_scale(
         depth_values = [
             obj
             for obj in nodes
-            if (
-                interval_intersects(
-                    depth_node.x0, depth_node.x1, obj.xc - eps, obj.xc + eps
-                )
-            )
-            and is_number(obj.text)
+            if (not (depth_node.x1 < obj.xc - eps or obj.xc + eps < depth_node.x0))
+            and is_valid_depth_measurement(obj.text)
         ]
         if len(depth_values) < 2:
             # Not enough depth values found, widen the search space for depth values.
@@ -430,7 +411,7 @@ def extract_depth_scale(
 
 
 RATIO_RE = re.compile(r"(\d{1,3}(\.\d+)?)\s*%")
-LABEL_RE = re.compile(r"\b(ratio|efficien(t|cy)|hammer\s+energy)\b")
+LABEL_RE = re.compile(r"\b(ratio|efficien(t|cy)|hammer\s+energy)\b", re.IGNORECASE)
 
 
 def get_ratio_near(node: TextObject, page: list[TextObject]) -> Optional[float]:
@@ -452,6 +433,8 @@ def get_ratio_near(node: TextObject, page: list[TextObject]) -> Optional[float]:
     """
     if efficiencies := list(re.finditer(RATIO_RE, node.text)):
         label = re.search(LABEL_RE, node.text)
+        label_start = label.start(0)
+        label_end = label.end(0)
         return float(
             min(
                 efficiencies,
@@ -459,15 +442,14 @@ def get_ratio_near(node: TextObject, page: list[TextObject]) -> Optional[float]:
                 # one that is most likely to be the hammer energy
                 # efficiency ratio.
                 key=lambda m: max(
-                    abs(m.span[0] - label.span[0]), abs(m.span[1] - label.span[1])
+                    abs(m.start(0) - label_start),
+                    abs(m.end(0) - label_end),
                 ),
             ).group(1)
         )
 
     efficiency_nodes = [
-        other
-        for other in page
-        if interval_intersects(node.y0, node.y1, other.y0, other.y1)
+        other for other in page if not (node.y1 < other.y0 or other.y1 < node.y0)
     ]
     for efficiency_node in efficiency_nodes:
         if efficiency := re.search(RATIO_RE, efficiency_node.text):
@@ -655,7 +637,55 @@ def serialize_reports(reports: list[SPTReport], conn: sqlite3.Connection):
             )
 
 
-@app.command(help="Extract borehole report data.")
+@app.command(
+    help="Mine an individual borehole PDF and output a JSON file.", name="single"
+)
+def mine_individual_borehole(
+    borehole_pdf: Annotated[
+        Path,
+        typer.Argument(
+            help="Path to borehole PDF file to read.",
+            exists=True,
+            readable=True,
+            dir_okay=False,
+        ),
+    ],
+    output_path: Annotated[
+        Path,
+        typer.Argument(
+            help="Path to save the output (as a JSON file).",
+            writable=True,
+            dir_okay=False,
+        ),
+    ],
+):
+    """Extract SPT readings from a single borehole log file.
+
+    Parameters
+    ----------
+    borehole_pdf : Path
+        Path to the borehole log PDF file.
+    output_path : Path
+        Path to the output file (a JSON file).
+    """
+
+    spt_report = process_borehole(borehole_pdf)
+    with open(output_path, "w") as output:
+        json.dump(
+            {
+                "Borehole Id": spt_report.borehole_id,
+                "Borehole File": str(spt_report.borehole_file),
+                "Efficiency": spt_report.efficiency,
+                "Measurements": spt_report.spt_measurements.sort_values(
+                    by="Depth"
+                ).to_dict("records"),
+            },
+            output,
+            indent=4,
+        )
+
+
+@app.command(help="Extract borehole SPT data from a directory.", name="directory")
 def mine_borehole_log(
     report_directory: Annotated[
         Path,

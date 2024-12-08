@@ -104,9 +104,12 @@ merged_df["vs30_log_residual"] = np.log(merged_df["vs30"]) - np.log(
     merged_df["foster_2019_vs30"]
 )
 
-#merged_df.to_csv("/home/arr65/data/nzgd/resources/website_database.csv")
-
 
 merged_df.to_parquet(
     Path("/home/arr65/src/nzgd_map_from_webplate/instance/website_database.parquet")
 )
+
+# merged_df_no_file_names = merged_df.drop(columns=["raw_file_links", "processed_file_links"])
+# merged_df_no_file_names.to_csv(
+#     Path("/home/arr65/data/nzgd/resources/website_database_no_filenames.csv"), index=False
+# )

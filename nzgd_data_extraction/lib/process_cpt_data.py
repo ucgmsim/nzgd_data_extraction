@@ -433,6 +433,12 @@ def load_cpt_spreadsheet_file(file_path: Path) -> list[pd.DataFrame]:
 
             ### Ensure that the depth column has positive values and that qc and fs are greater than 0
             df = processing_helpers.ensure_positive_depth_and_qc_fs_gtr_0(df)
+
+            ### Add columns containing the record_name, original_file_name, and sheet_in_original_file
+            df["record_name"] = record_id
+            df["original_file_name"] = file_path.name
+            df["sheet_in_original_file"] = sheet
+
             dataframes_to_return.append(df)
 
         else:
@@ -543,9 +549,9 @@ def process_one_record(record_dir: Path,
     num_successful_loads_per_type = defaultdict(lambda: 0)
 
     ## These dataframes will store metadata about file load attempts in the loops below
-    #all_failed_loads_df = pd.DataFrame(columns=["record_name", "file_type", "file_name", "category", "details"])
     spreadsheet_format_description = pd.DataFrame()
-    loading_summary_df = pd.DataFrame()
+    loading_summary_df = pd.DataFrame(columns=["record_name", "file_name", "file_type", "extracted_data",
+                                               "extraction_failiure_category", "extraction_failiure_details"])
 
     record_df_list = []
     failed_loads_df_list = []
@@ -554,17 +560,20 @@ def process_one_record(record_dir: Path,
         ## Assuming that the files with same suffix in the different case (e.g., .csv and .CSV) are different measurements
         num_files_per_type[file.suffix.lower()] += 1
 
-    ## Get a list of keys sorted in descending order by their int values
-    file_types_sorted_by_num_files = sorted(num_files_per_type, key=lambda k: num_files_per_type[k], reverse=True)
-
-    ## rearrange the files to try so that the most common file type is tried first
-    files_to_try = sorted(files_to_try, key=lambda x: file_types_sorted_by_num_files.index(x.suffix))
-
     for file_to_try_index, file_to_try in enumerate(files_to_try):
         try:
             num_attempted_loads_per_type[file_to_try.suffix] += 1
             record_df_list.extend(load_cpt_spreadsheet_file(file_to_try))
             num_successful_loads_per_type[file_to_try.suffix] += 1
+
+            loading_summary_df = pd.concat([loading_summary_df,
+                                            pd.DataFrame({"record_name": record_dir.name,
+                                                          "file_name": file_to_try.name,
+                                                          "file_type": file_to_try.suffix.lower(),
+                                                          "extracted_data": True,
+                                                          "extraction_failiure_category": None,
+                                                          "extraction_failiure_details": None},index=[0])],
+                                                        ignore_index=True)
 
         except(processing_helpers.FileProcessingError, ValueError, xlrd.compdoc.CompDocError, Exception) as e:
 
@@ -579,21 +588,6 @@ def process_one_record(record_dir: Path,
                                  "category": [error_as_string.split("-")[0].strip()],
                                  "details": [error_as_string.split("-")[1].strip()]}))
 
-            print()
-
-            if file_to_try_index == len(files_to_try) - 1:
-
-                if len(ags_files_to_try) > 0:
-                    ## Break out of the spreadsheet file loop and try the ags files
-                    break
-
-                else:
-                    ## No more files to try for this record
-                    loading_summary_df = pd.concat([loading_summary_df,
-                                                    partial_summary_df_helper(file_was_loaded=False,
-                                                                              loaded_file_type="N/A",
-                                                                              loaded_file_name="N/A")])
-                    return CptProcessingMetadata(pd.DataFrame(), loading_summary_df, all_failed_loads_df)
 
     if len(ags_files_to_try) > 0:
         for file_to_try_index, file_to_try in enumerate(ags_files_to_try):

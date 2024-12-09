@@ -14,8 +14,8 @@ from nzgd_data_extraction.lib import process_cpt_data, processing_helpers
 
 if __name__ == "__main__":
 
-    for investigation_type in [processing_helpers.InvestigationType.cpt, processing_helpers.InvestigationType.scpt]:
-    #for investigation_type in [processing_helpers.InvestigationType.cpt]:
+    #for investigation_type in [processing_helpers.InvestigationType.cpt, processing_helpers.InvestigationType.scpt]:
+    for investigation_type in [processing_helpers.InvestigationType.cpt]:
 
         nzgd_index_df = pd.read_csv(Path("/home/arr65/data/nzgd/resources/nzgd_index_files/csv_files/"
                                          "NZGD_Investigation_Report_08112024_1017.csv"))
@@ -60,61 +60,78 @@ if __name__ == "__main__":
         # actual_records_to_process = previous_failed_loads_df[previous_failed_loads_df["category"] == "unknown_category"]["record_name"].values
 
         #records_to_process = [Path(f"/home/arr65/data/nzgd/downloads_and_metadata/unorganised_raw_from_nzgd/cpt/{x}") for x in actual_records_to_process]
-        records_to_process = [Path("/home/arr65/data/nzgd/downloads_and_metadata/unorganised_raw_from_nzgd/cpt/CPT_9083")]
+        #records_to_process = [Path("/home/arr65/data/nzgd/downloads_and_metadata/unorganised_raw_from_nzgd/cpt/CPT_9083")]
 
-        #records_to_process = records_to_process[9451:9452]
+        #records_to_process = records_to_process[1437:1438]
 
         process_one_record_partial = functools.partial(process_cpt_data.process_one_record,
-                                                       parquet_output_dir=parquet_output_path,
-                                                       nzgd_index_df=nzgd_index_df,
                                                        investigation_type=investigation_type)
         results = []
         num_workers = 8
         with mp.Pool(processes=num_workers) as pool:
             results.extend(list(tqdm(pool.imap(process_one_record_partial, records_to_process),
                                      total=len(records_to_process))))
-        print()
-
 
         ### concatenate all the metadata dataframes
-        print("Concatenating the metadata dataframes")
+        print("Concatenating output dataframes")
 
-        spreadsheet_format_descriptions_dfs = []
-        all_failed_loads_dfs = []
-        loading_summary_dfs = []
-
+        extracted_data_dfs = []
+        failed_loads_dfs = []
         for result in tqdm(results):
-            spreadsheet_format_descriptions_dfs.append(result.spreadsheet_format_description)
-            all_failed_loads_dfs.append(result.all_failed_loads_df)
-            loading_summary_dfs.append(result.loading_summary_df)
+            if len(result.extracted_data_dfs) != 1:
+                raise ValueError("Expected one extracted data dataframe")
+            if len(result.failed_extractions_dfs) != 1:
+                raise ValueError("Expected one failed extractions dataframe")
 
-        ## If processing a small number of CPT records, some dataframes will be empty
-        ## which will cause an error when concatenating, so only concatenate if the dataframes are not empty
-        if all(x.size == 0 for x in spreadsheet_format_descriptions_dfs):
-            spreadsheet_format_descriptions_df = pd.DataFrame()
+            ### result.extracted_data_dfs is a list of length 1
+            extracted_data_dfs.append(result.extracted_data_dfs[0])
+            failed_loads_dfs.append(result.failed_extractions_dfs[0])
+
+        if len(extracted_data_dfs) == 0:
+            extracted_data_df = pd.DataFrame()
         else:
-            spreadsheet_format_descriptions_df = pd.concat(spreadsheet_format_descriptions_dfs, ignore_index=True)
-
-        if all(x.size == 0 for x in all_failed_loads_dfs):
-            all_failed_loads_df = pd.DataFrame()
+            print()
+            extracted_data_df = pd.concat(extracted_data_dfs, ignore_index=True)
+        if len(failed_loads_dfs) == 0:
+            failed_loads_df = pd.DataFrame()
         else:
-            all_failed_loads_df = pd.concat(all_failed_loads_dfs, ignore_index=True)
+            print()
+            failed_loads_df = pd.concat(failed_loads_dfs, ignore_index=True)
 
-        if all(x.size == 0 for x in loading_summary_dfs):
-            loading_summary_df = pd.DataFrame()
-        else:
-            loading_summary_df = pd.concat(loading_summary_dfs, ignore_index=True)
+        extracted_data_df.to_csv(metadata_output_dir / "extracted_data.csv", index=False)
+        failed_loads_df.to_csv(metadata_output_dir / "failed_loads.csv", index=False)
 
-        spreadsheet_format_descriptions_df.to_csv(metadata_output_dir / "spreadsheet_format_description.csv", index=False)
-        all_failed_loads_df.to_csv(metadata_output_dir / "all_failed_loads.csv", index=False)
-        loading_summary_df.to_csv(metadata_output_dir / "loading_summary.csv", index=False)
 
-        if len(spreadsheet_format_descriptions_df) > 0:
 
-            unique_spreadsheet_format_descriptions_df = spreadsheet_format_descriptions_df.drop(columns=["header_row_index", "record_name", "file_name"])
 
-            # get number of unique rows in spreadsheet_format_description_df
-            unique_spreadsheet_format_descriptions_df = unique_spreadsheet_format_descriptions_df.drop_duplicates()
-            unique_spreadsheet_format_descriptions_df.to_csv(metadata_output_dir / "spreadsheet_format_description_unique.csv",
-                                                            index=False)
+
+        # ## If processing a small number of CPT records, some dataframes will be empty
+        # ## which will cause an error when concatenating, so only concatenate if the dataframes are not empty
+        # if all(x.size == 0 for x in spreadsheet_format_descriptions_dfs):
+        #     spreadsheet_format_descriptions_df = pd.DataFrame()
+        # else:
+        #     spreadsheet_format_descriptions_df = pd.concat(spreadsheet_format_descriptions_dfs, ignore_index=True)
+        #
+        # if all(x.size == 0 for x in all_failed_loads_dfs):
+        #     all_failed_loads_df = pd.DataFrame()
+        # else:
+        #     all_failed_loads_df = pd.concat(all_failed_loads_dfs, ignore_index=True)
+        #
+        # if all(x.size == 0 for x in loading_summary_dfs):
+        #     loading_summary_df = pd.DataFrame()
+        # else:
+        #     loading_summary_df = pd.concat(loading_summary_dfs, ignore_index=True)
+        #
+        # spreadsheet_format_descriptions_df.to_csv(metadata_output_dir / "spreadsheet_format_description.csv", index=False)
+        # all_failed_loads_df.to_csv(metadata_output_dir / "all_failed_loads.csv", index=False)
+        # loading_summary_df.to_csv(metadata_output_dir / "loading_summary.csv", index=False)
+
+        # if len(spreadsheet_format_descriptions_df) > 0:
+        #
+        #     unique_spreadsheet_format_descriptions_df = spreadsheet_format_descriptions_df.drop(columns=["header_row_index", "record_name", "file_name"])
+        #
+        #     # get number of unique rows in spreadsheet_format_description_df
+        #     unique_spreadsheet_format_descriptions_df = unique_spreadsheet_format_descriptions_df.drop_duplicates()
+        #     unique_spreadsheet_format_descriptions_df.to_csv(metadata_output_dir / "spreadsheet_format_description_unique.csv",
+        #                                                     index=False)
 

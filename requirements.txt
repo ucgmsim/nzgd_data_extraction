@@ -1,3 +1,5 @@
+numpy
+pdfminer.six
 pyyaml
 pandas
 toml
@@ -6,7 +8,7 @@ python-dotenv
 beautifulsoup4
 selenium
 webdriver-manager
-pytables
+tables
 xlrd
 python-calamine
 pyxlsb
@@ -15,4 +17,5 @@ shapely
 folium
 rasterio
 natsort
-vs30 @ git+https://github.com/ucgmsim/Vs30.git@dev_for_new_cpt_data
+typer
+vs30 @ git+https://github.com/ucgmsim/Vs30.git

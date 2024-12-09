@@ -159,9 +159,16 @@ def load_ags(
             "no_ags_data_tables - no data tables found in the AGS file"
         )
 
-    required_ags_column_names = ["SCPT_DPTH", "SCPT_RES", "SCPT_FRES", "SCPT_PWP2"]
+    ## Check that the SCPT table is present in the ags file
+    try:
+        tables["SCPT"]
+    except KeyError:
+        raise FileProcessingError(
+            f"ags_missing_table - AGS file is missing the required SCPT table"
+        )
 
-    ## Check if any required columns are completely missing from the ags file
+    ## Check if any required columns are missing from the ags file
+    required_ags_column_names = ["SCPT_DPTH", "SCPT_RES", "SCPT_FRES", "SCPT_PWP2"]
     for required_column_name in required_ags_column_names:
         if required_column_name not in tables["SCPT"].columns:
             raise FileProcessingError(

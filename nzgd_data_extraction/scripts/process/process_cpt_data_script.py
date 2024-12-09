@@ -20,10 +20,10 @@ if __name__ == "__main__":
         nzgd_index_df = pd.read_csv(Path("/home/arr65/data/nzgd/resources/nzgd_index_files/csv_files/"
                                          "NZGD_Investigation_Report_08112024_1017.csv"))
 
-        output_dir = Path(f"/home/arr65/data/nzgd/processed_data/{investigation_type}")
+        output_dir = Path(f"/home/arr65/data/nzgd/test_processed_data/{investigation_type}")
 
-        if output_dir.exists():
-            raise ValueError("Output directory already exists. Delete or rename previous output and try again.")
+        # if output_dir.exists():
+        #     raise ValueError("Output directory already exists. Delete or rename previous output and try again.")
 
         parquet_output_path = output_dir / "data"
         metadata_output_dir = output_dir / "metadata"
@@ -61,6 +61,7 @@ if __name__ == "__main__":
 
         #records_to_process = [Path(f"/home/arr65/data/nzgd/downloads_and_metadata/unorganised_raw_from_nzgd/cpt/{x}") for x in actual_records_to_process]
         # records_to_process = [Path("/home/arr65/data/nzgd/downloads_and_metadata/unorganised_raw_from_nzgd/cpt/CPT_26432")]
+        records_to_process = [Path("/home/arr65/data/nzgd/downloads_and_metadata/unorganised_raw_from_nzgd/cpt/CPT_218776")]
 
 
 

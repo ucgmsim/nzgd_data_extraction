@@ -20,10 +20,10 @@ if __name__ == "__main__":
         nzgd_index_df = pd.read_csv(Path("/home/arr65/data/nzgd/resources/nzgd_index_files/csv_files/"
                                          "NZGD_Investigation_Report_08112024_1017.csv"))
 
-        output_dir = Path(f"/home/arr65/data/nzgd/processed_data/{investigation_type}")
+        output_dir = Path(f"/home/arr65/data/nzgd/test_processed_data/{investigation_type}")
 
-        if output_dir.exists():
-            raise ValueError("Output directory already exists. Delete or rename previous output and try again.")
+        # if output_dir.exists():
+        #     raise ValueError("Output directory already exists. Delete or rename previous output and try again.")
 
         parquet_output_path = output_dir / "data"
         metadata_output_dir = output_dir / "metadata"
@@ -60,9 +60,9 @@ if __name__ == "__main__":
         # actual_records_to_process = previous_failed_loads_df[previous_failed_loads_df["category"] == "unknown_category"]["record_name"].values
 
         #records_to_process = [Path(f"/home/arr65/data/nzgd/downloads_and_metadata/unorganised_raw_from_nzgd/cpt/{x}") for x in actual_records_to_process]
-        # records_to_process = [Path("/home/arr65/data/nzgd/downloads_and_metadata/unorganised_raw_from_nzgd/cpt/CPT_26432")]
+        records_to_process = [Path("/home/arr65/data/nzgd/downloads_and_metadata/unorganised_raw_from_nzgd/cpt/CPT_9083")]
 
-
+        #records_to_process = records_to_process[9451:9452]
 
         process_one_record_partial = functools.partial(process_cpt_data.process_one_record,
                                                        parquet_output_dir=parquet_output_path,
@@ -73,6 +73,7 @@ if __name__ == "__main__":
         with mp.Pool(processes=num_workers) as pool:
             results.extend(list(tqdm(pool.imap(process_one_record_partial, records_to_process),
                                      total=len(records_to_process))))
+        print()
 
 
         ### concatenate all the metadata dataframes
@@ -83,7 +84,7 @@ if __name__ == "__main__":
         loading_summary_dfs = []
 
         for result in tqdm(results):
-            spreadsheet_format_descriptions_dfs.append(result.spreadsheet_format_description_per_record)
+            spreadsheet_format_descriptions_dfs.append(result.spreadsheet_format_description)
             all_failed_loads_dfs.append(result.all_failed_loads_df)
             loading_summary_dfs.append(result.loading_summary_df)
 

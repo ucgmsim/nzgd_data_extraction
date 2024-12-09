@@ -1249,3 +1249,70 @@ def ensure_positive_depth_and_qc_fs_gtr_0(loaded_data_df: pd.DataFrame) -> pd.Da
     )
 
     return loaded_data_df
+
+def combine_dataframes_from_different_files(record_df_list:list[pd.DataFrame],
+                                            file_to_try,
+                                            nzgd_meta_data_record,
+                                            record_dir,
+                                            parquet_output_dir) -> pd.DataFrame:
+
+    record_df_copy_for_attrs = record_df_list[0].copy()
+
+    record_df = pd.DataFrame()
+    for record_df_idx in range(len(record_df_list)):
+        record_df_list[record_df_idx].insert(0, "multiple_measurements", record_df_idx)
+        if record_df_idx == 0:
+            record_df = record_df_list[record_df_idx]
+        else:
+            record_df = pd.concat([record_df, record_df_list[record_df_idx]], ignore_index=True)
+
+    # If some attributes were lost by the concatenation, add them back
+    if len(record_df.attrs.keys()) != record_df_copy_for_attrs.attrs.keys():
+        for i in record_df_copy_for_attrs.attrs.keys():
+            if i not in record_df.attrs.keys():
+                record_df.attrs[i] = record_df_copy_for_attrs.attrs[i]
+
+    record_df.attrs["max_depth"] = record_df["Depth"].max()
+    record_df.attrs["min_depth"] = record_df["Depth"].min()
+    record_df.attrs["original_file_name"] = file_to_try.name
+    record_df.attrs["nzgd_meta_data"] = nzgd_meta_data_record
+    record_df.insert(0, "record_name", record_dir.name)
+    record_df.insert(1, "latitude", nzgd_meta_data_record["Latitude"])
+    record_df.insert(2, "longitude", nzgd_meta_data_record["Longitude"])
+
+    record_df.reset_index(inplace=True, drop=True)
+    if record_df.empty:
+        raise processing_helpers.FileProcessingError(
+            "spreadsheet_dataframe_empty - while loading from a spreadsheet, tried to save an empty dataframe")
+
+    record_df.to_parquet(parquet_output_dir / f"{record_dir.name}.parquet")
+
+    spreadsheet_format_description = pd.concat([spreadsheet_format_description,
+                                                pd.DataFrame([{"record_name": record_dir.name,
+                                                               "header_row_index": record_df_copy_for_attrs.attrs[
+                                                                   "header_row_index_in_original_file"],
+                                                               "depth_col_name_in_original_file":
+                                                                   record_df_copy_for_attrs.attrs[
+                                                                       "adopted_Depth_column_name_in_original_file"],
+                                                               "adopted_qc_column_name_in_original_file":
+                                                                   record_df_copy_for_attrs.attrs[
+                                                                       "adopted_qc_column_name_in_original_file"],
+                                                               "adopted_fs_column_name_in_original_file":
+                                                                   record_df_copy_for_attrs.attrs[
+                                                                       "adopted_fs_column_name_in_original_file"],
+                                                               "adopted_u_column_name_in_original_file":
+                                                                   record_df_copy_for_attrs.attrs[
+                                                                       "adopted_u_column_name_in_original_file"],
+                                                               "file_name": file_to_try.name}])
+                                                ], ignore_index=True)
+
+    loading_summary_df = pd.concat([loading_summary_df,
+                                    partial_summary_df_helper(file_was_loaded=True,
+                                                              loaded_file_type=file_to_try.suffix.lower(),
+                                                              loaded_file_name=record_dir.name)], ignore_index=True)
+
+    if ((num_attempted_loads_per_type[file_to_try.suffix] == num_files_per_type[file_to_try.suffix]) &
+            (num_successful_loads_per_type[file_to_try.suffix] > 0)):
+        return CptProcessingMetadata(spreadsheet_format_description,
+                                     loading_summary_df,
+                                     all_failed_loads_df)

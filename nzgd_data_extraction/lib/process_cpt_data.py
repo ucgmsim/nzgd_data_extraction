@@ -4,6 +4,7 @@ Functions for loading data from the New Zealand Geotechnical Database (NZGD).
 from dataclasses import dataclass
 from pathlib import Path
 import functools
+from collections import defaultdict
 
 import numpy as np
 import pandas
@@ -232,8 +233,9 @@ def load_cpt_spreadsheet_file(file_path: Path) -> list[pd.DataFrame]:
 
     Returns
     -------
-    pandas.DataFrame
-        A DataFrame containing the relevant CPT data columns:
+    dataframes_to_return: list[pandas.DataFrame]
+        A list of DataFrames containing the relevant CPT data from each sheet in spreadsheet file.
+        Dataframe columns are:
             depth, cone resistance, sleeve friction, and porewater pressure.
 
     Raises
@@ -471,7 +473,7 @@ class CptProcessingMetadata:
     metadata about the processing of CPT data.
     """
 
-    spreadsheet_format_description_per_record : pd.DataFrame
+    spreadsheet_format_description : pd.DataFrame
     loading_summary_df : pd.DataFrame
     all_failed_loads_df : pd.DataFrame
 
@@ -525,9 +527,6 @@ def process_one_record(record_dir: Path,
 
     nzgd_meta_data_record = nzgd_index_df[nzgd_index_df["ID"]==record_dir.name].to_dict(orient="records")[0]
 
-    ## This dataframe will store the details of all the files that failed to load over the loops below
-    all_failed_loads_df = pd.DataFrame(columns=["record_name", "file_type", "file_name", "category", "details"])
-
     ### ags files
     ags_files_to_try = list(record_dir.glob("*.ags")) + list(record_dir.glob("*.AGS"))
 
@@ -539,56 +538,33 @@ def process_one_record(record_dir: Path,
                    list(record_dir.glob("*.txt")) + list(record_dir.glob("*.Txt")) +\
                    list(record_dir.glob("*.TXT"))
 
+    num_files_per_type = defaultdict(lambda: 0)
+    num_attempted_loads_per_type = defaultdict(lambda: 0)
+    num_successful_loads_per_type = defaultdict(lambda: 0)
+
+    ## These dataframes will store metadata about file load attempts in the loops below
+    #all_failed_loads_df = pd.DataFrame(columns=["record_name", "file_type", "file_name", "category", "details"])
+    spreadsheet_format_description = pd.DataFrame()
+    loading_summary_df = pd.DataFrame()
+
+    record_df_list = []
+    failed_loads_df_list = []
+
+    for file in files_to_try:
+        ## Assuming that the files with same suffix in the different case (e.g., .csv and .CSV) are different measurements
+        num_files_per_type[file.suffix.lower()] += 1
+
+    ## Get a list of keys sorted in descending order by their int values
+    file_types_sorted_by_num_files = sorted(num_files_per_type, key=lambda k: num_files_per_type[k], reverse=True)
+
+    ## rearrange the files to try so that the most common file type is tried first
+    files_to_try = sorted(files_to_try, key=lambda x: file_types_sorted_by_num_files.index(x.suffix))
+
     for file_to_try_index, file_to_try in enumerate(files_to_try):
         try:
-            record_df_list = load_cpt_spreadsheet_file(file_to_try)
-            record_df_copy_for_attrs = record_df_list[0].copy()
-
-            record_df = pd.DataFrame()
-            for record_df_idx in range(len(record_df_list)):
-                record_df_list[record_df_idx].insert(0, "multiple_measurements", record_df_idx)
-                if record_df_idx == 0:
-                    record_df = record_df_list[record_df_idx]
-                else:
-                    record_df = pd.concat([record_df, record_df_list[record_df_idx]], ignore_index=True)
-
-            # If some attributes were lost by the concatenation, add them back
-            if len(record_df.attrs.keys()) != record_df_copy_for_attrs.attrs.keys():
-                for i in record_df_copy_for_attrs.attrs.keys():
-                    if i not in record_df.attrs.keys():
-                        record_df.attrs[i] = record_df_copy_for_attrs.attrs[i]
-
-            record_df.attrs["max_depth"] = record_df["Depth"].max()
-            record_df.attrs["min_depth"] = record_df["Depth"].min()
-            record_df.attrs["original_file_name"] = file_to_try.name
-            record_df.attrs["nzgd_meta_data"] = nzgd_meta_data_record
-            record_df.insert(0, "record_name", record_dir.name)
-            record_df.insert(1, "latitude", nzgd_meta_data_record["Latitude"])
-            record_df.insert(2, "longitude", nzgd_meta_data_record["Longitude"])
-
-            record_df.reset_index(inplace=True, drop=True)
-            if record_df.empty:
-                raise processing_helpers.FileProcessingError("spreadsheet_dataframe_empty - while loading from a spreadsheet, tried to save an empty dataframe")
-
-            record_df.to_parquet(parquet_output_dir / f"{record_dir.name}.parquet")
-
-            spreadsheet_format_description_per_record = pd.DataFrame([{"record_name":record_dir.name,
-                                                               "header_row_index":record_df_copy_for_attrs.attrs["header_row_index_in_original_file"],
-                                                               "depth_col_name_in_original_file": record_df_copy_for_attrs.attrs[
-                                                               "adopted_Depth_column_name_in_original_file"],
-                                                               "adopted_qc_column_name_in_original_file": record_df_copy_for_attrs.attrs["adopted_qc_column_name_in_original_file"],
-                                                               "adopted_fs_column_name_in_original_file":record_df_copy_for_attrs.attrs["adopted_fs_column_name_in_original_file"],
-                                                               "adopted_u_column_name_in_original_file":
-                                                                   record_df_copy_for_attrs.attrs[
-                                                                "adopted_u_column_name_in_original_file"],
-                                                              "file_name":file_to_try.name}])
-
-            loading_summary_df = partial_summary_df_helper(file_was_loaded=True,
-                                                           loaded_file_type=file_to_try.suffix.lower(),
-                                                           loaded_file_name=record_dir.name)
-            return CptProcessingMetadata(spreadsheet_format_description_per_record,
-                                         loading_summary_df,
-                                         all_failed_loads_df)
+            num_attempted_loads_per_type[file_to_try.suffix] += 1
+            record_df_list.extend(load_cpt_spreadsheet_file(file_to_try))
+            num_successful_loads_per_type[file_to_try.suffix] += 1
 
         except(processing_helpers.FileProcessingError, ValueError, xlrd.compdoc.CompDocError, Exception) as e:
 
@@ -597,22 +573,26 @@ def process_one_record(record_dir: Path,
             if "-" not in error_as_string:
                 error_as_string = "unknown_category - " + error_as_string
 
-            all_failed_loads_df = pd.concat([all_failed_loads_df,
-                    pd.DataFrame({"record_name": [record_dir.name],
+            failed_loads_df_list.append(pd.DataFrame({"record_name": [record_dir.name],
                                  "file_type": [file_to_try.suffix.lower()],
                                  "file_name": [file_to_try.name],
                                  "category": [error_as_string.split("-")[0].strip()],
-                                 "details": [error_as_string.split("-")[1].strip()]})], ignore_index=True)
+                                 "details": [error_as_string.split("-")[1].strip()]}))
+
+            print()
 
             if file_to_try_index == len(files_to_try) - 1:
-                ## No more files to try for this record
-                loading_summary_df = partial_summary_df_helper(file_was_loaded=False,
-                                                               loaded_file_type="N/A",
-                                                               loaded_file_name="N/A")
 
                 if len(ags_files_to_try) > 0:
-                    continue
+                    ## Break out of the spreadsheet file loop and try the ags files
+                    break
+
                 else:
+                    ## No more files to try for this record
+                    loading_summary_df = pd.concat([loading_summary_df,
+                                                    partial_summary_df_helper(file_was_loaded=False,
+                                                                              loaded_file_type="N/A",
+                                                                              loaded_file_name="N/A")])
                     return CptProcessingMetadata(pd.DataFrame(), loading_summary_df, all_failed_loads_df)
 
     if len(ags_files_to_try) > 0:
@@ -638,7 +618,7 @@ def process_one_record(record_dir: Path,
                                                                loaded_file_type=file_to_try.suffix.lower(),
                                                                loaded_file_name=record_dir.name)
 
-                ## Returning an empty dataframe in place of the spreadsheet_format_description_per_record
+                ## Returning an empty dataframe in place of the spreadsheet_format_description
                 ## (because ags file does not have a spreadsheet format)
                 return CptProcessingMetadata(pd.DataFrame(), loading_summary_df, all_failed_loads_df)
 

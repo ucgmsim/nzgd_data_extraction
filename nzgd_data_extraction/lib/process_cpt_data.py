@@ -1,10 +1,10 @@
 """
 Functions for loading data from the New Zealand Geotechnical Database (NZGD).
 """
+
 from dataclasses import dataclass
 from pathlib import Path
-import functools
-from collections import defaultdict
+from typing import Optional
 
 import numpy as np
 import pandas
@@ -12,16 +12,15 @@ import pandas as pd
 import toml
 from python_ags4 import AGS4
 
-
 import nzgd_data_extraction.lib.processing_helpers as processing_helpers
-from nzgd_data_extraction.lib.processing_helpers import (
-    FileProcessingError
-)
+from nzgd_data_extraction.lib.processing_helpers import FileProcessingError
+
 
 @dataclass
-class DataFramesToReturn():
-    extracted_data_dfs : list
-    failed_extractions_dfs : list
+class DataFramesToReturn:
+    extracted_data_dfs: list
+    failed_extractions_dfs: list
+
 
 def find_missing_cols_for_best_sheet(missing_columns_per_sheet: list[list]) -> list:
     """
@@ -188,7 +187,7 @@ def load_ags(
             list(column_descriptions)[3]: tables["SCPT"]["SCPT_PWP2"],
         }
     )
-
+    #### Additional velocity profile columns that may be present for SCPT data
     # if (investigation_type == processing_helpers.InvestigationType.scpt) & (
     #     "SCPT_SWV" in tables["SCPT"].columns
     # ):
@@ -240,19 +239,14 @@ def load_cpt_spreadsheet_file(file_path: Path) -> DataFramesToReturn:
     Parameters
     ----------
     file_path : Path
-        The path to the Excel file.
+        The path to the spreadsheet file (e.g., .xls, .xlsx, .csv, .txt).
 
     Returns
     -------
-    extracted_data_dfs: list[pandas.DataFrame]
-        A list of DataFrames containing the relevant CPT data from each sheet in spreadsheet file.
-        Dataframe columns are:
-            depth, cone resistance, sleeve friction, and porewater pressure.
-
-    Raises
-    ------
-    ValueError
-        If the required columns are not found in any sheet of the Excel file.
+    DataFramesToReturn
+        Contains two lists dataframes:
+         - extracted_data_dfs: Dataframes contain the extracted data and metadata.
+         - failed_extractions_dfs: Dataframes contain names and explanations for files where extraction failed.
     """
 
     with open(
@@ -267,32 +261,46 @@ def load_cpt_spreadsheet_file(file_path: Path) -> DataFramesToReturn:
         Path(__file__).parent.parent / "resources" / "cpt_column_name_descriptions.toml"
     )
 
+    if "_" not in file_path.name:
+        return DataFramesToReturn(
+            extracted_data_dfs=[None],
+            failed_extractions_dfs=[
+                pd.DataFrame(
+                    {
+                        "record_name": str(file_path.name),
+                        "file_name": file_path.name,
+                        "sheet_name": None,
+                        "category": "bad_file_name_format",
+                        "details": f"file name {file_path.name} does not contain an NZGD record name",
+                    },
+                    index=[0],
+                )
+            ],
+        )
+
     record_name = f"{file_path.name.split("_")[0]}_{file_path.name.split("_")[1]}"
 
-    if "_" not in file_path.name:
-        # raise processing_helpers.FileProcessingError(
-        #     f"bad_file_name_format - file name {file_path.name} does not contain an NZGD record name")
-        return DataFramesToReturn(
-            extracted_data_dfs=[pd.DataFrame()],
-            failed_extractions_dfs=[pd.DataFrame({
-                                    "record_name":record_name,
-                                    "file_name":file_path.name,
-                                    "sheet_name":None,
-                                    "category":"bad_file_name_format",
-                                    "details":f"file name {file_path.name} does not contain an NZGD record name"},
-                                    index=[0])])
-
     if record_name in known_special_cases.keys():
-        #raise processing_helpers.FileProcessingError(known_special_cases[record_name])
+        # raise processing_helpers.FileProcessingError(known_special_cases[record_name])
         return DataFramesToReturn(
-            extracted_data_dfs=[pd.DataFrame()],
-            failed_extractions_dfs=[pd.DataFrame({
-                                    "record_name":record_name,
-                                    "file_name":file_path.name,
-                                    "sheet_name": None,
-                                    "category":known_special_cases[record_name].split("-")[0].strip(),
-                                    "details":known_special_cases[record_name].split("-")[1].strip()},
-                                    index=[0])])
+            extracted_data_dfs=[None],
+            failed_extractions_dfs=[
+                pd.DataFrame(
+                    {
+                        "record_name": record_name,
+                        "file_name": file_path.name,
+                        "sheet_name": None,
+                        "category": known_special_cases[record_name]
+                        .split("-")[0]
+                        .strip(),
+                        "details": known_special_cases[record_name]
+                        .split("-")[1]
+                        .strip(),
+                    },
+                    index=[0],
+                )
+            ],
+        )
 
     ## Set an initial value for the sheet names that will be used if the file is a csv or txt file
     ## as these do not have multiple sheets per file like xls
@@ -303,43 +311,61 @@ def load_cpt_spreadsheet_file(file_path: Path) -> DataFramesToReturn:
             sheet_names, _ = processing_helpers.get_xls_sheet_names(file_path)
         except FileProcessingError as e:
             return DataFramesToReturn(
-                extracted_data_dfs=[pd.DataFrame()],
-                failed_extractions_dfs=[pd.DataFrame({
-                    "record_name": record_name,
-                    "file_name": file_path.name,
-                    "sheet_name": None,
-                    "category": str(e).split("-")[0].strip(),
-                    "details": str(e).split("-")[1].strip()},
-                    index=[0])])
+                extracted_data_dfs=[None],
+                failed_extractions_dfs=[
+                    pd.DataFrame(
+                        {
+                            "record_name": record_name,
+                            "file_name": file_path.name,
+                            "sheet_name": None,
+                            "category": str(e).split("-")[0].strip(),
+                            "details": str(e).split("-")[1].strip(),
+                        },
+                        index=[0],
+                    )
+                ],
+            )
 
         if len(sheet_names) == 0:
             return DataFramesToReturn(
-                extracted_data_dfs=[pd.DataFrame()],
-                failed_extractions_dfs=[pd.DataFrame({
-                    "record_name": record_name,
-                    "file_name": file_path.name,
-                    "sheet_name": None,
-                    "category": "corrupt_file",
-                    "details": f"cannot detect sheets in file {file_path.name}"},
-                    index=[0])])
+                extracted_data_dfs=[None],
+                failed_extractions_dfs=[
+                    pd.DataFrame(
+                        {
+                            "record_name": record_name,
+                            "file_name": file_path.name,
+                            "sheet_name": None,
+                            "category": "corrupt_file",
+                            "details": f"cannot detect sheets in file {file_path.name}",
+                        },
+                        index=[0],
+                    )
+                ],
+            )
 
     extracted_data_dfs = []
     failed_data_extraction_attempts = []
     for sheet in sheet_names:
 
+        ## Any failed data extraction attempts made within the for loop should be stored
+        ## in the list and returned after the loop has completed
         if file_path.suffix.lower() in [".csv", ".txt"]:
             try:
                 df = processing_helpers.load_csv_or_txt(file_path)
             except FileProcessingError as e:
-                return DataFramesToReturn(
-                    extracted_data_dfs=[pd.DataFrame()],
-                    failed_extractions_dfs=[pd.DataFrame({
-                        "record_name": record_name,
-                        "file_name": file_path.name,
-                        "sheet_name": None,
-                        "category": str(e).split("-")[0].strip(),
-                        "details": str(e).split("-")[1].strip()},
-                        index=[0])])
+                failed_data_extraction_attempts.append(
+                    pd.DataFrame(
+                        {
+                            "record_name": record_name,
+                            "file_name": file_path.name,
+                            "sheet_name": sheet.replace("-", "_"),
+                            "category": str(e).split("-")[0].strip(),
+                            "details": str(e).split("-")[1].strip(),
+                        },
+                        index=[0],
+                    )
+                )
+                continue
         else:
             _, engine = processing_helpers.get_xls_sheet_names(file_path)
             df = pd.read_excel(
@@ -355,36 +381,37 @@ def load_cpt_spreadsheet_file(file_path: Path) -> DataFramesToReturn:
         # Now xls, csv and txt should all be in a dataframe so continue the same for all
         ## Check the dataframe for various issues
         if df.shape == (0, 0):
-            # error_text.append(
-            #     f"empty_file - sheet ({sheet.replace('-', '_')}) has size (0,0)"
-            # )
 
-            failed_data_extraction_attempts.append(pd.DataFrame({
-                    "record_name": record_name,
-                    "file_name": file_path.name,
-                    "sheet_name": sheet.replace('-', '_'),
-                    "category": "empty_sheet",
-                    "details": f"sheet has size (0,0)"},
-                    index=[0]))
+            failed_data_extraction_attempts.append(
+                pd.DataFrame(
+                    {
+                        "record_name": record_name,
+                        "file_name": file_path.name,
+                        "sheet_name": sheet.replace("-", "_"),
+                        "category": "empty_sheet",
+                        "details": f"sheet has size (0,0)",
+                    },
+                    index=[0],
+                )
+            )
             continue
 
         if df.shape[0] == 1:
-            # error_text.append(
-            #     f"only_one_line - sheet ({sheet.replace('-', '_')}) has only one line with first cell of {df.iloc[0][0]}"
-            # )
-
-            failed_data_extraction_attempts.append(pd.DataFrame({
-                    "record_name": record_name,
-                    "file_name": file_path.name,
-                    "sheet_name": sheet.replace('-', '_'),
-                    "category": "only_one_line",
-                    "details": f"has only one line with first cell of {df.iloc[0][0]}"},
-                    index=[0]))
+            failed_data_extraction_attempts.append(
+                pd.DataFrame(
+                    {
+                        "record_name": record_name,
+                        "file_name": file_path.name,
+                        "sheet_name": sheet.replace("-", "_"),
+                        "category": "only_one_line",
+                        "details": f"has only one line with first cell of {df.iloc[0][0]}",
+                    },
+                    index=[0],
+                )
+            )
             continue
 
-        df_for_counting_str_per_row = df.map(
-            lambda x: 1.0 if isinstance(x, str) else 0
-        )
+        df_for_counting_str_per_row = df.map(lambda x: 1.0 if isinstance(x, str) else 0)
 
         df_nan_to_str = df.fillna("nan")
         df_for_counting_num_of_num = df_nan_to_str.map(
@@ -404,50 +431,70 @@ def load_cpt_spreadsheet_file(file_path: Path) -> DataFramesToReturn:
         header_row_from_col_names = (
             processing_helpers.find_one_header_row_index_from_column_names(df)
         )
+
         if np.isfinite(header_row_from_col_names):
             header_row_indices = processing_helpers.find_row_indices_of_header_lines(df)
 
         ## Check if the dataframe has any numeric data
         if np.sum(df_for_counting_num_of_num.values) == 0:
-            failed_data_extraction_attempts.append(pd.DataFrame({
-                    "record_name": record_name,
-                    "file_name": file_path.name,
-                    "sheet_name": sheet.replace('-', '_'),
-                    "category": "no_numeric_data",
-                    "details": "has no numeric data"},
-                    index=[0]))
+            failed_data_extraction_attempts.append(
+                pd.DataFrame(
+                    {
+                        "record_name": record_name,
+                        "file_name": file_path.name,
+                        "sheet_name": sheet.replace("-", "_"),
+                        "category": "no_numeric_data",
+                        "details": "has no numeric data",
+                    },
+                    index=[0],
+                )
+            )
             continue
 
         if all(numeric_surplus_per_col < 2):
-            failed_data_extraction_attempts.append(pd.DataFrame({
-                    "record_name": record_name,
-                    "file_name": file_path.name,
-                    "sheet_name": sheet.replace('-', '_'),
-                    "category": "no_data_columns",
-                    "details": "all columns have more text cells than numeric cells"},
-                    index=[0]))
+            failed_data_extraction_attempts.append(
+                pd.DataFrame(
+                    {
+                        "record_name": record_name,
+                        "file_name": file_path.name,
+                        "sheet_name": sheet.replace("-", "_"),
+                        "category": "no_data_columns",
+                        "details": "all columns have more text cells than numeric cells",
+                    },
+                    index=[0],
+                )
+            )
             continue
 
         if all(numeric_surplus_per_row < 2):
-            failed_data_extraction_attempts.append(pd.DataFrame({
-                    "record_name": record_name,
-                    "file_name": file_path.name,
-                    "sheet_name": sheet.replace('-', '_'),
-                    "category": "no_data_rows",
-                    "details": "all rows have more text cells than numeric cells"},
-                    index=[0]))
+            failed_data_extraction_attempts.append(
+                pd.DataFrame(
+                    {
+                        "record_name": record_name,
+                        "file_name": file_path.name,
+                        "sheet_name": sheet.replace("-", "_"),
+                        "category": "no_data_rows",
+                        "details": "all rows have more text cells than numeric cells",
+                    },
+                    index=[0],
+                )
+            )
             continue
 
         if len(header_row_indices) == 0:
-            failed_data_extraction_attempts.append(pd.DataFrame({
-                    "record_name": record_name,
-                    "file_name": file_path.name,
-                    "sheet_name": sheet.replace('-', '_'),
-                    "category": "no_header_row",
-                    "details": "has no header row"},
-                    index=[0]))
+            failed_data_extraction_attempts.append(
+                pd.DataFrame(
+                    {
+                        "record_name": record_name,
+                        "file_name": file_path.name,
+                        "sheet_name": sheet.replace("-", "_"),
+                        "category": "no_header_row",
+                        "details": "has no header row",
+                    },
+                    index=[0],
+                )
+            )
             continue
-
         df, header_row_index = processing_helpers.combine_multiple_header_rows(
             df, header_row_indices
         )
@@ -467,13 +514,18 @@ def load_cpt_spreadsheet_file(file_path: Path) -> DataFramesToReturn:
         try:
             df, final_col_names = processing_helpers.get_column_names(df)
         except FileProcessingError as e:
-            failed_data_extraction_attempts.append(pd.DataFrame({
-                    "record_name": record_name,
-                    "file_name": file_path.name,
-                    "sheet_name": sheet.replace('-', '_'),
-                    "category": str(e).split("-")[0].strip(),
-                    "details": str(e).split("-")[1].strip()},
-                    index=[0]))
+            failed_data_extraction_attempts.append(
+                pd.DataFrame(
+                    {
+                        "record_name": record_name,
+                        "file_name": file_path.name,
+                        "sheet_name": sheet.replace("-", "_"),
+                        "category": str(e).split("-")[0].strip(),
+                        "details": str(e).split("-")[1].strip(),
+                    },
+                    index=[0],
+                )
+            )
             continue
 
         ## Check if the identified "Depth" column is actually an index rather than a measurement in metres.
@@ -482,18 +534,24 @@ def load_cpt_spreadsheet_file(file_path: Path) -> DataFramesToReturn:
             ## values that are finite to int
 
             if np.isfinite(df[final_col_names[0]]).all():
-                if (df[final_col_names[0]] == df[final_col_names[0]][np.isfinite(df[final_col_names[0]])].astype(int)).all():
-                    # raise processing_helpers.FileProcessingError(
-                    #     f"depth_is_index - sheet ({sheet.replace('-', '_')}) has its depth column as an index"
-                    #     f"rather than a depth measurement"
-                    # )
-                    failed_data_extraction_attempts.append(pd.DataFrame({
-                        "record_name": record_name,
-                        "file_name": file_path.name,
-                        "sheet_name": sheet.replace('-', '_'),
-                        "category": "depth_is_index",
-                        "details": "has its depth column as an index"},
-                        index=[0]))
+                if (
+                    df[final_col_names[0]]
+                    == df[final_col_names[0]][
+                        np.isfinite(df[final_col_names[0]])
+                    ].astype(int)
+                ).all():
+                    failed_data_extraction_attempts.append(
+                        pd.DataFrame(
+                            {
+                                "record_name": record_name,
+                                "file_name": file_path.name,
+                                "sheet_name": sheet.replace("-", "_"),
+                                "category": "depth_is_index",
+                                "details": "has its depth column as an index",
+                            },
+                            index=[0],
+                        )
+                    )
                     continue
 
         df = processing_helpers.convert_explicit_indications_of_cm_and_kpa(
@@ -533,10 +591,40 @@ def load_cpt_spreadsheet_file(file_path: Path) -> DataFramesToReturn:
             ### If the values are unrealistically large in MPa, they are likely in kPa so convert to MPa.
             ### Similarly, unrealistically large depth values may be in cm so convert to m.
             ### Also make sure that depth is positive and drop rows that have negative values of qc and fs
-            df = processing_helpers.infer_wrong_units(df)
+            try:
+                df = processing_helpers.infer_wrong_units(df)
+            except IndexError as e:
+                failed_data_extraction_attempts.append(
+                    pd.DataFrame(
+                        {
+                            "record_name": record_name,
+                            "file_name": file_path.name,
+                            "sheet_name": sheet.replace("-", "_"),
+                            "category": "unable_to_find_nth_highest",
+                            "details": "unable to find the nth highest value as there are too few data points",
+                        },
+                        index=[0],
+                    )
+                )
+                continue
 
             ### Ensure that the depth column has positive values and that qc and fs are greater than 0
-            df = processing_helpers.ensure_positive_depth_and_qc_fs_gtr_0(df)
+            try:
+                df = processing_helpers.ensure_positive_depth_and_qc_fs_gtr_0(df)
+            except FileProcessingError as e:
+                failed_data_extraction_attempts.append(
+                    pd.DataFrame(
+                        {
+                            "record_name": record_name,
+                            "file_name": file_path.name,
+                            "sheet_name": sheet.replace("-", "_"),
+                            "category": str(e).split("-")[0].strip(),
+                            "details": str(e).split("-")[1].strip(),
+                        },
+                        index=[0],
+                    )
+                )
+                continue
 
             ### Add columns to the extracted data containing the record_name, original_file_name, and sheet_in_original_file
             df["record_name"] = record_name
@@ -550,9 +638,6 @@ def load_cpt_spreadsheet_file(file_path: Path) -> DataFramesToReturn:
             df["adopted_u_column_name_in_original_file"] = final_col_names[3]
 
             ## Add attributes to the dataframe to store information about the original file
-            # df.attrs["original_file_name"] = file_path.name
-            # df.attrs["sheet_in_original_file"] = sheet
-            # df.attrs["column_name_descriptions"] = column_descriptions
             df.attrs["explicit_unit_conversions"] = []
             df.attrs["inferred_unit_conversions"] = []
             df.attrs["depth_originally_defined_as_negative"] = False
@@ -562,85 +647,150 @@ def load_cpt_spreadsheet_file(file_path: Path) -> DataFramesToReturn:
         elif len(np.unique(final_col_names_without_none)) < len(
             final_col_names_without_none
         ):
-            # error_text.append(
-            #     f"non_unique_cols - in sheet ({sheet.replace('-', '_')}) some column names were selected more than once"
-            # )
-            failed_data_extraction_attempts.append(pd.DataFrame({
-                "record_name": record_name,
-                "file_name": file_path.name,
-                "sheet_name": sheet.replace('-', '_'),
-                "category": "non_unique_cols",
-                "details": "some column names were selected more than once"},
-                index=[0]))
+            failed_data_extraction_attempts.append(
+                pd.DataFrame(
+                    {
+                        "record_name": record_name,
+                        "file_name": file_path.name,
+                        "sheet_name": sheet.replace("-", "_"),
+                        "category": "non_unique_cols",
+                        "details": "some column names were selected more than once",
+                    },
+                    index=[0],
+                )
+            )
             continue
 
         ## Required columns are missing
         else:
-            missing_cols = [list(column_descriptions)[idx]
-                    for idx, col in enumerate(final_col_names)
-                    if col is None]
+            missing_cols = [
+                list(column_descriptions)[idx]
+                for idx, col in enumerate(final_col_names)
+                if col is None
+            ]
 
             mising_cols_str = " & ".join(missing_cols)
 
-            failed_data_extraction_attempts.append(pd.DataFrame({
-                "record_name": record_name,
-                "file_name": file_path.name,
-                "sheet_name": sheet.replace('-', '_'),
-                "category": "missing_columns",
-                "details": f"missing columns missing [{mising_cols_str}]"},
-                index=[0]))
+            failed_data_extraction_attempts.append(
+                pd.DataFrame(
+                    {
+                        "record_name": record_name,
+                        "file_name": file_path.name,
+                        "sheet_name": sheet.replace("-", "_"),
+                        "category": "missing_columns",
+                        "details": f"missing columns missing [{mising_cols_str}]",
+                    },
+                    index=[0],
+                )
+            )
             continue
 
-    return DataFramesToReturn(extracted_data_dfs=extracted_data_dfs,
-                              failed_extractions_dfs=failed_data_extraction_attempts)
+    return DataFramesToReturn(
+        extracted_data_dfs=extracted_data_dfs,
+        failed_extractions_dfs=failed_data_extraction_attempts,
+    )
 
 
-def process_one_record(record_dir: Path,
-                       investigation_type: processing_helpers.InvestigationType) -> DataFramesToReturn:
+def extract_all_data_for_one_record(
+    record_dir: Path,
+    investigation_type: processing_helpers.InvestigationType,
+    extracted_data_per_record_output_path: Optional[Path],
+    extraction_failures_per_record_output_path: Optional[Path],
+) -> DataFramesToReturn:
+    """
+    Try to extract all data for a single record.
+
+    Parameters
+    ----------
+    record_dir : Path
+        The directory containing the data files for a given NZGD record.
+    investigation_type : processing_helpers.InvestigationType
+        The type of investigation being processed (CPT or SCPT)
+    extracted_data_per_record_output_path : Optional[Path]
+        If this path is provided, the extracted data for each record will be immediately saved to this location
+        in a file named after the record. If this path is None, the extracted data will only be saved after
+        extractions have been attempted for all records (which could take several hours).
+
+    extraction_failures_per_record_output_path : Optional[Path]
+        If this path is provided, the failed extractions for each record will be immediately saved to this location
+        in a file named after the record. If this path is None, the failed extractions will only be saved after
+        extractions have been attempted for all records (which could take several hours).
+
+    Returns
+    -------
+    extraction_result : DataFramesToReturn
+        Contains two lists dataframes:
+         - extracted_data_dfs: Dataframes contain the extracted data and metadata.
+         - failed_extractions_dfs: Dataframes contain names and explanations for files where extraction failed.
+
+    """
 
     ags_file_list = list(record_dir.glob("*.ags")) + list(record_dir.glob("*.AGS"))
     xls_file_list = list(record_dir.glob("*.xls")) + list(record_dir.glob("*.XLS"))
     xlsx_file_list = list(record_dir.glob("*.xlsx")) + list(record_dir.glob("*.XLSX"))
     csv_file_list = list(record_dir.glob("*.csv")) + list(record_dir.glob("*.CSV"))
-    txt_file_list = list(record_dir.glob("*.txt")) + list(record_dir.glob("*.Txt")) + list(record_dir.glob("*.TXT"))
+    txt_file_list = (
+        list(record_dir.glob("*.txt"))
+        + list(record_dir.glob("*.Txt"))
+        + list(record_dir.glob("*.TXT"))
+    )
     cpt_file_list = list(record_dir.glob("*.cpt")) + list(record_dir.glob("*.CPT"))
-    pdf_file_list = list(record_dir.glob("*.pdf")) + list(record_dir.glob("*.PDF")) + list(record_dir.glob("*.Pdf"))
+    pdf_file_list = (
+        list(record_dir.glob("*.pdf"))
+        + list(record_dir.glob("*.PDF"))
+        + list(record_dir.glob("*.Pdf"))
+    )
 
     ## Check for the presence of data files
     if (
-            (len(ags_file_list) == 0) &
-            (len(xls_file_list) == 0) &
-            (len(xlsx_file_list) == 0) &
-            (len(csv_file_list) == 0) &
-            (len(txt_file_list) == 0)):
-            ## There are no data files
+        (len(ags_file_list) == 0)
+        & (len(xls_file_list) == 0)
+        & (len(xlsx_file_list) == 0)
+        & (len(csv_file_list) == 0)
+        & (len(txt_file_list) == 0)
+    ):
+        ## There are no data files
         if (len(pdf_file_list) == 0) & (len(cpt_file_list) == 0):
             error_as_string = "no_files - no files in the record directory"
         elif (len(pdf_file_list) > 0) & (len(cpt_file_list) == 0):
             error_as_string = "only_pdf_files - only pdf files"
         else:
-            error_as_string = "only_files_with_extension_cpt - only .cpt files that cannot be opened"
+            error_as_string = (
+                "only_files_with_extension_cpt - only .cpt files that cannot be opened"
+            )
 
-        return DataFramesToReturn(extracted_data_dfs=[pd.DataFrame()],
-                                 failed_extractions_dfs=[
-                                 pd.DataFrame({
-                                "record_name": record_dir.name,
-                                "file_name": None,
-                                "sheet_name": None,
-                                "category": error_as_string.split("-")[0].strip(),
-                                "details": error_as_string.split("-")[1].strip()},
-                                 index=[0])])
+        return DataFramesToReturn(
+            extracted_data_dfs=[pd.DataFrame()],
+            failed_extractions_dfs=[
+                pd.DataFrame(
+                    {
+                        "record_name": record_dir.name,
+                        "file_name": None,
+                        "sheet_name": None,
+                        "category": error_as_string.split("-")[0].strip(),
+                        "details": error_as_string.split("-")[1].strip(),
+                    },
+                    index=[0],
+                )
+            ],
+        )
 
     ### ags files
     ags_files_to_try = list(record_dir.glob("*.ags")) + list(record_dir.glob("*.AGS"))
 
     ########
     ## spreadsheet files
-    files_to_try = list(record_dir.glob("*.xls")) + list(record_dir.glob("*.XLS")) + \
-                   list(record_dir.glob("*.xlsx")) + list(record_dir.glob("*.XLSX")) + \
-                   list(record_dir.glob("*.csv")) + list(record_dir.glob("*.CSV")) +\
-                   list(record_dir.glob("*.txt")) + list(record_dir.glob("*.Txt")) +\
-                   list(record_dir.glob("*.TXT"))
+    files_to_try = (
+        list(record_dir.glob("*.xls"))
+        + list(record_dir.glob("*.XLS"))
+        + list(record_dir.glob("*.xlsx"))
+        + list(record_dir.glob("*.XLSX"))
+        + list(record_dir.glob("*.csv"))
+        + list(record_dir.glob("*.CSV"))
+        + list(record_dir.glob("*.txt"))
+        + list(record_dir.glob("*.Txt"))
+        + list(record_dir.glob("*.TXT"))
+    )
 
     record_df_list = []
     failed_loads_df_list = []
@@ -648,9 +798,13 @@ def process_one_record(record_dir: Path,
     for file_to_try_index, file_to_try in enumerate(files_to_try):
 
         extracted_from_file = load_cpt_spreadsheet_file(file_to_try)
-
         record_df_list.extend(extracted_from_file.extracted_data_dfs)
         failed_loads_df_list.extend(extracted_from_file.failed_extractions_dfs)
+
+        ## Some failed steps of extraction return None so remove these to be left with
+        ## only valid dataframes
+        record_df_list = [df for df in record_df_list if df is not None]
+        failed_loads_df_list = [df for df in failed_loads_df_list if df is not None]
 
     if len(ags_files_to_try) > 0:
         for file_to_try_index, file_to_try in enumerate(ags_files_to_try):
@@ -666,31 +820,38 @@ def process_one_record(record_dir: Path,
                 record_df["adopted_qc_column_name_in_original_file"] = None
                 record_df["adopted_fs_column_name_in_original_file"] = None
                 record_df["adopted_u_column_name_in_original_file"] = None
-
                 record_df_list.append(record_df)
 
             ## If the ags file is missing data, KeyError or UnboundLocalError will be raised
-            except(FileProcessingError, KeyError, Exception) as e:
-
+            except (FileProcessingError, KeyError, Exception) as e:
                 error_as_string = str(e)
 
                 if "-" not in error_as_string:
                     error_as_string = "unknown_category - " + error_as_string
 
-                failed_loads_df_list.append(pd.DataFrame({
-                    "record_name": record_dir.name,
-                    "file_name": file_to_try.name,
-                    "sheet_name": None,
-                    "category": error_as_string.split("-")[0].strip(),
-                    "details": error_as_string.split("-")[1].strip()},
-                    index=[0]))
+                failed_loads_df_list.append(
+                    pd.DataFrame(
+                        {
+                            "record_name": record_dir.name,
+                            "file_name": file_to_try.name,
+                            "sheet_name": None,
+                            "category": error_as_string.split("-")[0].strip(),
+                            "details": error_as_string.split("-")[1].strip(),
+                        },
+                        index=[0],
+                    )
+                )
 
     ### Add an index to the dataframes indicating that the data comes from a different measurements
     for measurement_index in range(len(record_df_list)):
-        record_df_list[measurement_index].loc[:,"measurement_index"] = measurement_index
+        record_df_list[measurement_index].loc[
+            :, "measurement_index"
+        ] = measurement_index
 
     for failed_extraction_index in range(len(failed_loads_df_list)):
-        failed_loads_df_list[failed_extraction_index].loc[:,"failed_extraction_index"] = failed_extraction_index
+        failed_loads_df_list[failed_extraction_index].loc[
+            :, "failed_extraction_index"
+        ] = failed_extraction_index
 
     ## extracted_data contains the extracted data and the failed extractions as lists of length 1
     if len(record_df_list) == 0:
@@ -703,14 +864,18 @@ def process_one_record(record_dir: Path,
     else:
         all_failed_extractions = pd.concat(failed_loads_df_list)
 
+    if extracted_data_per_record_output_path:
+        all_extracted_data.to_parquet(
+            extracted_data_per_record_output_path / f"{record_dir.name}.parquet"
+        )
+    if extraction_failures_per_record_output_path:
+        all_failed_extractions.to_parquet(
+            extraction_failures_per_record_output_path / f"{record_dir.name}.parquet"
+        )
 
-    ## !!! Temporary direct output for debugging
-    # all_extracted_data.to_parquet(f"/home/arr65/data/nzgd/test_processed_data/cpt/data/{record_dir.name}.parquet")
-    # all_extracted_data.to_parquet(f"/home/arr65/data/nzgd/test_processed_data/cpt/failed_extractions/{record_dir.name}.parquet")
-
-    extraction_result = DataFramesToReturn(extracted_data_dfs=[all_extracted_data],
-                                       failed_extractions_dfs=[all_failed_extractions])
+    extraction_result = DataFramesToReturn(
+        extracted_data_dfs=[all_extracted_data],
+        failed_extractions_dfs=[all_failed_extractions],
+    )
 
     return extraction_result
-
-

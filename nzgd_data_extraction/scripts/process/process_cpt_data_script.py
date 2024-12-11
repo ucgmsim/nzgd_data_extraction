@@ -28,27 +28,23 @@ if __name__ == "__main__":
         processing_helpers.InvestigationType.cpt,
         processing_helpers.InvestigationType.scpt,
     ]:
-        # for investigation_type in [processing_helpers.InvestigationType.cpt]:
 
         print(f"Extracting data from {investigation_type} records...")
 
-        output_dir = Path(
-            f"/home/arr65/data/nzgd/test_processed_data/{investigation_type}"
-        )
+        output_dir = Path(f"/home/arr65/data/nzgd/processed_data/{investigation_type}")
 
-        # if output_dir.exists():
-        #     raise ValueError("Output directory already exists. Delete or rename previous output and try again.")
+        if output_dir.exists():
+            raise ValueError(
+                "Output directory already exists. Delete or rename previous output and try again."
+            )
 
         extracted_data_per_record_output_path = output_dir / "extracted_data_per_record"
         extraction_failures_per_record_output_path = (
             output_dir / "extraction_failures_per_record_per_record"
         )
 
-        consolidated_output_dir = output_dir / "consolidated"
-
         extracted_data_per_record_output_path.mkdir(exist_ok=True, parents=True)
         extraction_failures_per_record_output_path.mkdir(exist_ok=True, parents=True)
-        consolidated_output_dir.mkdir(exist_ok=True, parents=True)
 
         downloaded_files = Path(
             f"/home/arr65/data/nzgd/downloads_and_metadata/unorganised_raw_from_nzgd/{investigation_type}"
@@ -104,33 +100,3 @@ if __name__ == "__main__":
                     )
                 )
             )
-
-        ### concatenate all the metadata dataframes
-        print("Concatenating output dataframes")
-
-        extracted_data_dfs = []
-        failed_loads_dfs = []
-        for result in tqdm(results):
-            if len(result.extracted_data_dfs) != 1:
-                raise ValueError("Expected one extracted data dataframe")
-            if len(result.failed_extractions_dfs) != 1:
-                raise ValueError("Expected one failed extractions dataframe")
-
-            ### result.extracted_data_dfs is a list of length 1
-            extracted_data_dfs.append(result.extracted_data_dfs[0])
-            failed_loads_dfs.append(result.failed_extractions_dfs[0])
-        if len(extracted_data_dfs) == 0:
-            extracted_data_df = pd.DataFrame()
-        else:
-            extracted_data_df = pd.concat(extracted_data_dfs, ignore_index=True)
-        if len(failed_loads_dfs) == 0:
-            failed_loads_df = pd.DataFrame()
-        else:
-            failed_loads_df = pd.concat(failed_loads_dfs, ignore_index=True)
-
-        extracted_data_df.to_parquet(
-            consolidated_output_dir / "extracted_data.parquet", index=False
-        )
-        failed_loads_df.to_parquet(
-            consolidated_output_dir / "failed_data_extractions.parquet", index=False
-        )

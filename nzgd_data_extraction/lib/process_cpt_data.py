@@ -532,7 +532,6 @@ def load_cpt_spreadsheet_file(file_path: Path) -> DataFramesToReturn:
         if final_col_names[0] is not None:
             ## Some dataframes have infinite or nan values in the depth column so only try to convert
             ## values that are finite to int
-
             if np.isfinite(df[final_col_names[0]]).all():
                 if (
                     df[final_col_names[0]]
@@ -694,9 +693,9 @@ def load_cpt_spreadsheet_file(file_path: Path) -> DataFramesToReturn:
 def extract_all_data_for_one_record(
     record_dir: Path,
     investigation_type: processing_helpers.InvestigationType,
-    extracted_data_per_record_output_path: Optional[Path],
-    extraction_failures_per_record_output_path: Optional[Path],
-) -> DataFramesToReturn:
+    extracted_data_per_record_output_path: Path,
+    extraction_failures_per_record_output_path: Path,
+) -> None:
     """
     Try to extract all data for a single record.
 
@@ -707,22 +706,9 @@ def extract_all_data_for_one_record(
     investigation_type : processing_helpers.InvestigationType
         The type of investigation being processed (CPT or SCPT)
     extracted_data_per_record_output_path : Optional[Path]
-        If this path is provided, the extracted data for each record will be immediately saved to this location
-        in a file named after the record. If this path is None, the extracted data will only be saved after
-        extractions have been attempted for all records (which could take several hours).
-
+        The location to save the extracted data in a file named after the record.
     extraction_failures_per_record_output_path : Optional[Path]
-        If this path is provided, the failed extractions for each record will be immediately saved to this location
-        in a file named after the record. If this path is None, the failed extractions will only be saved after
-        extractions have been attempted for all records (which could take several hours).
-
-    Returns
-    -------
-    extraction_result : DataFramesToReturn
-        Contains two lists dataframes:
-         - extracted_data_dfs: Dataframes contain the extracted data and metadata.
-         - failed_extractions_dfs: Dataframes contain names and explanations for files where extraction failed.
-
+        The location to save information about failed extractions in a file named after the record.
     """
 
     ags_file_list = list(record_dir.glob("*.ags")) + list(record_dir.glob("*.AGS"))
@@ -758,22 +744,19 @@ def extract_all_data_for_one_record(
             error_as_string = (
                 "only_files_with_extension_cpt - only .cpt files that cannot be opened"
             )
-
-        return DataFramesToReturn(
-            extracted_data_dfs=[pd.DataFrame()],
-            failed_extractions_dfs=[
-                pd.DataFrame(
-                    {
-                        "record_name": record_dir.name,
-                        "file_name": None,
-                        "sheet_name": None,
-                        "category": error_as_string.split("-")[0].strip(),
-                        "details": error_as_string.split("-")[1].strip(),
-                    },
-                    index=[0],
-                )
-            ],
-        )
+            pd.DataFrame(
+                {
+                    "record_name": record_dir.name,
+                    "file_name": None,
+                    "sheet_name": None,
+                    "category": error_as_string.split("-")[0].strip(),
+                    "details": error_as_string.split("-")[1].strip(),
+                },
+                index=[0],
+            ).to_parquet(
+                extraction_failures_per_record_output_path
+                / f"{record_dir.name}.parquet"
+            )
 
     ### ags files
     ags_files_to_try = list(record_dir.glob("*.ags")) + list(record_dir.glob("*.AGS"))
@@ -864,18 +847,9 @@ def extract_all_data_for_one_record(
     else:
         all_failed_extractions = pd.concat(failed_loads_df_list)
 
-    if extracted_data_per_record_output_path:
-        all_extracted_data.to_parquet(
-            extracted_data_per_record_output_path / f"{record_dir.name}.parquet"
-        )
-    if extraction_failures_per_record_output_path:
-        all_failed_extractions.to_parquet(
-            extraction_failures_per_record_output_path / f"{record_dir.name}.parquet"
-        )
-
-    extraction_result = DataFramesToReturn(
-        extracted_data_dfs=[all_extracted_data],
-        failed_extractions_dfs=[all_failed_extractions],
+    all_extracted_data.to_parquet(
+        extracted_data_per_record_output_path / f"{record_dir.name}.parquet"
     )
-
-    return extraction_result
+    all_failed_extractions.to_parquet(
+        extraction_failures_per_record_output_path / f"{record_dir.name}.parquet"
+    )

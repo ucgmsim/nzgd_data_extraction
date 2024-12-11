@@ -13,7 +13,9 @@ import toml
 from python_ags4 import AGS4
 
 import nzgd_data_extraction.lib.processing_helpers as processing_helpers
-from nzgd_data_extraction.lib.processing_helpers import FileProcessingError
+from nzgd_data_extraction.lib.processing_helpers import (
+    FileProcessingError,
+)
 
 
 @dataclass
@@ -836,20 +838,15 @@ def extract_all_data_for_one_record(
             :, "failed_extraction_index"
         ] = failed_extraction_index
 
-    ## extracted_data contains the extracted data and the failed extractions as lists of length 1
-    if len(record_df_list) == 0:
-        all_extracted_data = pd.DataFrame()
-    else:
+    ## If there are any dataframes of extracted data or failed extractions, save them to parquet files
+    if len(record_df_list) > 0:
         all_extracted_data = pd.concat(record_df_list)
+        all_extracted_data.to_parquet(
+            extracted_data_per_record_output_path / f"{record_dir.name}.parquet"
+        )
 
-    if len(failed_loads_df_list) == 0:
-        all_failed_extractions = pd.DataFrame()
-    else:
+    if len(failed_loads_df_list) > 0:
         all_failed_extractions = pd.concat(failed_loads_df_list)
-
-    all_extracted_data.to_parquet(
-        extracted_data_per_record_output_path / f"{record_dir.name}.parquet"
-    )
-    all_failed_extractions.to_parquet(
-        extraction_failures_per_record_output_path / f"{record_dir.name}.parquet"
-    )
+        all_failed_extractions.to_parquet(
+            extraction_failures_per_record_output_path / f"{record_dir.name}.parquet"
+        )

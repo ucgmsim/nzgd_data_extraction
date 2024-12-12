@@ -27,7 +27,7 @@ current_date = datetime.now().date()
 current_date_str = current_date.strftime("%Y-%m-%d")
 
 old_data_dir = Path("/home/arr65/vs30_data_input_data/parquet/data")
-new_data_dir = Path("/home/arr65/data/nzgd/processed_data/cpt/data")
+new_data_dir = Path("/home/arr65/data/nzgd/processed_data/cpt/extracted_data_per_record")
 
 data_validation_check_output_dir = Path(f"/home/arr65/data/nzgd/validation_checks/{current_date_str}/processed_data")
 

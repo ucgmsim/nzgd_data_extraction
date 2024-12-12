@@ -33,7 +33,7 @@ current_date = datetime.now().date()
 current_date_str = current_date.strftime("%Y-%m-%d")
 
 old_data_dir = Path("/home/arr65/vs30_data_input_data/parquet/data")
-new_data_dir = Path("/home/arr65/data/nzgd/processed_data/cpt/data")
+new_data_dir = Path("/home/arr65/data/nzgd/processed_data/cpt/extracted_data_per_record")
 
 check_output_dir = Path(f"/home/arr65/data/nzgd/validation_checks/{current_date_str}/processed_data")
 check_output_dir.mkdir(parents=True, exist_ok=True)
@@ -90,6 +90,7 @@ print("starting check")
 #allowed_percentages_not_close_to_zero = np.array([5])
 
 allowed_percentages_not_close_to_zero = 10.0
+#max_allowed_resid_as_pc_of_mean_vect = np.array([5])
 max_allowed_resid_as_pc_of_mean_vect = np.array([1,3,5,10,15,20])
 #max_allowed_resid_as_pc_of_mean_vect = np.array([10,50,100])
 #max_allowed_resid_as_pc_of_mean_vect = np.array([50,60])#

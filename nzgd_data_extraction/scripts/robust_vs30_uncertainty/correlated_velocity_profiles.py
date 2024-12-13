@@ -217,6 +217,8 @@ def calc_vs30_from_filename(file_path: Path, cpt_vs_correlation: str,
             vs_profiles_df.to_parquet(randomly_sampled_vs_profiles_per_record_dir / f"{file_path.stem}_random_vs_profiles.parquet")
 
         vs30_from_sampled_profiles = np.zeros(num_to_sample)
+        vs30_std_from_sampled_profiles = np.zeros(num_to_sample)
+
         for vs_profile_idx in range(num_to_sample):
             vs_profile_for_idx = vs_calc.VsProfile(name=file_path.stem,
                                                    depth=vs_df["Depth"].values,
@@ -226,15 +228,22 @@ def calc_vs30_from_filename(file_path: Path, cpt_vs_correlation: str,
                                                    vs30_correlation=vs30_correlation)
 
             vs30_from_sampled_profiles[vs_profile_idx] = vs_profile_for_idx.vs30
+            vs30_std_from_sampled_profiles[vs_profile_idx] = vs_profile_for_idx.vs30_sd
 
-        vs30 = np.mean(vs30_from_sampled_profiles)
-        vs30_std = np.std(vs30_from_sampled_profiles)
+        mean_vs30 = np.mean(vs30_from_sampled_profiles)
+        sd_vs30 = np.std(vs30_from_sampled_profiles)
+
+        mean_vs30sd = np.mean(vs30_std_from_sampled_profiles)
+        sd_vs30sd = np.std(vs30_std_from_sampled_profiles)
+
         error = np.nan
 
     except Exception as e:
         # Handle any exceptions by setting Vs30 and its standard deviation to NaN
-        vs30 = np.nan
-        vs30_std = np.nan
+        mean_vs30 = np.nan
+        sd_vs30 = np.nan
+        mean_vs30sd = np.nan
+        sd_vs30sd = np.nan
         error = str(e)
 
     ### Create a DataFrame with the Vs30 calculation results and metadata
@@ -246,8 +255,10 @@ def calc_vs30_from_filename(file_path: Path, cpt_vs_correlation: str,
                   "min_depth": cpt_df["Depth"].min(),
                   "depth_span": cpt_df["Depth"].max() - cpt_df["Depth"].min(),
                   "num_depth_levels": cpt_df["Depth"].size,
-                  "vs30": vs30,
-                  "vs30_std": vs30_std,
+                  "mean_vs30": mean_vs30,
+                  "sd_vs30": sd_vs30,
+                  "mean_vs30sd": mean_vs30sd,
+                  "sd_vs30sd":sd_vs30sd,
                   "num_sampled_vs_profiles": num_to_sample,
                   "vs30_correlation": vs30_correlation,
                   "cpt_vs_correlation": cpt_vs_correlation,
@@ -266,8 +277,8 @@ if __name__ == "__main__":
 
     start_time = time.time()
 
-    #for investigation_type in [processing_helpers.InvestigationType.cpt, processing_helpers.InvestigationType.scpt]:
-    for investigation_type in [processing_helpers.InvestigationType.cpt]:
+    for investigation_type in [processing_helpers.InvestigationType.cpt, processing_helpers.InvestigationType.scpt]:
+    #for investigation_type in [processing_helpers.InvestigationType.cpt]:
 
         ## The code to calculate vs30 from CPT data (vs_calc) produces tens of thousands of divide by zero and invalid
         ## value warnings that are suppressed.
@@ -286,7 +297,7 @@ if __name__ == "__main__":
 
         file_paths = natsort.natsorted(list(cpt_data_dir.glob("*.parquet")))
         #file_paths = file_paths[4:6]
-        file_paths = file_paths[0:2]
+        #file_paths = file_paths[0:2]
 
         # cpt_vs_correlations = ["andrus_2007_pleistocene","andrus_2007_holocene", "andrus_2007_tertiary_age_cooper_marl",
         #                        "robertson_2009","hegazy_2006","mcgann_2015","mcgann_2018"]

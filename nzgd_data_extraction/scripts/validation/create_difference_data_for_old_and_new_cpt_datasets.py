@@ -46,9 +46,9 @@ new_ids = natsort.natsorted([file.stem for file in new_data_dir.glob("*.parquet"
 ids_in_both_old_and_new_datasets = [id for id in new_ids if id in old_ids]
 
 ### To output the record_names that are in both the old and new datasets
-#ids_to_check_df = pd.DataFrame({"record_names_in_old_and_new_datasets":ids_in_both_old_and_new_datasets})
-#ids_to_check_df.to_csv(Path("/home/arr65/data/nzgd/resources") / "record_names_in_old_and_new_datasets.csv",index=False)
-# ids_to_check_df = pd.read_csv(Path("/home/arr65/data/nzgd/resources") / "record_names_in_old_and_new_datasets.csv")
+ids_to_check_df = pd.DataFrame({"record_names_in_old_and_new_datasets":ids_in_both_old_and_new_datasets})
+ids_to_check_df.to_csv(Path("/home/arr65/data/nzgd/resources") / "record_names_in_old_and_new_datasets.csv",index=False)
+#ids_to_check_df = pd.read_csv(Path("/home/arr65/data/nzgd/resources") / "record_names_in_old_and_new_datasets.csv")
 # ids_in_both_old_and_new_datasets = ids_to_check_df["record_names_in_old_and_new_datasets"].to_list()
 
 num_points_in_new = []

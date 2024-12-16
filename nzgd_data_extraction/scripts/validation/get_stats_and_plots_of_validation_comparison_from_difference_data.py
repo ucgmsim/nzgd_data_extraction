@@ -27,7 +27,7 @@ current_date = datetime.now().date()
 current_date_str = current_date.strftime("%Y-%m-%d")
 
 old_data_dir = Path("/home/arr65/vs30_data_input_data/parquet/data")
-new_data_dir = Path("/home/arr65/data/nzgd/processed_data/cpt/data")
+new_data_dir = Path("/home/arr65/data/nzgd/processed_data/cpt/extracted_data_per_record")
 
 data_validation_check_output_dir = Path(f"/home/arr65/data/nzgd/validation_checks/{current_date_str}/processed_data")
 
@@ -41,7 +41,6 @@ data_validation_check_output_dir.mkdir(parents=True, exist_ok=True)
 
 df = pd.read_csv(f"{data_validation_check_output_dir}/inconsistent_records_with_variable_thresholds.csv")
 record_names_in_both_old_and_new_datasets = pd.read_csv("/home/arr65/data/nzgd/resources/record_names_in_old_and_new_datasets.csv")["record_names_in_old_and_new_datasets"].to_list()
-
 
 inconsistent_record_names = df.loc[0,"inconsistent_record_names"]
 inconsistent_record_names = inconsistent_record_names.split(" ")

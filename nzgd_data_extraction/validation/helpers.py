@@ -19,12 +19,14 @@ def get_residual(record_name: str, old_data_ffp: Path, new_data_ffp: Path) -> pd
     old_df = pd.read_parquet(old_data_ffp / f"{record_name}.parquet")
     old_df = old_df.drop(columns=["record_name", "latitude", "longitude"])
     new_df = pd.read_parquet(new_data_ffp / f"{record_name}.parquet")
+    if "measurement_index" in new_df.columns:
+        new_df.rename(columns={"measurement_index":"investigation_number"}, inplace=True)
 
     if new_df.size == 0:
         return False
 
-    new_df = new_df[new_df["multiple_measurements"] == 0]
-    new_df = new_df.drop(columns=["multiple_measurements", "record_name", "latitude", "longitude"])
+    new_df = new_df[new_df["investigation_number"] == 0]
+    new_df = new_df.drop(columns=["investigation_number", "record_name"])
 
     interpolated_df = get_interpolated_df(old_df, new_df)
 

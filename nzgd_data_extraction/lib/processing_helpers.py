@@ -8,7 +8,7 @@ import enum
 import re
 import zipfile
 from pathlib import Path
-from typing import Union, Literal
+from typing import Literal, Union
 
 import numpy as np
 import numpy.typing as npt
@@ -565,7 +565,9 @@ def find_row_indices_of_header_lines(
     return sorted(header_rows)
 
 
-def get_xls_sheet_names(file_path: Path) -> tuple[list[str], Literal["xlrd","openpyxl"]]:
+def get_xls_sheet_names(
+    file_path: Path,
+) -> tuple[list[str], Literal["xlrd", "openpyxl"]]:
     """
     Get the sheet names from an Excel file and determine the engine used to read the file.
 
@@ -603,7 +605,7 @@ def get_xls_sheet_names(file_path: Path) -> tuple[list[str], Literal["xlrd","ope
         else:
             other_engine: Literal["xlrd"] = "xlrd"
 
-        engine: Literal["xlrd","openpyxl"] = other_engine
+        engine: Literal["xlrd", "openpyxl"] = other_engine
         try:
             sheet_names = pd.ExcelFile(file_path, engine=engine).sheet_names
         except:
@@ -764,7 +766,8 @@ def get_column_names(loaded_data_df: pd.DataFrame) -> tuple[pd.DataFrame, list[s
                 # with the same name so raise an error
                 if len(data_col.shape) > 1:
                     raise FileProcessingError(
-                        f"repeated_col_names_in_source - sheet has multiple columns with the name {col_name}")
+                        f"repeated_col_names_in_source - sheet has multiple columns with the name {col_name}"
+                    )
                 finite_data_col = np.isfinite(data_col)
                 num_finite = np.sum(finite_data_col)
                 num_finite_per_col_list.append(num_finite)
@@ -862,7 +865,9 @@ def convert_explicit_indications_of_cm_and_kpa(
 
 
 def load_csv_or_txt(
-    file_path: Path, sheet: str = "0", col_data_types: npt.NDArray[np.str_] = np.array(["Depth", "qc", "fs", "u"])
+    file_path: Path,
+    sheet: str = "0",
+    col_data_types: npt.NDArray[np.str_] = np.array(["Depth", "qc", "fs", "u"]),
 ) -> pd.DataFrame:
     """ "
     Load a .csv or .txt file and return a DataFrame with the required columns.
@@ -1055,22 +1060,23 @@ def make_summary_df_per_record(
         has_only_pdf = False
 
     loading_summary = pd.DataFrame(
-                {
-                    "record_name": record_dir_name,
-                    "file_was_loaded": file_was_loaded,
-                    "loaded_file_type": loaded_file_type,
-                    "loaded_file_name": loaded_file_name,
-                    "only_has_pdf": has_only_pdf,
-                    "num_pdf_files": len(pdf_file_list),
-                    "num_cpt_files": len(cpt_file_list),
-                    "num_ags_files": len(ags_file_list),
-                    "num_xls_files": len(xls_file_list),
-                    "num_xlsx_files": len(xlsx_file_list),
-                    "num_csv_files": len(csv_file_list),
-                    "num_txt_files": len(txt_file_list),
-                    "num_other_files": len(unknown_list),
-                }, index=[0]
-            )
+        {
+            "record_name": record_dir_name,
+            "file_was_loaded": file_was_loaded,
+            "loaded_file_type": loaded_file_type,
+            "loaded_file_name": loaded_file_name,
+            "only_has_pdf": has_only_pdf,
+            "num_pdf_files": len(pdf_file_list),
+            "num_cpt_files": len(cpt_file_list),
+            "num_ags_files": len(ags_file_list),
+            "num_xls_files": len(xls_file_list),
+            "num_xlsx_files": len(xlsx_file_list),
+            "num_csv_files": len(csv_file_list),
+            "num_txt_files": len(txt_file_list),
+            "num_other_files": len(unknown_list),
+        },
+        index=[0],
+    )
 
     return loading_summary
 
@@ -1242,6 +1248,11 @@ def ensure_positive_depth_and_qc_fs_gtr_0(loaded_data_df: pd.DataFrame) -> pd.Da
         loaded_data_df[list(column_descriptions)[2]] > 0
     )
     loaded_data_df = loaded_data_df[row_indices_to_keep]
+
+    if len(loaded_data_df) == 0:
+        raise FileProcessingError(
+            f"negative_qc_or_fs - all values of qc and/or fs are negative"
+        )
     dropped_row_indices_as_int = np.where(row_indices_to_keep == False)[0]
     dropped_row_indices_as_str = [str(i) for i in dropped_row_indices_as_int]
     loaded_data_df.attrs["qc_fs_row_indices_dropped_for_not_greater_than_zero"] = (

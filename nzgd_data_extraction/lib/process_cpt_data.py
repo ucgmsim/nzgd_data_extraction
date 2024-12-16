@@ -828,10 +828,10 @@ def extract_all_data_for_one_record(
                 )
 
     ### Add an index to the dataframes indicating that the data comes from a different measurements
-    for measurement_index in range(len(record_df_list)):
-        record_df_list[measurement_index].loc[
-            :, "measurement_index"
-        ] = measurement_index
+    for investigation_number in range(len(record_df_list)):
+        record_df_list[investigation_number].loc[
+            :, "investigation_number"
+        ] = investigation_number
 
     for failed_extraction_index in range(len(failed_loads_df_list)):
         failed_loads_df_list[failed_extraction_index].loc[

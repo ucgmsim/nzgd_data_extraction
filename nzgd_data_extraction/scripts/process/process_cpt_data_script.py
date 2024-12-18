@@ -17,26 +17,29 @@ from nzgd_data_extraction.lib import (
 
 if __name__ == "__main__":
 
-    nzgd_index_df = pd.read_csv(
-        Path(
-            "/home/arr65/data/nzgd/resources/nzgd_index_files/csv_files/"
-            "NZGD_Investigation_Report_08112024_1017.csv"
-        )
-    )
+    # nzgd_index_df = pd.read_csv(
+    #     Path(
+    #         "/home/arr65/data/nzgd/resources/nzgd_index_files/csv_files/"
+    #         "NZGD_Investigation_Report_08112024_1017.csv"
+    #     )
+    # )
+
+    # for investigation_type in [
+    #     processing_helpers.InvestigationType.cpt,
+    #     processing_helpers.InvestigationType.scpt,
+    # ]:
 
     for investigation_type in [
-        processing_helpers.InvestigationType.cpt,
-        processing_helpers.InvestigationType.scpt,
-    ]:
+        processing_helpers.InvestigationType.cpt]:
 
         print(f"Extracting data from {investigation_type} records...")
 
-        output_dir = Path(f"/home/arr65/data/nzgd/processed_data/{investigation_type}")
+        output_dir = Path(f"/home/arr65/data/nzgd/resources/chris_mcgann_cpt_vs_data/extracted_cpt_data")
 
-        if output_dir.exists():
-            raise ValueError(
-                "Output directory already exists. Delete or rename previous output and try again."
-            )
+        # if output_dir.exists():
+        #     raise ValueError(
+        #         "Output directory already exists. Delete or rename previous output and try again."
+        #     )
 
         extracted_data_per_record_output_path = output_dir / "extracted_data_per_record"
         extraction_failures_per_record_output_path = (
@@ -46,8 +49,12 @@ if __name__ == "__main__":
         extracted_data_per_record_output_path.mkdir(exist_ok=True, parents=True)
         extraction_failures_per_record_output_path.mkdir(exist_ok=True, parents=True)
 
+        # downloaded_files = Path(
+        #     f"/home/arr65/data/nzgd/downloads_and_metadata/unorganised_raw_from_nzgd/{investigation_type}"
+        # )
+
         downloaded_files = Path(
-            f"/home/arr65/data/nzgd/downloads_and_metadata/unorganised_raw_from_nzgd/{investigation_type}"
+            f"/home/arr65/data/nzgd/resources/chris_mcgann_cpt_vs_data/updated_format_for_nzgd_code/smsCPTdata"
         )
 
         ## If records should be skipped, enter them here
@@ -64,10 +71,11 @@ if __name__ == "__main__":
 
         ## A small number of records have been removed from the NZGD after they were downloaded.
         ## These records were likely removed for a reason such data quality or permission issues, so they are not considered.
-        records_currently_in_nzgd = set(nzgd_index_df["ID"].values)
-        records_that_have_been_removed = (
-            downloaded_record_names - records_currently_in_nzgd
-        )
+        # records_currently_in_nzgd = set(nzgd_index_df["ID"].values)
+        # records_that_have_been_removed = (
+        #     downloaded_record_names - records_currently_in_nzgd
+        # )
+        records_that_have_been_removed = []
 
         if len(records_that_have_been_removed) > 0:
             print(

@@ -685,7 +685,6 @@ def load_cpt_spreadsheet_file(file_path: Path) -> DataFramesToReturn:
                 )
             )
             continue
-
     return DataFramesToReturn(
         extracted_data_dfs=extracted_data_dfs,
         failed_extractions_dfs=failed_data_extraction_attempts,
@@ -779,7 +778,6 @@ def extract_all_data_for_one_record(
 
     record_df_list = []
     failed_loads_df_list = []
-
     for file_to_try_index, file_to_try in enumerate(files_to_try):
 
         extracted_from_file = load_cpt_spreadsheet_file(file_to_try)
@@ -790,7 +788,6 @@ def extract_all_data_for_one_record(
         ## only valid dataframes
         record_df_list = [df for df in record_df_list if df is not None]
         failed_loads_df_list = [df for df in failed_loads_df_list if df is not None]
-
     if len(ags_files_to_try) > 0:
         for file_to_try_index, file_to_try in enumerate(ags_files_to_try):
             try:

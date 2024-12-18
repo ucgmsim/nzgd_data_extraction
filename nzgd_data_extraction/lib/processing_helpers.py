@@ -1213,7 +1213,7 @@ def infer_wrong_units(
     return loaded_data_df
 
 
-def ensure_positive_depth_and_qc_fs_gtr_0(loaded_data_df: pd.DataFrame) -> pd.DataFrame:
+def ensure_positive_depth(loaded_data_df: pd.DataFrame) -> pd.DataFrame:
     """
     Ensure that the depth column has positive values and remove rows with negative values in qc and fs.
 
@@ -1242,21 +1242,5 @@ def ensure_positive_depth_and_qc_fs_gtr_0(loaded_data_df: pd.DataFrame) -> pd.Da
             loaded_data_df[list(column_descriptions)[0]]
         )
         loaded_data_df.attrs["depth_originally_defined_as_negative"] = True
-
-    ## Ensure that qc and fs are greater than 0
-    row_indices_to_keep = (loaded_data_df[list(column_descriptions)[1]] > 0) & (
-        loaded_data_df[list(column_descriptions)[2]] > 0
-    )
-    loaded_data_df = loaded_data_df[row_indices_to_keep]
-
-    if len(loaded_data_df) == 0:
-        raise FileProcessingError(
-            f"negative_qc_or_fs - all values of qc and/or fs are negative"
-        )
-    dropped_row_indices_as_int = np.where(row_indices_to_keep == False)[0]
-    dropped_row_indices_as_str = [str(i) for i in dropped_row_indices_as_int]
-    loaded_data_df.attrs["qc_fs_row_indices_dropped_for_not_greater_than_zero"] = (
-        ", ".join(dropped_row_indices_as_str)
-    )
 
     return loaded_data_df

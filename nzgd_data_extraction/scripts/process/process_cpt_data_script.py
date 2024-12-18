@@ -31,7 +31,7 @@ if __name__ == "__main__":
 
         print(f"Extracting data from {investigation_type} records...")
 
-        output_dir = Path(f"/home/arr65/data/nzgd/processed_data/{investigation_type}")
+        output_dir = Path(f"/home/arr65/data/nzgd/extracted_data/{investigation_type}")
 
         if output_dir.exists():
             raise ValueError(

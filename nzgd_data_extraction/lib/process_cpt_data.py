@@ -223,7 +223,7 @@ def load_ags(
     loaded_data_df = processing_helpers.infer_wrong_units(loaded_data_df)
 
     ### Ensure that the depth column has positive values and that qc and fs are greater than 0
-    loaded_data_df = processing_helpers.ensure_positive_depth_and_qc_fs_gtr_0(
+    loaded_data_df = processing_helpers.ensure_positive_depth(
         loaded_data_df
     )
 
@@ -611,7 +611,7 @@ def load_cpt_spreadsheet_file(file_path: Path) -> DataFramesToReturn:
 
             ### Ensure that the depth column has positive values and that qc and fs are greater than 0
             try:
-                df = processing_helpers.ensure_positive_depth_and_qc_fs_gtr_0(df)
+                df = processing_helpers.ensure_positive_depth(df)
             except FileProcessingError as e:
                 failed_data_extraction_attempts.append(
                     pd.DataFrame(

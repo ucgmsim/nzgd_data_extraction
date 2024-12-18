@@ -1,7 +1,7 @@
 Depth = "depth in m"
 qc = "cone resistance (qc) in MPa"
 fs = "sleeve friction (fs) in MPa"
-u = "pore pressure (u2) in MPa"
+u2 = "pore pressure (u2) in MPa"
 swv = "s-wave velocity in m/s"
 pwv = "p-wave velocity in m/s"
 

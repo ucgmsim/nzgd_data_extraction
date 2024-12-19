@@ -203,7 +203,7 @@ def make_semivariogram_and_output(base_output_dir:Path, name:str, input_df:pd.Da
     semivar = Variogram(log_resid_df["depth_m"].values,
                       log_resid_df["ln_measured_minus_ln_inferred"].values,
                       normalize=False,
-                      #n_lags = selected_n_lags,
+                      n_lags = 100,
                       model = "exponential",
                       sparse=True,
                       bin_func = binning_method)
@@ -218,7 +218,12 @@ def make_semivariogram_and_output(base_output_dir:Path, name:str, input_df:pd.Da
     fitted_semivariogram_df["empirical_bins"] = empirical_semivar[0]
     fitted_semivariogram_df["empirical_semivariance"] = empirical_semivar[1]
 
-    fitted_semivariogram_df.to_csv(combined_path / f"{name}_semivar.csv",index=False)
+
+    fitted_semivariogram_df.attrs["n_lags"] = semivar.n_lags
+    fitted_semivariogram_df.attrs["binning_method"] = binning_method
+
+
+    fitted_semivariogram_df.to_parquet(combined_path / f"{name}_semivar.parquet",index=False)
 
     semivar_plot = semivar.plot(show=False)
     semivar_plot.savefig(combined_path / f"{name}_semivariogram.png",dpi=500)

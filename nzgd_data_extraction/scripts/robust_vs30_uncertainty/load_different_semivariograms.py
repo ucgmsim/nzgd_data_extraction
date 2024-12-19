@@ -3,7 +3,11 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 
-df1 = pd.read_csv("/home/arr65/data/nzgd/resources/chris_mcgann_cpt_vs_data/semivariance_analysis/even/combined/combined_semivar.csv")
+#df1 = pd.read_parquet("/home/arr65/data/nzgd/resources/chris_mcgann_cpt_vs_data/semivariance_analysis/even/combined/combined_semivar.parquet")
+df1 = pd.read_parquet("/home/arr65/data/nzgd/resources/chris_mcgann_cpt_vs_data/semivariance_analysis/fd/combined/combined_semivar.parquet")
+
+
+print()
 
 # numba_bins = np.loadtxt("/home/arr65/data/nzgd/resources/chris_mcgann_cpt_vs_data/semivariance_analysis/combined/numba_bin_edges.txt")
 # numba_semivar = np.loadtxt("/home/arr65/data/nzgd/resources/chris_mcgann_cpt_vs_data/semivariance_analysis/combined/numba_semivariogram.txt")

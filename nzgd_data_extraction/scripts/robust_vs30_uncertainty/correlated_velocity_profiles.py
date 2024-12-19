@@ -203,18 +203,20 @@ def calc_vs30_from_filename(file_path: Path, cpt_vs_correlation: str,
         cpt_vs_profile.vs30_correlation = vs30_correlation
 
         vs_df = cpt_vs_profile.to_dataframe()
+        vs_df.to_csv(randomly_sampled_vs_profiles_per_record_dir / f"{file_path.stem}_vs_profiles.csv", index=False)
 
-        randomly_sampled_vs_profiles, sigma = sample_vs_profiles_from_distribution(vs_df, num_to_sample=num_to_sample)
 
-        if randomly_sampled_vs_profiles_per_record_dir:
-            vs_profiles_df = pd.DataFrame(columns=["record_name", "depth", "vs", "vs_sigma"], index=[0], dtype="object")
-            vs_profiles_df.at[0, "record_name"] = cpt_df["record_name"].values[0]
-            vs_profiles_df.at[0, "depth"] = vs_df["Depth"].values
-            vs_profiles_df.at[0, "num_sampled_profiles"] = num_to_sample
-            vs_profiles_df.at[0, "vs"] = randomly_sampled_vs_profiles.tolist()
-            vs_profiles_df.at[0, "vs_sigma"] = sigma
+        # randomly_sampled_vs_profiles, sigma = sample_vs_profiles_from_distribution(vs_df, num_to_sample=num_to_sample)
 
-            vs_profiles_df.to_parquet(randomly_sampled_vs_profiles_per_record_dir / f"{file_path.stem}_random_vs_profiles.parquet")
+        # if randomly_sampled_vs_profiles_per_record_dir:
+        #     vs_profiles_df = pd.DataFrame(columns=["record_name", "depth", "vs", "vs_sigma"], index=[0], dtype="object")
+        #     vs_profiles_df.at[0, "record_name"] = cpt_df["record_name"].values[0]
+        #     vs_profiles_df.at[0, "depth"] = vs_df["Depth"].values
+        #     vs_profiles_df.at[0, "num_sampled_profiles"] = num_to_sample
+        #     vs_profiles_df.at[0, "vs"] = randomly_sampled_vs_profiles.tolist()
+        #     vs_profiles_df.at[0, "vs_sigma"] = sigma
+        #
+        #     vs_profiles_df.to_parquet(randomly_sampled_vs_profiles_per_record_dir / f"{file_path.stem}_random_vs_profiles.parquet")
 
         vs30_from_sampled_profiles = np.zeros(num_to_sample)
         vs30_std_from_sampled_profiles = np.zeros(num_to_sample)
@@ -277,20 +279,24 @@ if __name__ == "__main__":
 
     start_time = time.time()
 
-    for investigation_type in [processing_helpers.InvestigationType.cpt, processing_helpers.InvestigationType.scpt]:
-    #for investigation_type in [processing_helpers.InvestigationType.cpt]:
+    #for investigation_type in [processing_helpers.InvestigationType.cpt, processing_helpers.InvestigationType.scpt]:
+    for investigation_type in [processing_helpers.InvestigationType.cpt]:
 
         ## The code to calculate vs30 from CPT data (vs_calc) produces tens of thousands of divide by zero and invalid
         ## value warnings that are suppressed.
         np.seterr(divide='ignore', invalid='ignore')
 
-        num_to_sample = 1000
+        num_to_sample = 1
 
         #cpt_data_dir = Path(f"/home/arr65/data/nzgd/processed_data/{investigation_type}/data")
-        cpt_data_dir = Path(f"/home/arr65/data/nzgd/processed_data/{investigation_type}/extracted_data_per_record")
+        #cpt_data_dir = Path(f"/home/arr65/data/nzgd/processed_data/{investigation_type}/extracted_data_per_record")
+        cpt_data_dir = Path(f"/home/arr65/data/nzgd/resources/chris_mcgann_cpt_vs_data/extracted_cpt_data/extracted_data_per_record")
 
-        vs_profiles_dir = Path(f"/home/arr65/data/nzgd/robust_vs30/{investigation_type}/randomly_sampled_velocity_profiles")
-        vs30_output_dir = Path(f"/home/arr65/data/nzgd/robust_vs30/{investigation_type}/vs30_estimate_per_record")
+        #vs_profiles_dir = Path(f"/home/arr65/data/nzgd/robust_vs30/{investigation_type}/randomly_sampled_velocity_profiles")
+        vs_profiles_dir = Path(f"/home/arr65/data/nzgd/resources/chris_mcgann_cpt_vs_data/McGann2015_velocity_profiles_from_cpt")
+        #vs30_output_dir = Path(f"/home/arr65/data/nzgd/robust_vs30/{investigation_type}/vs30_estimate_per_record")
+        vs30_output_dir = Path(f"/home/arr65/data/nzgd/resources/chris_mcgann_cpt_vs_data/"
+                               f"McGann2015_Bore2004_Vs30")
         
         vs_profiles_dir.mkdir(exist_ok=True, parents=True)
         vs30_output_dir.mkdir(exist_ok=True, parents=True)
@@ -317,19 +323,19 @@ if __name__ == "__main__":
                 description_text = f"Calculating Vs30 using {vs30_correlation} and {cpt_vs_correlation}"
                 print(description_text)
 
-                # calc_vs30_from_filename_partial = functools.partial(calc_vs30_from_filename,
-                #                                           cpt_vs_correlation=cpt_vs_correlation,
-                #                                           vs30_correlation=vs30_correlation,
-                #                                           num_to_sample = num_to_sample,
-                #                                           vs30_per_record_dir = vs30_output_dir,
-                #                                           randomly_sampled_vs_profiles_per_record_dir=vs_profiles_dir)
-
                 calc_vs30_from_filename_partial = functools.partial(calc_vs30_from_filename,
                                                           cpt_vs_correlation=cpt_vs_correlation,
                                                           vs30_correlation=vs30_correlation,
                                                           num_to_sample = num_to_sample,
                                                           vs30_per_record_dir = vs30_output_dir,
-                                                          randomly_sampled_vs_profiles_per_record_dir=None)
+                                                          randomly_sampled_vs_profiles_per_record_dir=vs_profiles_dir)
+
+                # calc_vs30_from_filename_partial = functools.partial(calc_vs30_from_filename,
+                #                                           cpt_vs_correlation=cpt_vs_correlation,
+                #                                           vs30_correlation=vs30_correlation,
+                #                                           num_to_sample = num_to_sample,
+                #                                           vs30_per_record_dir = vs30_output_dir,
+                #                                           randomly_sampled_vs_profiles_per_record_dir=None)
                 num_workers = 8
                 with mp.Pool(processes=num_workers) as pool:
                     results.extend(list(tqdm(pool.imap(calc_vs30_from_filename_partial, file_paths),

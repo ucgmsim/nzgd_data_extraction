@@ -198,19 +198,18 @@ def make_semivariogram_and_output(base_output_dir:Path, name:str, input_df:pd.Da
 
     print("Doing Variogram...")
 
-    selected_n_lags = 100
-
     variogram_calc_start_time = time.time()
 
     semivar = Variogram(log_resid_df["depth_m"].values,
                       log_resid_df["ln_measured_minus_ln_inferred"].values,
                       normalize=False,
-                      n_lags = selected_n_lags,
+                      #n_lags = selected_n_lags,
                       model = "exponential",
                       sparse=True,
                       bin_func = binning_method)
 
-    fitted_semivariogram_df = Variogram.to_DataFrame(semivar, n=selected_n_lags)
+    #fitted_semivariogram_df = Variogram.to_DataFrame(semivar, n=selected_n_lags)
+    fitted_semivariogram_df = Variogram.to_DataFrame(semivar, n=semivar.n_lags)
 
     fitted_semivariogram_df["bins"] = semivar.bins
     fitted_semivariogram_df["bin_count"] = semivar.bin_count
@@ -351,20 +350,20 @@ for file in measured_vs_profile_files:
 #
 log_resid_df = log_resid_df.sort_values(by="depth_m")
 
-#log_resid_df = log_resid_df.iloc[::2]
-#log_resid_df = log_resid_df.iloc[::2]
-#log_resid_df = log_resid_df.iloc[::2]
-#log_resid_df = log_resid_df.iloc[::2]
-#log_resid_df = log_resid_df.iloc[::2]
-#log_resid_df = log_resid_df.iloc[::2]
+# log_resid_df = log_resid_df.iloc[::2]
+# log_resid_df = log_resid_df.iloc[::2]
+# log_resid_df = log_resid_df.iloc[::2]
+# log_resid_df = log_resid_df.iloc[::2]
+# log_resid_df = log_resid_df.iloc[::2]
+# log_resid_df = log_resid_df.iloc[::2]
 #log_resid_df = log_resid_df.iloc[::2]
 # log_resid_df = log_resid_df.iloc[::2]
 
 
-### Remove half of points 8 times to get it to about 11GB
-
+binning_methods = ["even", "uniform", "fd", "sturges", "scott", "doane", "sqrt","kmeans"]
 #binning_methods = ["even", "uniform", "fd", "sturges", "scott", "doane", "sqrt","kmeans", "ward"]
-binning_methods = ["even", "uniform"]
+#binning_methods = ["even", "uniform"]
+#binning_methods = ["fd"]
 
 for binning_method in binning_methods:
 

@@ -355,6 +355,7 @@ for file in measured_vs_profile_files:
 #
 log_resid_df = log_resid_df.sort_values(by="depth_m")
 
+
 log_resid_df = log_resid_df.iloc[::2]
 # log_resid_df = log_resid_df.iloc[::2]
 # log_resid_df = log_resid_df.iloc[::2]
